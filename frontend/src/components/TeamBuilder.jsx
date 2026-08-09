@@ -33,7 +33,7 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
         players: PLAYERS,
         budget: CONTEST.budget,
         size: MAX,
-      });
+      }, { timeout: 45000 });
       setPicked(data.xi);
       setCaptain(data.captain);
       setVice(data.vice);
