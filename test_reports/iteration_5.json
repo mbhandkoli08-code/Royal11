@@ -1,0 +1,20 @@
+{
+  "summary": "Tested Fantasy AI Coach (Claude Sonnet 4.6 via Emergent LLM key). Backend POST /api/fantasy/coach returns 200 with valid invariants across 3+ runs (xi=11 unique ids from pool, sum credits<=100, captain/vice in xi and distinct, non-empty rationale). At least one call returned source='ai' with a substantive rationale mentioning players/strategy. Frontend AI Coach button auto-fills XI (11/11), sets C/VC, shows rationale banner, enables Lock, deducts 100 coins and opens Leaderboard. Manual flow regression also passes.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/test_fantasy_coach.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py: LlmChat client is instantiated on every request; consider reuse or timeout guard to avoid slow requests hanging the endpoint. Current fallback covers this safely.",
+    "_build_from_ranking has O(n^2) 'p not in ordered' & 'q not in chosen' with Player objects; fine for 16 players but could bite if pool grows. Consider using id sets.",
+    "TeamBuilder.jsx: axios call to /api/fantasy/coach lacks explicit timeout; on slow AI calls user sees generic 'AI Coach unavailable' via toast which is acceptable. Consider adding a longer axios timeout (e.g., 45s)."
+  ],
+  "updated_files": ["/app/backend/tests/test_fantasy_coach.py"],
+  "success_rate": {"backend": "100% (5/5 pytest)", "frontend": "100% (AI + manual regression)"},
+  "test_credentials": "none required",
+  "seed_data_creation": "None. Uses in-memory PLAYERS from frontend and backend echoes pool.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend test lives at /app/backend/tests/test_fantasy_coach.py. Rerun via pytest. AI endpoint takes ~5-10s per call; combined tests ~25s. In-memory wallet resets on refresh so run frontend flow in single session.",
+  "rca of the issue": "N/A - no bugs found"
+}

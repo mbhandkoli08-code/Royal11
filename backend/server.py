@@ -8,7 +8,10 @@ from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List
 import uuid
+import json
+import re
 from datetime import datetime, timezone
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 
 ROOT_DIR = Path(__file__).parent
@@ -65,6 +68,171 @@ async def get_status_checks():
             check['timestamp'] = datetime.fromisoformat(check['timestamp'])
     
     return status_checks
+
+
+# ---------------- Fantasy AI Coach (Claude Sonnet 4.6) ----------------
+
+class Player(BaseModel):
+    id: str
+    name: str
+    team: str
+    role: str
+    credits: float
+    points: int
+
+class CoachRequest(BaseModel):
+    players: List[Player]
+    budget: float = 100
+    size: int = 11
+
+class CoachResponse(BaseModel):
+    xi: List[str]
+    captain: str
+    vice: str
+    rationale: str
+    source: str  # "ai" or "fallback"
+
+
+def _extract_json(text: str):
+    if not text:
+        return None
+    start = text.find('{')
+    end = text.rfind('}')
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        return json.loads(text[start:end + 1])
+    except Exception:
+        return None
+
+
+def _fallback_pick(players: List[Player], budget: float, size: int):
+    # Start from the cheapest `size` players to guarantee we're within budget
+    # (when feasible), then greedily upgrade to higher-point players.
+    by_cheap = sorted(players, key=lambda p: p.credits)
+    xi = list(by_cheap[:size])
+    pool = list(by_cheap[size:])
+    used = sum(p.credits for p in xi)
+    improved = True
+    while improved:
+        improved = False
+        for cand in sorted(pool, key=lambda p: p.points, reverse=True):
+            worst = min(xi, key=lambda p: p.points)
+            if cand.points > worst.points and used - worst.credits + cand.credits <= budget + 0.001:
+                xi.remove(worst)
+                pool.remove(cand)
+                xi.append(cand)
+                pool.append(worst)
+                used = used - worst.credits + cand.credits
+                improved = True
+                break
+    ranked = sorted(xi, key=lambda p: p.points, reverse=True)
+    return {
+        "xi": [p.id for p in xi],
+        "captain": ranked[0].id,
+        "vice": ranked[1].id if len(ranked) > 1 else ranked[0].id,
+    }
+
+
+def _build_from_ranking(players: List[Player], ranking: List[str], budget: float, size: int):
+    pmap = {p.id: p for p in players}
+    ordered = [pmap[i] for i in ranking if i in pmap]
+    for p in players:  # append anything the model left out
+        if p not in ordered:
+            ordered.append(p)
+    chosen, used = [], 0.0
+    for p in ordered:
+        if len(chosen) >= size:
+            break
+        slots_after = size - len(chosen) - 1
+        rest = [q for q in ordered if q not in chosen and q.id != p.id]
+        cheapest_rest = sorted(q.credits for q in rest)[:slots_after]
+        if slots_after <= len(rest) and used + p.credits + sum(cheapest_rest) <= budget + 0.001:
+            chosen.append(p)
+            used += p.credits
+    if len(chosen) < size:  # safety fill
+        for p in sorted(ordered, key=lambda x: x.credits):
+            if len(chosen) >= size:
+                break
+            if p not in chosen:
+                chosen.append(p)
+    return chosen
+
+
+@api_router.post("/fantasy/coach", response_model=CoachResponse)
+async def fantasy_coach(req: CoachRequest):
+    pmap = {p.id: p for p in req.players}
+    players_json = json.dumps([p.model_dump() for p in req.players])
+
+    system_message = (
+        "You are ROYAL11's Fantasy Cricket AI Coach for a T20 match. "
+        "You reply with STRICT JSON only — no markdown fences, no prose."
+    )
+    prompt = (
+        f"Analyse the player pool below for a T20 fantasy match and rank EVERY player from most "
+        f"to least valuable (consider form 'points', role balance and match impact).\n"
+        f"Also nominate a captain (earns 2x) and a vice-captain (1.5x) — your two highest-impact "
+        f"players, and they must be different.\n\n"
+        f"Player pool (JSON):\n{players_json}\n\n"
+        f'Respond with STRICT JSON exactly like:\n'
+        f'{{"ranking": ["id_best", "...", "id_worst"], "captain": "id", "vice": "id", '
+        f'"rationale": "1-2 short sentences on your strategy"}}\n'
+        f"'ranking' must include ALL {len(req.players)} player ids exactly once."
+    )
+
+    source = "fallback"
+    rationale = ""
+    data = None
+    try:
+        chat = LlmChat(
+            api_key=os.environ['EMERGENT_LLM_KEY'],
+            session_id=str(uuid.uuid4()),
+            system_message=system_message,
+        ).with_model("anthropic", "claude-sonnet-4-6")
+        resp = await chat.send_message(UserMessage(text=prompt))
+        text = resp if isinstance(resp, str) else getattr(resp, "text", str(resp))
+        logger.info(f"AI coach raw (type={type(resp).__name__}): {str(text)[:400]}")
+        data = _extract_json(text)
+    except Exception as e:
+        logger.error(f"AI coach error: {e}")
+        data = None
+
+    ranking = data.get("ranking") if data else None
+    # The model provides the strategy/order; the backend enforces the hard budget.
+    if isinstance(ranking, list) and any(i in pmap for i in ranking):
+        source = "ai"
+        rationale = str(data.get("rationale", "")).strip() if data else ""
+        chosen = _build_from_ranking(req.players, ranking, req.budget, req.size)
+        chosen_ids = [p.id for p in chosen]
+        cap = data.get("captain")
+        vice = data.get("vice")
+        if cap not in chosen_ids or vice not in chosen_ids or cap == vice:
+            ranked = sorted(chosen, key=lambda p: p.points, reverse=True)
+            cap = ranked[0].id
+            vice = ranked[1].id if len(ranked) > 1 else ranked[0].id
+        xi = chosen_ids
+    else:
+        fb = _fallback_pick(req.players, req.budget, req.size)
+        xi, cap, vice = fb["xi"], fb["captain"], fb["vice"]
+
+    if not rationale:
+        rationale = "Picked the highest-scoring balanced XI that fits your credit budget."
+
+    result = {"xi": xi, "captain": cap, "vice": vice, "rationale": rationale, "source": source}
+
+    try:
+        await db.ai_suggestions.insert_one({
+            "id": str(uuid.uuid4()),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "budget": req.budget,
+            "size": req.size,
+            "result": result,
+        })
+    except Exception as e:
+        logger.error(f"Failed to store suggestion: {e}")
+
+    return result
+
 
 # Include the router in the main app
 app.include_router(api_router)

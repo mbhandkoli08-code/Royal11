@@ -1,9 +1,12 @@
 import { useState, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Check, Plus, Users, Coins, Lock } from "lucide-react";
+import { X, Check, Plus, Users, Coins, Lock, Sparkles, Loader2 } from "lucide-react";
+import axios from "axios";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { CONTEST, PLAYERS } from "@/lib/data";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const ROLES = [
   { key: "WK", label: "Wicket-Keepers" },
@@ -18,6 +21,30 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
   const [picked, setPicked] = useState([]);
   const [captain, setCaptain] = useState(null);
   const [vice, setVice] = useState(null);
+  const [coachLoading, setCoachLoading] = useState(false);
+  const [coachTip, setCoachTip] = useState(null);
+
+  const askCoach = async () => {
+    if (coachLoading) return;
+    setCoachLoading(true);
+    setCoachTip(null);
+    try {
+      const { data } = await axios.post(`${API}/fantasy/coach`, {
+        players: PLAYERS,
+        budget: CONTEST.budget,
+        size: MAX,
+      });
+      setPicked(data.xi);
+      setCaptain(data.captain);
+      setVice(data.vice);
+      setCoachTip(data.rationale);
+      toast.success("AI Coach picked your XI ✨", { description: "Captain & Vice-Captain set. Review and lock." });
+    } catch (e) {
+      toast.error("AI Coach unavailable", { description: "Please try again in a moment." });
+    } finally {
+      setCoachLoading(false);
+    }
+  };
 
   const creditsUsed = useMemo(
     () => picked.reduce((s, id) => s + (PLAYERS.find((p) => p.id === id)?.credits || 0), 0),
@@ -80,6 +107,7 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
     setPicked([]);
     setCaptain(null);
     setVice(null);
+    setCoachTip(null);
     onClose();
   };
 
@@ -108,14 +136,38 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
                 <p className="text-xs font-semibold uppercase tracking-wide text-flame">{CONTEST.sub}</p>
                 <h2 className="font-display text-xl font-extrabold tracking-tight text-slate-900">Build Your XI</h2>
               </div>
-              <button
-                data-testid="team-builder-close"
-                onClick={onClose}
-                className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  data-testid="ai-coach-btn"
+                  onClick={askCoach}
+                  disabled={coachLoading}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white transition-transform ${
+                    coachLoading ? "cursor-wait bg-royal/60" : "bg-royal hover:-translate-y-0.5"
+                  }`}
+                >
+                  {coachLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  {coachLoading ? "Thinking…" : "AI Coach"}
+                </button>
+                <button
+                  data-testid="team-builder-close"
+                  onClick={onClose}
+                  className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
+
+            {coachTip && (
+              <motion.div
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                data-testid="coach-tip"
+                className="flex items-start gap-2 border-b border-slate-100 bg-royal-light px-5 py-3 text-xs font-medium leading-relaxed text-royal"
+              >
+                <Sparkles className="mt-0.5 h-4 w-4 shrink-0" /> {coachTip}
+              </motion.div>
+            )}
 
             {/* Summary */}
             <div className="grid grid-cols-2 gap-3 border-b border-slate-100 bg-white px-5 pb-4">
