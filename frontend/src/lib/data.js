@@ -41,7 +41,7 @@ export const GAMES = [
   { key: "poker", name: "Poker", icon: Club, tint: "bg-[#EAF7F0] text-mint" },
   { key: "roulette", name: "Roulette", icon: Target, tint: "bg-[#FDECEC] text-[#EF4444]" },
   { key: "aviator", name: "Aviator", icon: Plane, tint: "bg-flame-light text-flame" },
-  { key: "ludo", name: "Ludo", icon: Dice5, tint: "bg-[#EEF2FF] text-[#6366F1]" },
+  { key: "ludo", name: "Ludo", icon: Dice5, tint: "bg-[#FFE4E6] text-[#E11D48]" },
   { key: "call-break", name: "Call Break", icon: Heart, tint: "bg-[#FCE7F3] text-[#DB2777]" },
 ];
 
@@ -82,7 +82,7 @@ export const PLAYERS = [
 export const STORE_ITEMS = [
   { id: "av1", type: "avatar", name: "Neon Striker", desc: "Glowing sport avatar frame.", price: 300, icon: "Smile", tint: "bg-royal-light text-royal" },
   { id: "av2", type: "avatar", name: "Golden Captain", desc: "Premium gold captain avatar.", price: 800, icon: "Crown", tint: "bg-flame-light text-flame" },
-  { id: "av3", type: "avatar", name: "Pixel Pro", desc: "Retro pixel-art avatar skin.", price: 500, icon: "Ghost", tint: "bg-[#EEF2FF] text-[#6366F1]" },
+  { id: "av3", type: "avatar", name: "Pixel Pro", desc: "Retro pixel-art avatar skin.", price: 500, icon: "Ghost", tint: "bg-[#FFE4E6] text-[#E11D48]" },
   { id: "bd1", type: "badge", name: "MVP Badge", desc: "Show off your top form.", price: 400, icon: "Award", tint: "bg-mint-light text-mint" },
   { id: "bd2", type: "badge", name: "Streak Master", desc: "For 30-day login legends.", price: 600, icon: "Flame", tint: "bg-flame-light text-flame" },
   { id: "bd3", type: "badge", name: "Champion", desc: "Elite winner's badge.", price: 1000, icon: "Trophy", tint: "bg-[#FEF3C7] text-[#D97706]" },

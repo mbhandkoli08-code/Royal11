@@ -87,7 +87,7 @@ export const Leaderboard = ({ open, onClose, team }) => {
               <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-flame/40 blur-3xl" />
               <div className="relative flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-medium text-indigo-100">Your Rank</p>
+                  <p className="text-xs font-medium text-rose-100">Your Rank</p>
                   <div className="flex items-end gap-2">
                     <motion.span
                       key={youRank}
@@ -98,13 +98,13 @@ export const Leaderboard = ({ open, onClose, team }) => {
                     >
                       #{youRank}
                     </motion.span>
-                    <span className="mb-1.5 text-sm text-indigo-100">of {rows.length}</span>
+                    <span className="mb-1.5 text-sm text-rose-100">of {rows.length}</span>
                     {rankDir === 1 && <ChevronUp data-testid="rank-up" className="mb-2 h-6 w-6 text-emerald-300" />}
                     {rankDir === -1 && <ChevronDown data-testid="rank-down" className="mb-2 h-6 w-6 text-red-300" />}
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-medium text-indigo-100">Your Points</p>
+                  <p className="text-xs font-medium text-rose-100">Your Points</p>
                   <motion.p
                     key={sorted.find((r) => r.you)?.pts}
                     initial={{ scale: 1.15, opacity: 0 }}
@@ -116,7 +116,7 @@ export const Leaderboard = ({ open, onClose, team }) => {
                   </motion.p>
                 </div>
               </div>
-              <div className="relative mt-4 flex items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-xs font-medium text-indigo-50">
+              <div className="relative mt-4 flex items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-xs font-medium text-rose-50">
                 <Trophy className="h-4 w-4 text-amber-300" /> Prize pool 1,00,000 coins · Top 40% win
               </div>
               {team.roster && (

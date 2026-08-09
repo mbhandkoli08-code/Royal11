@@ -57,7 +57,7 @@ export default function WalletPage() {
           <div className="grain pointer-events-none absolute inset-0 opacity-[0.15]" />
           <div className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-flame/40 blur-3xl" />
           <div className="relative">
-            <p className="text-sm font-medium text-indigo-100">Total Balance</p>
+            <p className="text-sm font-medium text-rose-100">Total Balance</p>
             <MaskedLines
               className="mt-2"
               lines={[
@@ -66,7 +66,7 @@ export default function WalletPage() {
                 </span>,
               ]}
             />
-            <p className="mt-1 text-sm font-semibold text-indigo-100">coins</p>
+            <p className="mt-1 text-sm font-semibold text-rose-100">coins</p>
             {boostActive && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span data-testid="wallet-boost-pill" className="inline-flex items-center gap-1.5 rounded-full bg-flame px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/20">
@@ -85,7 +85,7 @@ export default function WalletPage() {
                 </button>
               </div>
             )}
-            <p className="mt-5 flex items-start gap-2 rounded-2xl bg-white/10 p-3 text-xs leading-relaxed text-indigo-50">
+            <p className="mt-5 flex items-start gap-2 rounded-2xl bg-white/10 p-3 text-xs leading-relaxed text-rose-50">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
               Virtual entertainment coins only — no real-money value, not withdrawable or redeemable for cash.
             </p>

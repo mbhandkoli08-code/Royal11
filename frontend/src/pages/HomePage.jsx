@@ -5,6 +5,7 @@ import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles, Smile,
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { Reveal, MaskedLines } from "@/components/Reveal";
+import { Logo } from "@/components/Logo";
 import { TeamBuilder } from "@/components/TeamBuilder";
 import { Leaderboard } from "@/components/Leaderboard";
 import { MatchDetail } from "@/components/MatchDetail";
@@ -150,8 +151,33 @@ export default function HomePage() {
   return (
     <div className="mx-auto max-w-6xl px-5 pb-28 pt-6 sm:px-8 lg:px-10">
       {/* Header */}
-      <header className="flex items-center justify-between">
-        <div>
+      <header>
+        <div className="flex items-center justify-between">
+          <Logo />
+          <div className="flex items-center gap-3">
+            <button
+              data-testid="notification-btn"
+              onClick={() => toast("No new notifications")}
+              className="relative grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition-transform hover:-translate-y-0.5"
+            >
+              <Bell className="h-5 w-5" />
+              <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-flame ring-2 ring-white" />
+            </button>
+            <button data-testid="profile-avatar" className="h-11 w-11 overflow-hidden rounded-2xl ring-2 ring-white shadow-soft">
+              {equippedAvatar ? (
+                <span className={`grid h-full w-full place-items-center ${equippedAvatar.tint}`}>
+                  {(() => {
+                    const AvIcon = ICON_MAP[equippedAvatar.icon] || Smile;
+                    return <AvIcon className="h-5 w-5" strokeWidth={2.2} />;
+                  })()}
+                </span>
+              ) : (
+                <img src={USER.avatar} alt="avatar" className="h-full w-full object-cover" />
+              )}
+            </button>
+          </div>
+        </div>
+        <div className="mt-6">
           <MaskedLines
             lines={[
               <span className="text-sm font-medium text-slate-500">Good evening,</span>,
@@ -160,28 +186,6 @@ export default function HomePage() {
               </span>,
             ]}
           />
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            data-testid="notification-btn"
-            onClick={() => toast("No new notifications")}
-            className="relative grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition-transform hover:-translate-y-0.5"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-flame ring-2 ring-white" />
-          </button>
-          <button data-testid="profile-avatar" className="h-11 w-11 overflow-hidden rounded-2xl ring-2 ring-white shadow-soft">
-            {equippedAvatar ? (
-              <span className={`grid h-full w-full place-items-center ${equippedAvatar.tint}`}>
-                {(() => {
-                  const AvIcon = ICON_MAP[equippedAvatar.icon] || Smile;
-                  return <AvIcon className="h-5 w-5" strokeWidth={2.2} />;
-                })()}
-              </span>
-            ) : (
-              <img src={USER.avatar} alt="avatar" className="h-full w-full object-cover" />
-            )}
-          </button>
         </div>
       </header>
 
@@ -205,9 +209,9 @@ export default function HomePage() {
           <div className="relative overflow-hidden rounded-3xl bg-royal p-7 text-white shadow-lift sm:p-8">
             <div className="grain pointer-events-none absolute inset-0 opacity-[0.15]" />
             <div className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full bg-flame/40 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-20 -left-10 h-52 w-52 rounded-full bg-indigo-400/40 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-20 -left-10 h-52 w-52 rounded-full bg-rose-500/40 blur-3xl" />
             <div className="relative">
-              <div className="flex items-center gap-2 text-sm font-medium text-indigo-100">
+              <div className="flex items-center gap-2 text-sm font-medium text-rose-100">
                 <Coins className="h-4 w-4" /> Total Coin Balance
               </div>
               <div className="mt-3 flex items-end gap-3">
@@ -310,7 +314,7 @@ export default function HomePage() {
               <h3 className="max-w-md font-display text-2xl font-extrabold leading-tight text-white sm:text-3xl">
                 ₹0 entry · Win 1,00,000 coins
               </h3>
-              <p className="mt-1 text-sm text-indigo-100">IPL Grand League · 42,180 players joined</p>
+              <p className="mt-1 text-sm text-rose-100">IPL Grand League · 42,180 players joined</p>
               <button
                 data-testid="fantasy-join-btn"
                 onClick={() => setBuilderOpen(true)}

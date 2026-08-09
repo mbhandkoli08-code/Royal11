@@ -9,7 +9,7 @@ body {
     font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    background-color: #F5F6FB;
+    background-color: #FBF7F8;
 }
 
 html.lenis, html.lenis body { height: auto; }
@@ -17,25 +17,25 @@ html.lenis, html.lenis body { height: auto; }
 
 @layer base {
     :root {
-        --background: 228 40% 97%;
+        --background: 350 40% 98%;
         --foreground: 222 47% 11%;
         --card: 0 0% 100%;
         --card-foreground: 222 47% 11%;
         --popover: 0 0% 100%;
         --popover-foreground: 222 47% 11%;
-        --primary: 243 58% 51%;
+        --primary: 350 85% 42%;
         --primary-foreground: 0 0% 100%;
-        --secondary: 228 40% 96%;
+        --secondary: 350 30% 96%;
         --secondary-foreground: 222 47% 11%;
-        --muted: 228 30% 95%;
+        --muted: 350 20% 95%;
         --muted-foreground: 215 16% 47%;
-        --accent: 24 95% 53%;
+        --accent: 347 77% 50%;
         --accent-foreground: 0 0% 100%;
         --destructive: 0 84.2% 60.2%;
         --destructive-foreground: 0 0% 98%;
-        --border: 214 32% 91%;
-        --input: 214 32% 91%;
-        --ring: 243 58% 51%;
+        --border: 350 25% 91%;
+        --input: 350 25% 91%;
+        --ring: 350 85% 42%;
         --radius: 1rem;
     }
 }

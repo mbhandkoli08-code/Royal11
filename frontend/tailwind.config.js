@@ -29,8 +29,8 @@ module.exports = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
-        royal: { DEFAULT: '#4F46E5', dark: '#3730A3', light: '#EEF0FF' },
-        flame: { DEFAULT: '#F97316', dark: '#EA580C', light: '#FFF1E7' },
+        royal: { DEFAULT: '#C8102E', dark: '#8E0C22', light: '#FDECEE' },
+        flame: { DEFAULT: '#E11D48', dark: '#BE123C', light: '#FFE4E6' },
         mint: { DEFAULT: '#10B981', light: '#D1FAE5' },
       },
       boxShadow: {
