@@ -32,10 +32,10 @@ export const RewardWheel = ({ open, onClose }) => {
     setRotation((r) => r - (r % 360) + target);
     setTimeout(() => {
       setSpinning(false);
-      setResult(prize);
+      const won = prize > 0 ? credit(prize, "Lucky Spin Win", "Reward wheel", "Sparkles") : 0;
+      setResult({ prize, won });
       if (prize > 0) {
-        const won = credit(prize, "Lucky Spin Win", "Reward wheel", "Sparkles");
-        toast.success(`You won ${won} coins! 🎉`);
+        toast.success(won > prize ? `${prize} × 2 boost = ${won} coins! 🎉` : `You won ${won} coins! 🎉`);
       } else {
         toast("No luck this time — spin again!");
       }
@@ -113,7 +113,11 @@ export const RewardWheel = ({ open, onClose }) => {
                 data-testid="wheel-result"
                 className="mt-5 text-sm font-bold text-slate-700"
               >
-                {result > 0 ? `🎉 You won ${result} coins!` : "No win — try again!"}
+                {result.won > 0
+                  ? result.won > result.prize
+                    ? `🎉 ${result.prize} × 2 boost = ${result.won} coins!`
+                    : `🎉 You won ${result.won} coins!`
+                  : "No win — spin again!"}
               </motion.p>
             )}
 

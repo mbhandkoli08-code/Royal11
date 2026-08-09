@@ -25,7 +25,7 @@ export const Leaderboard = ({ open, onClose, team }) => {
     ];
     setRows(init);
     const iv = setInterval(() => {
-      setRows((prev) => prev.map((r) => ({ ...r, pts: r.pts + Math.floor(Math.random() * (r.you ? 16 : 11)) })));
+      setRows((prev) => prev.map((r) => ({ ...r, pts: r.pts + Math.floor(Math.random() * (r.you ? 20 : 9)) })));
     }, 1800);
     return () => clearInterval(iv);
   }, [open, team]);
