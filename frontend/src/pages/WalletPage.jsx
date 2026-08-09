@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -7,6 +8,7 @@ import {
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { Reveal, MaskedLines } from "@/components/Reveal";
+import { RewardsStore } from "@/components/RewardsStore";
 
 const fmt = (n) => n.toLocaleString("en-IN");
 
@@ -15,6 +17,7 @@ const ICONS = { Gift, Users, Dice5, Sparkles, Trophy, Flame };
 export default function WalletPage() {
   const navigate = useNavigate();
   const { balance, txns, rewardsClaimed } = useWallet();
+  const [storeOpen, setStoreOpen] = useState(false);
 
   const earnedWeek = 1250;
   const spentWeek = 480;
@@ -93,7 +96,7 @@ export default function WalletPage() {
           </button>
           <button
             data-testid="redeem-btn"
-            onClick={() => toast.success("Redeem", { description: "Redeem coins for in-app rewards." })}
+            onClick={() => setStoreOpen(true)}
             className="flex items-center justify-center gap-2 rounded-2xl bg-flame px-5 py-4 text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
           >
             <Gift className="h-4 w-4" /> Redeem
@@ -132,6 +135,8 @@ export default function WalletPage() {
           })}
         </div>
       </section>
+
+      <RewardsStore open={storeOpen} onClose={() => setStoreOpen(false)} />
     </div>
   );
 }

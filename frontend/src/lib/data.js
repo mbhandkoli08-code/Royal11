@@ -52,3 +52,41 @@ export const INITIAL_TXNS = [
   { id: 4, label: "Referral Reward", meta: "Invited Priya", type: "credit", amount: 200, when: "Yesterday · 6:22 PM", icon: "Sparkles" },
   { id: 5, label: "Won Teen Patti", meta: "Royal Table", type: "credit", amount: 75, when: "Mon · 7:15 PM", icon: "Trophy" },
 ];
+
+export const CONTEST = {
+  name: "IPL Grand League",
+  sub: "MI vs CSK · Mega Contest",
+  entryFee: 100,
+  budget: 100,
+};
+
+export const PLAYERS = [
+  { id: "p1", name: "Ishan Kishan", team: "MI", role: "WK", credits: 9.0, points: 88 },
+  { id: "p2", name: "MS Dhoni", team: "CSK", role: "WK", credits: 9.5, points: 76 },
+  { id: "p3", name: "Rohit Sharma", team: "MI", role: "BAT", credits: 10.5, points: 120 },
+  { id: "p4", name: "Suryakumar Yadav", team: "MI", role: "BAT", credits: 10.0, points: 140 },
+  { id: "p5", name: "Ruturaj Gaikwad", team: "CSK", role: "BAT", credits: 9.5, points: 110 },
+  { id: "p6", name: "Devon Conway", team: "CSK", role: "BAT", credits: 9.0, points: 95 },
+  { id: "p7", name: "Tilak Varma", team: "MI", role: "BAT", credits: 8.5, points: 70 },
+  { id: "p8", name: "Hardik Pandya", team: "MI", role: "AR", credits: 11.0, points: 160 },
+  { id: "p9", name: "Ravindra Jadeja", team: "CSK", role: "AR", credits: 10.5, points: 150 },
+  { id: "p10", name: "Kieron Pollard", team: "MI", role: "AR", credits: 9.0, points: 80 },
+  { id: "p11", name: "Moeen Ali", team: "CSK", role: "AR", credits: 8.5, points: 90 },
+  { id: "p12", name: "Jasprit Bumrah", team: "MI", role: "BOWL", credits: 11.0, points: 130 },
+  { id: "p13", name: "Trent Boult", team: "MI", role: "BOWL", credits: 9.0, points: 100 },
+  { id: "p14", name: "Matheesha Pathirana", team: "CSK", role: "BOWL", credits: 8.5, points: 85 },
+  { id: "p15", name: "Deepak Chahar", team: "CSK", role: "BOWL", credits: 8.5, points: 75 },
+  { id: "p16", name: "Mitchell Santner", team: "CSK", role: "BOWL", credits: 8.0, points: 60 },
+];
+
+export const STORE_ITEMS = [
+  { id: "av1", type: "avatar", name: "Neon Striker", desc: "Glowing sport avatar frame.", price: 300, icon: "Smile", tint: "bg-royal-light text-royal" },
+  { id: "av2", type: "avatar", name: "Golden Captain", desc: "Premium gold captain avatar.", price: 800, icon: "Crown", tint: "bg-flame-light text-flame" },
+  { id: "av3", type: "avatar", name: "Pixel Pro", desc: "Retro pixel-art avatar skin.", price: 500, icon: "Ghost", tint: "bg-[#EEF2FF] text-[#6366F1]" },
+  { id: "bd1", type: "badge", name: "MVP Badge", desc: "Show off your top form.", price: 400, icon: "Award", tint: "bg-mint-light text-mint" },
+  { id: "bd2", type: "badge", name: "Streak Master", desc: "For 30-day login legends.", price: 600, icon: "Flame", tint: "bg-flame-light text-flame" },
+  { id: "bd3", type: "badge", name: "Champion", desc: "Elite winner's badge.", price: 1000, icon: "Trophy", tint: "bg-[#FEF3C7] text-[#D97706]" },
+  { id: "bo1", type: "boost", name: "2x Coins Boost", desc: "Double coin earnings for 24h.", price: 250, icon: "Zap", tint: "bg-royal-light text-royal" },
+  { id: "bo2", type: "boost", name: "XP Booster", desc: "Level up faster this week.", price: 350, icon: "Rocket", tint: "bg-[#FCE7F3] text-[#DB2777]" },
+  { id: "bo3", type: "boost", name: "Lucky Spin", desc: "One free spin on the reward wheel.", price: 150, icon: "Sparkles", tint: "bg-mint-light text-mint" },
+];

@@ -1,10 +1,11 @@
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { Reveal, MaskedLines } from "@/components/Reveal";
+import { TeamBuilder } from "@/components/TeamBuilder";
 import { USER, QUICK_ACTIONS, LIVE_MATCHES, GAMES, FANTASY_PROMO_BG } from "@/lib/data";
 
 const fmt = (n) => n.toLocaleString("en-IN");
@@ -51,10 +52,16 @@ const LiveCard = ({ m }) => (
         {[m.teamA, m.teamB].map((t, i) => (
           <div key={i} className="flex items-center justify-between">
             <span className="text-base font-bold text-white">{t.name}</span>
-            <span className="font-display text-lg font-bold text-white">
+            <motion.span
+              key={t.score}
+              initial={{ opacity: 0, y: -10, scale: 1.15 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 22 }}
+              className="font-display text-lg font-bold text-white"
+            >
               {t.score}
               {t.ov && <span className="ml-1 text-xs font-medium text-slate-400">({t.ov})</span>}
-            </span>
+            </motion.span>
           </div>
         ))}
       </div>
@@ -69,6 +76,40 @@ export default function HomePage() {
   const promoRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: promoRef, offset: ["start end", "end start"] });
   const promoY = useTransform(scrollYProgress, [0, 1], ["-12%", "12%"]);
+
+  const [matches, setMatches] = useState(LIVE_MATCHES);
+  const [builderOpen, setBuilderOpen] = useState(false);
+
+  useEffect(() => {
+    const chaseTarget = 219;
+    const iv = setInterval(() => {
+      setMatches((prev) =>
+        prev.map((m) => {
+          if (m.id === "cric") {
+            let [runs, wkts] = m.teamA.score.split("/").map(Number);
+            let [ov, ball] = m.teamA.ov.split(".").map(Number);
+            ball += 1;
+            if (ball > 5) { ball = 0; ov += 1; }
+            const delta = [0, 1, 1, 0, 2, 4, 6, 1][Math.floor(Math.random() * 8)];
+            runs += delta;
+            if (Math.random() < 0.05 && wkts < 9) wkts += 1;
+            const need = Math.max(chaseTarget - runs, 0);
+            const ballsLeft = Math.max((20 - ov) * 6 - ball, 0);
+            const note = need === 0 ? "MI won by 6 wickets 🎉" : ballsLeft === 0 ? "Innings over" : `MI need ${need} off ${ballsLeft}`;
+            return { ...m, teamA: { ...m.teamA, score: `${runs}/${wkts}`, ov: `${ov}.${ball}` }, note };
+          }
+          if (m.id === "foot" && Math.random() < 0.12) {
+            const a = Number(m.teamA.score), b = Number(m.teamB.score);
+            return Math.random() < 0.5
+              ? { ...m, teamA: { ...m.teamA, score: String(a + 1) }, note: "GOAL! " + m.note }
+              : { ...m, teamB: { ...m.teamB, score: String(b + 1) }, note: "GOAL! " + m.note };
+          }
+          return m;
+        })
+      );
+    }, 2600);
+    return () => clearInterval(iv);
+  }, []);
 
   const handleEarn = () => {
     earnCoins();
@@ -185,7 +226,7 @@ export default function HomePage() {
       <section className="mt-12">
         <SectionHead title="Live Now" action="See all" testid="live-see-all" />
         <div className="no-scrollbar -mx-5 flex snap-x gap-4 overflow-x-auto px-5 pb-2 sm:mx-0 sm:px-0">
-          {LIVE_MATCHES.map((m) => (
+          {matches.map((m) => (
             <LiveCard key={m.id} m={m} />
           ))}
         </div>
@@ -210,7 +251,7 @@ export default function HomePage() {
               <p className="mt-1 text-sm text-indigo-100">IPL Grand League · 42,180 players joined</p>
               <button
                 data-testid="fantasy-join-btn"
-                onClick={() => toast.success("Joined Mega Contest!", { description: "Build your team now." })}
+                onClick={() => setBuilderOpen(true)}
                 className="mt-5 w-fit rounded-2xl bg-white px-6 py-3 text-sm font-bold text-royal transition-transform hover:-translate-y-0.5"
               >
                 Join Contest
@@ -284,6 +325,8 @@ export default function HomePage() {
           </div>
         </Reveal>
       </section>
+
+      <TeamBuilder open={builderOpen} onClose={() => setBuilderOpen(false)} />
     </div>
   );
 }
