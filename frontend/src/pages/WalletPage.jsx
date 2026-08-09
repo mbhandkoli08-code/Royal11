@@ -16,7 +16,7 @@ const ICONS = { Gift, Users, Dice5, Sparkles, Trophy, Flame };
 
 export default function WalletPage() {
   const navigate = useNavigate();
-  const { balance, txns, rewardsClaimed, boostUntil } = useWallet();
+  const { balance, txns, rewardsClaimed, boostUntil, extendBoost } = useWallet();
   const [storeOpen, setStoreOpen] = useState(false);
 
   const [now, setNow] = useState(Date.now());
@@ -68,9 +68,22 @@ export default function WalletPage() {
             />
             <p className="mt-1 text-sm font-semibold text-indigo-100">coins</p>
             {boostActive && (
-              <span data-testid="wallet-boost-pill" className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-flame px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/20">
-                <Zap className="h-3.5 w-3.5" /> 2x Coins active · {Math.floor(boostLeft / 60)}:{String(boostLeft % 60).padStart(2, "0")}
-              </span>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span data-testid="wallet-boost-pill" className="inline-flex items-center gap-1.5 rounded-full bg-flame px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/20">
+                  <Zap className="h-3.5 w-3.5" /> 2x Coins active · {Math.floor(boostLeft / 60)}:{String(boostLeft % 60).padStart(2, "0")}
+                </span>
+                <button
+                  data-testid="wallet-boost-extend-btn"
+                  onClick={() => {
+                    const r = extendBoost(60, 100);
+                    if (r === "insufficient") toast.error("Not enough coins to extend");
+                    else if (r === "success") toast.success("2x boost extended +60s ⚡");
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full bg-white/20 px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/20 transition-colors hover:bg-white/30"
+                >
+                  <Sparkles className="h-3.5 w-3.5" /> Extend +60s · 100
+                </button>
+              </div>
             )}
             <p className="mt-5 flex items-start gap-2 rounded-2xl bg-white/10 p-3 text-xs leading-relaxed text-indigo-50">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />

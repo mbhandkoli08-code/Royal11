@@ -75,7 +75,7 @@ const LiveCard = ({ m }) => (
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { balance, todayEarned, streakClaimed, claimStreak, earnCoins, ownedItems, equippedAvatarId, boostUntil } = useWallet();
+  const { balance, todayEarned, streakClaimed, claimStreak, earnCoins, ownedItems, equippedAvatarId, boostUntil, extendBoost } = useWallet();
   const promoRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: promoRef, offset: ["start end", "end start"] });
   const promoY = useTransform(scrollYProgress, [0, 1], ["-12%", "12%"]);
@@ -131,6 +131,11 @@ export default function HomePage() {
   const handleEarn = () => {
     const amt = earnCoins();
     toast.success(`+${amt} coins earned!`, { description: amt > 100 ? "2x boost applied! ⚡" : "Added to your wallet." });
+  };
+  const handleExtend = () => {
+    const r = extendBoost(60, 100);
+    if (r === "insufficient") toast.error("Not enough coins to extend");
+    else if (r === "success") toast.success("2x boost extended +60s ⚡");
   };
   const handleClaim = () => {
     if (streakClaimed) return;
@@ -218,6 +223,15 @@ export default function HomePage() {
                   <span data-testid="boost-pill" className="mb-2 flex items-center gap-1 rounded-full bg-flame px-3 py-1 text-xs font-bold text-white ring-1 ring-white/20">
                     <Zap className="h-3.5 w-3.5" /> 2x · {Math.floor(boostLeft / 60)}:{String(boostLeft % 60).padStart(2, "0")}
                   </span>
+                )}
+                {boostActive && (
+                  <button
+                    data-testid="boost-extend-btn"
+                    onClick={handleExtend}
+                    className="mb-2 flex items-center gap-1 rounded-full bg-white/20 px-3 py-1 text-xs font-bold text-white ring-1 ring-white/20 transition-colors hover:bg-white/30"
+                  >
+                    <Plus className="h-3 w-3" /> +60s · 100
+                  </button>
                 )}
               </div>
               <div className="mt-7 flex flex-wrap gap-3">

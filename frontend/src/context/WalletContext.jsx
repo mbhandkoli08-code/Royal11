@@ -55,6 +55,14 @@ export const WalletProvider = ({ children }) => {
     return true;
   };
 
+  const extendBoost = (seconds, cost) => {
+    if (!boostUntil || Date.now() >= boostUntil) return "inactive";
+    if (balance < cost) return "insufficient";
+    setBoostUntil((prev) => (prev && Date.now() < prev ? prev : Date.now()) + seconds * 1000);
+    debit(cost, "Extended 2x Boost", `+${seconds}s`, "Zap");
+    return "success";
+  };
+
   const buyItem = (item) => {
     if (ownedItems.includes(item.id)) return "owned";
     if (balance < item.price) return "insufficient";
@@ -69,7 +77,7 @@ export const WalletProvider = ({ children }) => {
   const equipAvatar = (id) => setEquippedAvatarId(id);
 
   const value = useMemo(
-    () => ({ balance, todayEarned, streakClaimed, rewardsClaimed, txns, ownedItems, equippedAvatarId, boostUntil, claimStreak, earnCoins, joinContest, buyItem, equipAvatar, spend, credit }),
+    () => ({ balance, todayEarned, streakClaimed, rewardsClaimed, txns, ownedItems, equippedAvatarId, boostUntil, claimStreak, earnCoins, joinContest, buyItem, equipAvatar, spend, credit, extendBoost }),
     [balance, todayEarned, streakClaimed, rewardsClaimed, txns, ownedItems, equippedAvatarId, boostUntil]
   );
 
