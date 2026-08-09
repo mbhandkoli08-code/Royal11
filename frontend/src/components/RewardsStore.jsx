@@ -15,7 +15,7 @@ const CATS = [
 const fmt = (n) => n.toLocaleString("en-IN");
 
 export const RewardsStore = ({ open, onClose }) => {
-  const { balance, ownedItems, buyItem } = useWallet();
+  const { balance, ownedItems, buyItem, equippedAvatarId, equipAvatar } = useWallet();
   const [cat, setCat] = useState("avatar");
   const items = STORE_ITEMS.filter((i) => i.type === cat);
 
@@ -24,6 +24,11 @@ export const RewardsStore = ({ open, onClose }) => {
     if (r === "owned") return toast("You already own this");
     if (r === "insufficient") return toast.error("Not enough coins", { description: `You need ${fmt(item.price - balance)} more.` });
     toast.success(`Redeemed ${item.name}!`, { description: `−${fmt(item.price)} coins` });
+  };
+
+  const equip = (item) => {
+    equipAvatar(item.id);
+    toast.success(`${item.name} equipped`, { description: "Now showing on your profile." });
   };
 
   return (
@@ -84,6 +89,23 @@ export const RewardsStore = ({ open, onClose }) => {
                 const Icon = ICONS[item.icon] || Sparkles;
                 const owned = ownedItems.includes(item.id);
                 const affordable = balance >= item.price;
+                const isAvatar = item.type === "avatar";
+                const equipped = isAvatar && equippedAvatarId === item.id;
+                let btn;
+                if (equipped) {
+                  btn = { label: <><Check className="h-4 w-4" /> Equipped</>, cls: "cursor-default bg-mint-light text-mint", onClick: undefined, disabled: true };
+                } else if (owned && isAvatar) {
+                  btn = { label: "Equip", cls: "bg-flame text-white hover:-translate-y-0.5", onClick: () => equip(item), disabled: false };
+                } else if (owned) {
+                  btn = { label: <><Check className="h-4 w-4" /> Owned</>, cls: "cursor-default bg-mint-light text-mint", onClick: undefined, disabled: true };
+                } else {
+                  btn = {
+                    label: <><Coins className="h-4 w-4" /> {fmt(item.price)}</>,
+                    cls: affordable ? "bg-royal text-white hover:-translate-y-0.5" : "bg-slate-100 text-slate-400 hover:bg-slate-200",
+                    onClick: () => buy(item),
+                    disabled: false,
+                  };
+                }
                 return (
                   <motion.div
                     key={item.id}
@@ -100,21 +122,11 @@ export const RewardsStore = ({ open, onClose }) => {
                     <p className="mt-0.5 flex-1 text-xs leading-relaxed text-slate-500">{item.desc}</p>
                     <button
                       data-testid={`buy-${item.id}`}
-                      onClick={() => buy(item)}
-                      disabled={owned}
-                      className={`mt-4 flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-bold transition-transform ${
-                        owned
-                          ? "cursor-default bg-mint-light text-mint"
-                          : affordable
-                          ? "bg-royal text-white hover:-translate-y-0.5"
-                          : "bg-slate-100 text-slate-400 hover:bg-slate-200"
-                      }`}
+                      onClick={btn.onClick}
+                      disabled={btn.disabled}
+                      className={`mt-4 flex items-center justify-center gap-1.5 rounded-2xl py-2.5 text-sm font-bold transition-transform ${btn.cls}`}
                     >
-                      {owned ? (
-                        <><Check className="h-4 w-4" /> Owned</>
-                      ) : (
-                        <><Coins className="h-4 w-4" /> {fmt(item.price)}</>
-                      )}
+                      {btn.label}
                     </button>
                   </motion.div>
                 );

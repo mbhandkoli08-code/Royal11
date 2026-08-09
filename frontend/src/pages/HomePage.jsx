@@ -1,12 +1,15 @@
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles } from "lucide-react";
+import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles, Smile, Ghost, Crown, Award, Trophy } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { Reveal, MaskedLines } from "@/components/Reveal";
 import { TeamBuilder } from "@/components/TeamBuilder";
-import { USER, QUICK_ACTIONS, LIVE_MATCHES, GAMES, FANTASY_PROMO_BG } from "@/lib/data";
+import { Leaderboard } from "@/components/Leaderboard";
+import { USER, QUICK_ACTIONS, LIVE_MATCHES, GAMES, FANTASY_PROMO_BG, STORE_ITEMS } from "@/lib/data";
+
+const ICON_MAP = { Smile, Ghost, Crown, Award, Flame, Trophy };
 
 const fmt = (n) => n.toLocaleString("en-IN");
 
@@ -72,13 +75,18 @@ const LiveCard = ({ m }) => (
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { balance, todayEarned, streakClaimed, claimStreak, earnCoins } = useWallet();
+  const { balance, todayEarned, streakClaimed, claimStreak, earnCoins, ownedItems, equippedAvatarId } = useWallet();
   const promoRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: promoRef, offset: ["start end", "end start"] });
   const promoY = useTransform(scrollYProgress, [0, 1], ["-12%", "12%"]);
 
   const [matches, setMatches] = useState(LIVE_MATCHES);
   const [builderOpen, setBuilderOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
+  const [lockedTeam, setLockedTeam] = useState(null);
+
+  const equippedAvatar = STORE_ITEMS.find((i) => i.id === equippedAvatarId);
+  const ownedBadges = STORE_ITEMS.filter((i) => i.type === "badge" && ownedItems.includes(i.id));
 
   useEffect(() => {
     const chaseTarget = 219;
@@ -145,10 +153,32 @@ export default function HomePage() {
             <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-flame ring-2 ring-white" />
           </button>
           <button data-testid="profile-avatar" className="h-11 w-11 overflow-hidden rounded-2xl ring-2 ring-white shadow-soft">
-            <img src={USER.avatar} alt="avatar" className="h-full w-full object-cover" />
+            {equippedAvatar ? (
+              <span className={`grid h-full w-full place-items-center ${equippedAvatar.tint}`}>
+                {(() => {
+                  const AvIcon = ICON_MAP[equippedAvatar.icon] || Smile;
+                  return <AvIcon className="h-5 w-5" strokeWidth={2.2} />;
+                })()}
+              </span>
+            ) : (
+              <img src={USER.avatar} alt="avatar" className="h-full w-full object-cover" />
+            )}
           </button>
         </div>
       </header>
+
+      {ownedBadges.length > 0 && (
+        <div data-testid="home-badges" className="mt-4 flex flex-wrap items-center gap-2">
+          {ownedBadges.map((b) => {
+            const BIcon = ICON_MAP[b.icon] || Award;
+            return (
+              <span key={b.id} data-testid={`home-badge-${b.id}`} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold ${b.tint}`}>
+                <BIcon className="h-3.5 w-3.5" /> {b.name}
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       {/* Balance + Quick actions (bento) */}
       <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -326,7 +356,15 @@ export default function HomePage() {
         </Reveal>
       </section>
 
-      <TeamBuilder open={builderOpen} onClose={() => setBuilderOpen(false)} />
+      <TeamBuilder
+        open={builderOpen}
+        onClose={() => setBuilderOpen(false)}
+        onLock={(team) => {
+          setLockedTeam(team);
+          setLeaderboardOpen(true);
+        }}
+      />
+      <Leaderboard open={leaderboardOpen} onClose={() => setLeaderboardOpen(false)} team={lockedTeam} />
     </div>
   );
 }

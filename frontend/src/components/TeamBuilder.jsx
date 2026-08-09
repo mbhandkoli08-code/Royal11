@@ -13,9 +13,11 @@ const ROLES = [
 ];
 const MAX = 11;
 
-export const TeamBuilder = ({ open, onClose }) => {
+export const TeamBuilder = ({ open, onClose, onLock }) => {
   const { joinContest } = useWallet();
   const [picked, setPicked] = useState([]);
+  const [captain, setCaptain] = useState(null);
+  const [vice, setVice] = useState(null);
 
   const creditsUsed = useMemo(
     () => picked.reduce((s, id) => s + (PLAYERS.find((p) => p.id === id)?.credits || 0), 0),
@@ -25,7 +27,11 @@ export const TeamBuilder = ({ open, onClose }) => {
 
   const toggle = (p) => {
     setPicked((prev) => {
-      if (prev.includes(p.id)) return prev.filter((x) => x !== p.id);
+      if (prev.includes(p.id)) {
+        if (captain === p.id) setCaptain(null);
+        if (vice === p.id) setVice(null);
+        return prev.filter((x) => x !== p.id);
+      }
       if (prev.length >= MAX) {
         toast("Team full — 11 players selected");
         return prev;
@@ -38,7 +44,16 @@ export const TeamBuilder = ({ open, onClose }) => {
     });
   };
 
-  const canLock = picked.length === MAX;
+  const chooseCaptain = (id) => {
+    setCaptain((c) => (c === id ? null : id));
+    setVice((v) => (v === id ? null : v));
+  };
+  const chooseVice = (id) => {
+    setVice((v) => (v === id ? null : id));
+    setCaptain((c) => (c === id ? null : c));
+  };
+
+  const canLock = picked.length === MAX && captain && vice;
 
   const lock = () => {
     if (!canLock) return;
@@ -47,8 +62,19 @@ export const TeamBuilder = ({ open, onClose }) => {
       toast.error("Not enough coins to join this contest");
       return;
     }
+    const base = picked.reduce((s, id) => s + (PLAYERS.find((p) => p.id === id)?.points || 0), 0);
+    const capPts = PLAYERS.find((p) => p.id === captain)?.points || 0;
+    const vicePts = PLAYERS.find((p) => p.id === vice)?.points || 0;
+    const total = Math.round(base + capPts * 1 + vicePts * 0.5);
     toast.success("Lineup locked! 🏏", { description: `${CONTEST.name} · −${CONTEST.entryFee} coins` });
+    onLock?.({
+      points: total,
+      captainName: PLAYERS.find((p) => p.id === captain)?.name,
+      viceName: PLAYERS.find((p) => p.id === vice)?.name,
+    });
     setPicked([]);
+    setCaptain(null);
+    setVice(null);
     onClose();
   };
 
@@ -130,6 +156,28 @@ export const TeamBuilder = ({ open, onClose }) => {
                             <p className="text-xs text-slate-500">{p.team} · {p.points} pts</p>
                           </div>
                           <span className="text-sm font-bold text-slate-700">{p.credits}<span className="text-xs text-slate-400"> cr</span></span>
+                          {isPicked && (
+                            <div className="flex gap-1">
+                              <button
+                                data-testid={`captain-${p.id}`}
+                                onClick={() => chooseCaptain(p.id)}
+                                className={`h-9 w-9 shrink-0 rounded-xl text-[11px] font-extrabold transition-transform hover:scale-105 ${
+                                  captain === p.id ? "bg-flame text-white" : "bg-slate-100 text-slate-500"
+                                }`}
+                              >
+                                C
+                              </button>
+                              <button
+                                data-testid={`vice-${p.id}`}
+                                onClick={() => chooseVice(p.id)}
+                                className={`h-9 w-9 shrink-0 rounded-xl text-[11px] font-extrabold transition-transform hover:scale-105 ${
+                                  vice === p.id ? "bg-royal text-white" : "bg-slate-100 text-slate-500"
+                                }`}
+                              >
+                                VC
+                              </button>
+                            </div>
+                          )}
                           <button
                             data-testid={`player-toggle-${p.id}`}
                             onClick={() => toggle(p)}
@@ -163,7 +211,13 @@ export const TeamBuilder = ({ open, onClose }) => {
                 }`}
               >
                 <Lock className="h-4 w-4" />
-                {canLock ? `Lock Lineup · −${CONTEST.entryFee} coins` : `Pick ${MAX - picked.length} more player${MAX - picked.length === 1 ? "" : "s"}`}
+                {canLock
+                  ? `Lock Lineup · −${CONTEST.entryFee} coins`
+                  : picked.length < MAX
+                  ? `Pick ${MAX - picked.length} more player${MAX - picked.length === 1 ? "" : "s"}`
+                  : !captain
+                  ? "Tap C to pick a Captain (2x)"
+                  : "Tap VC to pick a Vice-Captain (1.5x)"}
               </button>
             </div>
           </motion.div>

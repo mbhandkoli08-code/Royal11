@@ -10,6 +10,7 @@ export const WalletProvider = ({ children }) => {
   const [rewardsClaimed, setRewardsClaimed] = useState(6);
   const [txns, setTxns] = useState(INITIAL_TXNS);
   const [ownedItems, setOwnedItems] = useState([]);
+  const [equippedAvatarId, setEquippedAvatarId] = useState(null);
 
   const credit = (amount, label, meta, icon) => {
     setBalance((b) => b + amount);
@@ -47,14 +48,17 @@ export const WalletProvider = ({ children }) => {
     if (ownedItems.includes(item.id)) return "owned";
     if (balance < item.price) return "insufficient";
     setOwnedItems((o) => [...o, item.id]);
+    if (item.type === "avatar") setEquippedAvatarId(item.id);
     setRewardsClaimed((r) => r + 1);
     debit(item.price, `Redeemed ${item.name}`, item.type, "Gift");
     return "success";
   };
 
+  const equipAvatar = (id) => setEquippedAvatarId(id);
+
   const value = useMemo(
-    () => ({ balance, todayEarned, streakClaimed, rewardsClaimed, txns, ownedItems, claimStreak, earnCoins, joinContest, buyItem }),
-    [balance, todayEarned, streakClaimed, rewardsClaimed, txns, ownedItems]
+    () => ({ balance, todayEarned, streakClaimed, rewardsClaimed, txns, ownedItems, equippedAvatarId, claimStreak, earnCoins, joinContest, buyItem, equipAvatar }),
+    [balance, todayEarned, streakClaimed, rewardsClaimed, txns, ownedItems, equippedAvatarId]
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
