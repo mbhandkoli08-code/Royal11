@@ -40,6 +40,8 @@ teams, play casual games, and manage virtual coins — no real-money gambling.
 - 2026-06: **Fantasy AI Coach** (Claude Sonnet 4.6) — "AI Coach" button auto-picks XI + C/VC +
   rationale; backend enforces budget. Verified 100% (backend pytest + frontend flow).
 
+- 2026-06: **Server-authoritative backend** — JWT auth (`/api/auth/*`), coin-ledger wallet with idempotency (`/api/wallet/me`), and SUPER_ADMIN→MANAGER→ADMIN→PLAYER hierarchy (`/api/admin/*`) under `backend/app/` + `seed.py`. Verified 100% (32/32 pytest). Note: seed emails use `@royal11.com` (email-validator rejects `.local`). Frontend not yet wired to this backend (still in-memory by design of this task).
+
 ## Backlog / Remaining
 - P1: My Contests screen (joined contests with live rank); Match Alerts (wicket/goal toasts).
 - P1: Streak Calendar (7-day + day-7 milestone); Spin Cooldown (free daily spin).
