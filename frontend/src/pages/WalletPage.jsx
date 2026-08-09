@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ChevronLeft, TrendingUp, TrendingDown, Award, HelpCircle, Gift,
-  Users, Dice5, Sparkles, Trophy, Flame, ShieldCheck,
+  Users, Dice5, Sparkles, Trophy, Flame, ShieldCheck, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
@@ -16,8 +16,17 @@ const ICONS = { Gift, Users, Dice5, Sparkles, Trophy, Flame };
 
 export default function WalletPage() {
   const navigate = useNavigate();
-  const { balance, txns, rewardsClaimed } = useWallet();
+  const { balance, txns, rewardsClaimed, boostUntil } = useWallet();
   const [storeOpen, setStoreOpen] = useState(false);
+
+  const [now, setNow] = useState(Date.now());
+  const boostActive = boostUntil && now < boostUntil;
+  const boostLeft = boostActive ? Math.ceil((boostUntil - now) / 1000) : 0;
+  useEffect(() => {
+    if (!boostUntil) return;
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, [boostUntil]);
 
   const earnedWeek = 1250;
   const spentWeek = 480;
@@ -58,6 +67,11 @@ export default function WalletPage() {
               ]}
             />
             <p className="mt-1 text-sm font-semibold text-indigo-100">coins</p>
+            {boostActive && (
+              <span data-testid="wallet-boost-pill" className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-flame px-3 py-1.5 text-xs font-bold text-white ring-1 ring-white/20">
+                <Zap className="h-3.5 w-3.5" /> 2x Coins active · {Math.floor(boostLeft / 60)}:{String(boostLeft % 60).padStart(2, "0")}
+              </span>
+            )}
             <p className="mt-5 flex items-start gap-2 rounded-2xl bg-white/10 p-3 text-xs leading-relaxed text-indigo-50">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
               Virtual entertainment coins only — no real-money value, not withdrawable or redeemable for cash.
