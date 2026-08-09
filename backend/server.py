@@ -1,7 +1,6 @@
 from fastapi import FastAPI, APIRouter
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
@@ -13,14 +12,15 @@ import re
 from datetime import datetime, timezone
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
+from app.db import client, db
+from app.wallet_service import ensure_indexes
+from app.routers.auth import router as auth_router
+from app.routers.wallet import router as wallet_router
+from app.routers.admin import router as admin_router
+
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
-
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -235,6 +235,9 @@ async def fantasy_coach(req: CoachRequest):
 
 
 # Include the router in the main app
+api_router.include_router(auth_router)
+api_router.include_router(wallet_router)
+api_router.include_router(admin_router)
 app.include_router(api_router)
 
 app.add_middleware(
@@ -251,6 +254,10 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+@app.on_event("startup")
+async def ensure_db_indexes():
+    await ensure_indexes()
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

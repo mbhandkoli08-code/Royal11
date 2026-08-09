@@ -1,0 +1,34 @@
+{
+  "summary": "Backend-only verification of ROYAL11 new auth/wallet/admin API. Wrote 32 pytest tests across auth (register/login/me + welcome-bonus + auto-assign), wallet (server-authoritative read), RBAC (401/403 across roles), Super Admin -> Manager (create/fund/quota + reject shrink-below-allocated-out), Super Admin/Manager -> Admin creation, Manager -> Admin allocate (quota + wallet-balance guards), Admin -> Player grant (assignment check + overspend), CRITICAL idempotency (same request_id applied once), Reversal (creates REVERSAL txn + idempotent), Player assign/capacity, and regression (/api/status + /api/fantasy/coach). All 32 tests PASS.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_royal11_auth_wallet_admin.py",
+    "/app/test_reports/pytest/royal11_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "assignment_service.auto_assign_player has a documented race window (count-then-insert). Under concurrent registrations two players could exceed an Admin's player_capacity by a small margin. The code comment already acknowledges this as a Part 8 hardening item; recommend an atomic $inc-with-conditional counter on admin_allocations to fix.",
+    "MongoDB is standalone (no replica set) so the wallet ledger relies on single-document atomicity + unique request_id for idempotency. Behavior verified to be correct, but a crash strictly between record_pending() and the wallet $inc/$dec would leave a PENDING ledger row with no balance effect. Consider a background reconciler / observability for PENDING rows, or move to a replica set + real session transactions.",
+    "server.py mixes /api/status + /api/fantasy/coach domain code with router wiring (~260 lines). Consider extracting fantasy coach into its own router module for consistency with app/routers/*.",
+    "Admin grant/allocate/fund accept an optional request_id — if the client doesn't supply one, the server generates a fresh UUID, so idempotency is only opt-in. Frontends must be documented to always send request_id for money-moving calls, otherwise double-clicks WILL double-apply.",
+    "Login always returns the same 401 detail for both unknown-email and wrong-password (good — prevents user enumeration). Confirm this is intentional and documented."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_royal11_auth_wallet_admin.py"
+  ],
+  "success_rate": {"backend": "100% (32/32)", "frontend": "n/a (not tested per request)"},
+  "test_credentials": "Seeded (password ChangeMe123!): superadmin@royal11.com, manager1@royal11.com, admin1@royal11.com, player1@royal11.com. Newly-created test users use password Password123!.",
+  "seed_data_creation": "Tests create TEST_-prefixed managers/admins/players on the fly under isolated_chain and other builders. No teardown fixture (data left in DB) - acceptable since prefix TEST_ makes them easy to identify.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The auth/wallet/admin backend is fully verified. Idempotency (double grant with same request_id yields +amount once, not twice) is CONFIRMED working. Reversal is idempotent. RBAC (401/403) correct across all four roles. Manager quota enforcement, admin balance enforcement, player capacity enforcement, and auto-assignment on registration all pass. Regression endpoints /api/status and /api/fantasy/coach still work. Frontend is NOT wired to this backend yet - per request, no UI testing was performed. When testing frontend next, use the seeded credentials in /app/memory/test_credentials.md.",
+  "rca of the issue": "During test authoring, initial 4 failures + 8 errors were caused by two test-only bugs: (1) helper _login_token used the wrong default password (SEED_PWD='ChangeMe123!') when logging in newly-created test managers/admins that used 'Password123!' — fixed by passing the password explicitly at each call site. (2) test_quota_below_allocated_out_rejected wrongly assumed the seeded manager1's manager_allocations.allocated_out was already >= 200000, but the seed script does not use the /admin/allocate route so allocated_out stays 0 — fixed by building a fresh chain (create manager, fund, create admin, allocate 2000, then attempt to shrink quota to 100 -> 400). No product code was changed; the backend is behaving correctly."
+}
