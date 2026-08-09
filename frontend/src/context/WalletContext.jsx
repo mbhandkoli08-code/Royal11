@@ -13,7 +13,8 @@ export const WalletProvider = ({ children }) => {
   const [equippedAvatarId, setEquippedAvatarId] = useState(null);
   const [boostUntil, setBoostUntil] = useState(null);
 
-  const activateBoost = (seconds) => setBoostUntil(Date.now() + seconds * 1000);
+  const activateBoost = (seconds) =>
+    setBoostUntil((prev) => (prev && Date.now() < prev ? prev : Date.now()) + seconds * 1000);
 
   const credit = (amount, label, meta, icon) => {
     const mult = boostUntil && Date.now() < boostUntil ? 2 : 1;
@@ -68,7 +69,7 @@ export const WalletProvider = ({ children }) => {
     if (balance < item.price) return "insufficient";
     setOwnedItems((o) => [...o, item.id]);
     if (item.type === "avatar") setEquippedAvatarId(item.id);
-    if (item.id === "bo1") activateBoost(60);
+    if (item.boostSeconds) activateBoost(item.boostSeconds);
     setRewardsClaimed((r) => r + 1);
     debit(item.price, `Redeemed ${item.name}`, item.type, "Gift");
     return "success";

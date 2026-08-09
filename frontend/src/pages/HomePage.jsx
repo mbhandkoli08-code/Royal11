@@ -7,6 +7,7 @@ import { useWallet } from "@/context/WalletContext";
 import { Reveal, MaskedLines } from "@/components/Reveal";
 import { TeamBuilder } from "@/components/TeamBuilder";
 import { Leaderboard } from "@/components/Leaderboard";
+import { MatchDetail } from "@/components/MatchDetail";
 import { USER, QUICK_ACTIONS, LIVE_MATCHES, GAMES, FANTASY_PROMO_BG, STORE_ITEMS } from "@/lib/data";
 
 const ICON_MAP = { Smile, Ghost, Crown, Award, Flame, Trophy };
@@ -28,10 +29,12 @@ const SectionHead = ({ title, action, testid }) => (
   </div>
 );
 
-const LiveCard = ({ m }) => (
+const LiveCard = ({ m, onOpen }) => (
   <div
     data-testid={`live-match-${m.id}`}
-    className="group relative w-[300px] shrink-0 snap-start overflow-hidden rounded-3xl bg-slate-900 shadow-soft sm:w-[340px]"
+    onClick={() => onOpen(m)}
+    role="button"
+    className="group relative w-[300px] shrink-0 cursor-pointer snap-start overflow-hidden rounded-3xl bg-slate-900 shadow-soft transition-transform hover:-translate-y-1 sm:w-[340px]"
   >
     <div
       className="h-32 bg-cover bg-center opacity-70 transition-transform duration-700 group-hover:scale-110"
@@ -84,6 +87,7 @@ export default function HomePage() {
   const [builderOpen, setBuilderOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [lockedTeam, setLockedTeam] = useState(null);
+  const [detailMatch, setDetailMatch] = useState(null);
 
   const equippedAvatar = STORE_ITEMS.find((i) => i.id === equippedAvatarId);
   const ownedBadges = STORE_ITEMS.filter((i) => i.type === "badge" && ownedItems.includes(i.id));
@@ -285,7 +289,7 @@ export default function HomePage() {
         <SectionHead title="Live Now" action="See all" testid="live-see-all" />
         <div className="no-scrollbar -mx-5 flex snap-x gap-4 overflow-x-auto px-5 pb-2 sm:mx-0 sm:px-0">
           {matches.map((m) => (
-            <LiveCard key={m.id} m={m} />
+            <LiveCard key={m.id} m={m} onOpen={setDetailMatch} />
           ))}
         </div>
       </section>
@@ -393,6 +397,7 @@ export default function HomePage() {
         }}
       />
       <Leaderboard open={leaderboardOpen} onClose={() => setLeaderboardOpen(false)} team={lockedTeam} />
+      <MatchDetail open={!!detailMatch} onClose={() => setDetailMatch(null)} match={detailMatch} />
     </div>
   );
 }

@@ -86,7 +86,8 @@ export const STORE_ITEMS = [
   { id: "bd1", type: "badge", name: "MVP Badge", desc: "Show off your top form.", price: 400, icon: "Award", tint: "bg-mint-light text-mint" },
   { id: "bd2", type: "badge", name: "Streak Master", desc: "For 30-day login legends.", price: 600, icon: "Flame", tint: "bg-flame-light text-flame" },
   { id: "bd3", type: "badge", name: "Champion", desc: "Elite winner's badge.", price: 1000, icon: "Trophy", tint: "bg-[#FEF3C7] text-[#D97706]" },
-  { id: "bo1", type: "boost", name: "2x Coins Boost", desc: "Double coin earnings for 24h.", price: 250, icon: "Zap", tint: "bg-royal-light text-royal" },
+  { id: "bo1", type: "boost", name: "2x Coins Boost", desc: "Double coin earnings for 1 minute.", price: 250, boostSeconds: 60, icon: "Zap", tint: "bg-royal-light text-royal" },
   { id: "bo2", type: "boost", name: "XP Booster", desc: "Level up faster this week.", price: 350, icon: "Rocket", tint: "bg-[#FCE7F3] text-[#DB2777]" },
   { id: "bo3", type: "boost", name: "Lucky Spin", desc: "One free spin on the reward wheel.", price: 150, icon: "Sparkles", tint: "bg-mint-light text-mint" },
+  { id: "bo4", type: "boost", name: "Mega 2x Boost", desc: "Double coins for a full 5 minutes.", price: 900, boostSeconds: 300, icon: "Flame", tint: "bg-flame-light text-flame" },
 ];

@@ -1,0 +1,35 @@
+{
+  "summary": "Frontend-only regression + feature testing for ROYAL11: Match Detail modal (cricket + football) and Boost Tiers (Mega 2x bo4). All critical scenarios passed on the public preview URL.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "MatchDetail commentary feed", "issues": ["React console warning: 'Encountered two children with the same key'. Because feed items use `id` from idRef (reset to 0 on each open) plus the AnimatePresence keying, keys are unique per session — but when the same match modal is re-opened rapidly, older animating exit children can briefly overlap new ones with duplicate keys. Purely a console warning, no functional impact observed."]}
+    ]
+  },
+  "test_results": {
+    "match_detail_cricket": "PASS — modal opens on live-match-cric, detail-score-a shows batting side with overs '(x.y)', commentary-feed grew to 6 rows in 6.5s, score updated (188/4 -> 192/4), close button works.",
+    "match_detail_football": "PASS — modal opens on live-match-foot, minute counter + football events (7 rows in 6.5s), close works.",
+    "mega_2x_boost_bo4": "PASS — bo4 visible in Boosts tab at price 900. Buying deducted 900 (12,480 -> 11,580). boost-pill shows '2x · 4:59' (~5 min). Earn Coins credited +200 (double). Toast shows '2x boost applied'.",
+    "boost_extends_not_resets": "PASS — After buying bo1 (60s) while Mega 2x still had ~4:56 left, pill jumped to 5:56 (356s), proving activateBoost adds time.",
+    "boost_extend_button": "PASS — boost-extend-btn deducts 100 coins and adds +60s.",
+    "lucky_spin_bo3_with_boost_double": "PASS — reward-wheel-modal opens, spin-btn works, doubled label shown ('200 × 2 boost = 400 coins! 🎉')."
+  },
+  "test_report_links": [],
+  "action_items": [
+    "(Low priority) Consider suppressing the duplicate-key React console warning in MatchDetail — likely caused by AnimatePresence exit animations overlapping new inserts when re-opening the modal quickly. Using a compound key like `${match.id}-${f.id}` or resetting only after exit completes should silence it."
+  ],
+  "critical_code_review_comments": [
+    "MatchDetail.jsx: `idRef.current = 0` on every open causes brief duplicate keys with AnimatePresence exit anims from prior open. Cosmetic warning only.",
+    "MatchDetail.jsx line 60 uses `ball || 6` for label — when ball is 0 this shows '.6' which is intentional-ish but slightly confusing; consider always printing `ball` post-increment.",
+    "WalletContext.activateBoost correctly extends: `(prev && Date.now() < prev ? prev : Date.now()) + seconds*1000` — verified.",
+    "STORE_ITEMS bo4 boostSeconds:300 correct; buyItem triggers activateBoost via item.boostSeconds — verified with live +200 earn."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All new features verified on preview URL. In-memory Wallet starts at 12,480. Use JS .click() (page.evaluate) for tab-switch inside RewardsStore modal — force-click via Playwright sometimes fires on the overlay and does not trigger setState reliably. Match modal commentary appends every 2s; wait 6-7s for meaningful growth."
+}
