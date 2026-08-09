@@ -41,7 +41,7 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen bg-background">
       <BrowserRouter>
         <WalletProvider>
           <ScrollTop />
