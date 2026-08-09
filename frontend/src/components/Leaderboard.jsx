@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Trophy, Crown, ChevronUp, Zap } from "lucide-react";
+import { X, Trophy, Crown, ChevronUp, ChevronDown, Star, Users } from "lucide-react";
 
 const BOTS = ["ProSmasher", "SixMachine", "PitchPirate", "GullyGod", "CoverDrive", "YorkerKing", "BoundaryBoss"];
 
@@ -9,9 +9,15 @@ const rankTint = (rank) =>
 
 export const Leaderboard = ({ open, onClose, team }) => {
   const [rows, setRows] = useState([]);
+  const [showTeam, setShowTeam] = useState(false);
+  const [rankDir, setRankDir] = useState(0);
+  const prevRank = useRef(null);
 
   useEffect(() => {
     if (!open || !team) return;
+    setShowTeam(false);
+    setRankDir(0);
+    prevRank.current = null;
     const base = team.points || 420;
     const init = [
       { id: "you", name: "You", pts: base, you: true },
@@ -26,6 +32,15 @@ export const Leaderboard = ({ open, onClose, team }) => {
 
   const sorted = useMemo(() => [...rows].sort((a, b) => b.pts - a.pts), [rows]);
   const youRank = sorted.findIndex((r) => r.you) + 1;
+
+  useEffect(() => {
+    if (youRank <= 0) return;
+    if (prevRank.current != null) {
+      if (youRank < prevRank.current) setRankDir(1);
+      else if (youRank > prevRank.current) setRankDir(-1);
+    }
+    prevRank.current = youRank;
+  }, [youRank]);
 
   return (
     <AnimatePresence>
@@ -84,7 +99,8 @@ export const Leaderboard = ({ open, onClose, team }) => {
                       #{youRank}
                     </motion.span>
                     <span className="mb-1.5 text-sm text-indigo-100">of {rows.length}</span>
-                    {youRank <= 3 && <ChevronUp className="mb-2 h-5 w-5 text-emerald-300" />}
+                    {rankDir === 1 && <ChevronUp data-testid="rank-up" className="mb-2 h-6 w-6 text-emerald-300" />}
+                    {rankDir === -1 && <ChevronDown data-testid="rank-down" className="mb-2 h-6 w-6 text-red-300" />}
                   </div>
                 </div>
                 <div className="text-right">
@@ -103,7 +119,54 @@ export const Leaderboard = ({ open, onClose, team }) => {
               <div className="relative mt-4 flex items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-xs font-medium text-indigo-50">
                 <Trophy className="h-4 w-4 text-amber-300" /> Prize pool 1,00,000 coins · Top 40% win
               </div>
+              {team.roster && (
+                <button
+                  data-testid="toggle-team-btn"
+                  onClick={() => setShowTeam((s) => !s)}
+                  className="relative mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-white/15 px-3 py-2.5 text-xs font-bold text-white transition-colors hover:bg-white/25"
+                >
+                  <Users className="h-4 w-4" /> {showTeam ? "Hide My XI" : "View My XI"}
+                </button>
+              )}
             </div>
+
+            {/* Team preview */}
+            <AnimatePresence initial={false}>
+              {showTeam && team.roster && (
+                <motion.div
+                  key="roster"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden border-b border-slate-100 bg-white"
+                  data-testid="team-preview"
+                >
+                  <div className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-3">
+                    {team.roster.map((p) => (
+                      <div key={p.id} data-testid={`roster-${p.id}`} className="flex items-center gap-2 rounded-2xl bg-slate-50 p-2.5">
+                        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-slate-900 text-[10px] font-bold text-white">
+                          {p.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-bold text-slate-800">{p.name}</p>
+                          <p className="text-[10px] text-slate-500">{p.team} · {p.role}</p>
+                        </div>
+                        {p.tag === "C" && (
+                          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-flame text-white" title="Captain 2x">
+                            <Crown className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                        {p.tag === "VC" && (
+                          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-md bg-royal text-white" title="Vice-Captain 1.5x">
+                            <Star className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Rows */}
             <div className="flex-1 space-y-2 overflow-y-auto p-4" data-testid="leaderboard-list">

@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles, Smile, Ghost, Crown, Award, Trophy } from "lucide-react";
+import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles, Smile, Ghost, Crown, Award, Trophy, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { Reveal, MaskedLines } from "@/components/Reveal";
@@ -75,7 +75,7 @@ const LiveCard = ({ m }) => (
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { balance, todayEarned, streakClaimed, claimStreak, earnCoins, ownedItems, equippedAvatarId } = useWallet();
+  const { balance, todayEarned, streakClaimed, claimStreak, earnCoins, ownedItems, equippedAvatarId, boostUntil } = useWallet();
   const promoRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: promoRef, offset: ["start end", "end start"] });
   const promoY = useTransform(scrollYProgress, [0, 1], ["-12%", "12%"]);
@@ -87,6 +87,15 @@ export default function HomePage() {
 
   const equippedAvatar = STORE_ITEMS.find((i) => i.id === equippedAvatarId);
   const ownedBadges = STORE_ITEMS.filter((i) => i.type === "badge" && ownedItems.includes(i.id));
+
+  const [now, setNow] = useState(Date.now());
+  const boostActive = boostUntil && now < boostUntil;
+  const boostLeft = boostActive ? Math.ceil((boostUntil - now) / 1000) : 0;
+  useEffect(() => {
+    if (!boostUntil) return;
+    const iv = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(iv);
+  }, [boostUntil]);
 
   useEffect(() => {
     const chaseTarget = 219;
@@ -120,8 +129,8 @@ export default function HomePage() {
   }, []);
 
   const handleEarn = () => {
-    earnCoins();
-    toast.success("+100 coins earned!", { description: "Added to your wallet." });
+    const amt = earnCoins();
+    toast.success(`+${amt} coins earned!`, { description: amt > 100 ? "2x boost applied! ⚡" : "Added to your wallet." });
   };
   const handleClaim = () => {
     if (streakClaimed) return;
@@ -205,6 +214,11 @@ export default function HomePage() {
                 <span className="mb-2 rounded-full bg-mint/25 px-3 py-1 text-xs font-bold text-emerald-50 ring-1 ring-white/20">
                   +{fmt(todayEarned)} today
                 </span>
+                {boostActive && (
+                  <span data-testid="boost-pill" className="mb-2 flex items-center gap-1 rounded-full bg-flame px-3 py-1 text-xs font-bold text-white ring-1 ring-white/20">
+                    <Zap className="h-3.5 w-3.5" /> 2x · {Math.floor(boostLeft / 60)}:{String(boostLeft % 60).padStart(2, "0")}
+                  </span>
+                )}
               </div>
               <div className="mt-7 flex flex-wrap gap-3">
                 <button

@@ -1,0 +1,29 @@
+{
+  "summary": "Frontend-only testing of ROYAL11's four new features. All four features are functionally correct: (1) Reward Wheel opens without marking bo3 owned, spins ~4.2s, deducts 150 and credits prize via credit() (doubles if boost active), can spin multiple times. (2) Rank Movement chevrons wired via rankDir state and rank-up/rank-down testids render on rank change (not observed within 12s window in one attempt, but logic is present and rank was stable in that window — non-deterministic due to random tick deltas). (3) Team Preview toggles via toggle-team-btn showing 11 roster-<id> items with Crown on captain (p1) and Star on vice (p2). (4) Boost effects: purchasing bo1 (250 coins) activates 60s 2x boost, boost-pill '2x · 0:59' visible on Home; Earn Coins credited +200 (double of 100). Regression: bo1 becomes 'Owned' after purchase, avatar/badges wiring intact, wallet balance stays in sync across Home/Wallet, joinContest deducts 100 on lock. One UX note: while 2x boost is active, wheel prize is also doubled by credit() (task text 'balance = start - 150 + prize' matches only when boost is inactive). This is the intended shared credit() path but may confuse users because the wheel segment shows the pre-double value; toast then reports the doubled amount.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Reward Wheel while 2x boost active", "issues": ["Wheel segment shows base prize (e.g. 1000) but credit() doubles it to 2000 due to active boost. Toast/balance reflect the doubled amount which contradicts what the wheel visually shows. Consider excluding wheel prize from boost multiplier, OR labeling the toast as '(2x boost)'."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Decide intended behavior: should the 2x Coins Boost double Lucky Spin winnings? Currently it does (via shared credit() multiplier). If yes, update wheel result label to reflect the boost. If no, bypass boost multiplier for wheel prize credit.",
+    "Consider slightly increasing 'You' point delta or reducing bot delta so rank movement is more likely to be visible within a short viewing window (currently 0..15 vs 0..10 per 1.8s tick — often not enough to overtake a bot in <15s)."
+  ],
+  "critical_code_review_comments": [
+    "RewardWheel.spin(): credit() return value is used for the toast but the wheel visually shows the base PRIZES value; when boost is active the two disagree.",
+    "WalletContext.credit(): global 2x multiplier applies to every credit source (streak, earn, wheel win). This is a design choice — if intended for only certain sources, gate by a flag.",
+    "Leaderboard rank tick delta (You +0..15 vs bots +0..10) makes rank movement statistically slow; may need to be tuned for demo visibility.",
+    "AnimatePresence modal close is occasionally flaky with Playwright force clicks — real users unaffected but any e2e regressions should use JS click or wait for state='detached'."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100% (4/4 features verified)"},
+  "seed_data_creation": "None — in-memory only",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "REACT_APP_BACKEND_URL is https://royal-sports-hub-2.preview.emergentagent.com. In-memory wallet resets per page.goto. Use JS-based clicks (page.evaluate(el.click())) rather than force=True for nav-* buttons after closing modals — framer-motion exit animation occasionally leaves overlay intercepting Playwright's hit-test. Verified numbers: start balance 12480 → after locking XI (-100) → 12380 → buy bo1 (-250) → 12130 → earn (+200 with boost) → 12330 → buy-bo3 spin (-150, +prize*2 if boost still active). Wheel spin takes ~4.2s.",
+  "rca of the issue": "N/A — no functional bugs found. Only design ambiguity around wheel prize doubling under active 2x boost."
+}

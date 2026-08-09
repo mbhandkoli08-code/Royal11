@@ -4,6 +4,7 @@ import { X, Coins, Check, Crown, Ghost, Smile, Award, Flame, Trophy, Zap, Sparkl
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { STORE_ITEMS } from "@/lib/data";
+import { RewardWheel } from "@/components/RewardWheel";
 
 const ICONS = { Crown, Ghost, Smile, Award, Flame, Trophy, Zap, Sparkles, Rocket };
 const CATS = [
@@ -17,6 +18,7 @@ const fmt = (n) => n.toLocaleString("en-IN");
 export const RewardsStore = ({ open, onClose }) => {
   const { balance, ownedItems, buyItem, equippedAvatarId, equipAvatar } = useWallet();
   const [cat, setCat] = useState("avatar");
+  const [wheelOpen, setWheelOpen] = useState(false);
   const items = STORE_ITEMS.filter((i) => i.type === cat);
 
   const buy = (item) => {
@@ -32,6 +34,7 @@ export const RewardsStore = ({ open, onClose }) => {
   };
 
   return (
+    <>
     <AnimatePresence>
       {open && (
         <motion.div
@@ -92,7 +95,9 @@ export const RewardsStore = ({ open, onClose }) => {
                 const isAvatar = item.type === "avatar";
                 const equipped = isAvatar && equippedAvatarId === item.id;
                 let btn;
-                if (equipped) {
+                if (item.id === "bo3") {
+                  btn = { label: <><Sparkles className="h-4 w-4" /> Spin</>, cls: "bg-flame text-white hover:-translate-y-0.5", onClick: () => setWheelOpen(true), disabled: false };
+                } else if (equipped) {
                   btn = { label: <><Check className="h-4 w-4" /> Equipped</>, cls: "cursor-default bg-mint-light text-mint", onClick: undefined, disabled: true };
                 } else if (owned && isAvatar) {
                   btn = { label: "Equip", cls: "bg-flame text-white hover:-translate-y-0.5", onClick: () => equip(item), disabled: false };
@@ -136,5 +141,7 @@ export const RewardsStore = ({ open, onClose }) => {
         </motion.div>
       )}
     </AnimatePresence>
+    <RewardWheel open={wheelOpen} onClose={() => setWheelOpen(false)} />
+    </>
   );
 };

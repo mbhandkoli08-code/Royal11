@@ -11,14 +11,20 @@ export const WalletProvider = ({ children }) => {
   const [txns, setTxns] = useState(INITIAL_TXNS);
   const [ownedItems, setOwnedItems] = useState([]);
   const [equippedAvatarId, setEquippedAvatarId] = useState(null);
+  const [boostUntil, setBoostUntil] = useState(null);
+
+  const activateBoost = (seconds) => setBoostUntil(Date.now() + seconds * 1000);
 
   const credit = (amount, label, meta, icon) => {
-    setBalance((b) => b + amount);
-    setTodayEarned((t) => t + amount);
+    const mult = boostUntil && Date.now() < boostUntil ? 2 : 1;
+    const amt = amount * mult;
+    setBalance((b) => b + amt);
+    setTodayEarned((t) => t + amt);
     setTxns((list) => [
-      { id: Date.now(), label, meta, type: "credit", amount, when: "Just now", icon },
+      { id: Date.now(), label: mult > 1 ? `${label} (2x boost)` : label, meta, type: "credit", amount: amt, when: "Just now", icon },
       ...list,
     ]);
+    return amt;
   };
 
   const claimStreak = () => {
@@ -29,7 +35,6 @@ export const WalletProvider = ({ children }) => {
   };
 
   const earnCoins = () => credit(100, "Earned Coins", "Watch & play bonus", "Sparkles");
-
   const debit = (amount, label, meta, icon) => {
     setBalance((b) => b - amount);
     setTxns((list) => [
@@ -44,11 +49,18 @@ export const WalletProvider = ({ children }) => {
     return true;
   };
 
+  const spend = (amount, label, meta, icon) => {
+    if (balance < amount) return false;
+    debit(amount, label, meta, icon);
+    return true;
+  };
+
   const buyItem = (item) => {
     if (ownedItems.includes(item.id)) return "owned";
     if (balance < item.price) return "insufficient";
     setOwnedItems((o) => [...o, item.id]);
     if (item.type === "avatar") setEquippedAvatarId(item.id);
+    if (item.id === "bo1") activateBoost(60);
     setRewardsClaimed((r) => r + 1);
     debit(item.price, `Redeemed ${item.name}`, item.type, "Gift");
     return "success";
@@ -57,8 +69,8 @@ export const WalletProvider = ({ children }) => {
   const equipAvatar = (id) => setEquippedAvatarId(id);
 
   const value = useMemo(
-    () => ({ balance, todayEarned, streakClaimed, rewardsClaimed, txns, ownedItems, equippedAvatarId, claimStreak, earnCoins, joinContest, buyItem, equipAvatar }),
-    [balance, todayEarned, streakClaimed, rewardsClaimed, txns, ownedItems, equippedAvatarId]
+    () => ({ balance, todayEarned, streakClaimed, rewardsClaimed, txns, ownedItems, equippedAvatarId, boostUntil, claimStreak, earnCoins, joinContest, buyItem, equipAvatar, spend, credit }),
+    [balance, todayEarned, streakClaimed, rewardsClaimed, txns, ownedItems, equippedAvatarId, boostUntil]
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
