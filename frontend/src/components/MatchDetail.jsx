@@ -41,7 +41,6 @@ export const MatchDetail = ({ open, onClose, match }) => {
     }
     setState(init);
     setFeed([]);
-    idRef.current = 0;
 
     const iv = setInterval(() => {
       setState((s) => {
@@ -148,7 +147,7 @@ export const MatchDetail = ({ open, onClose, match }) => {
               <AnimatePresence initial={false}>
                 {feed.map((f) => (
                   <motion.div
-                    key={f.id}
+                    key={`${match.id}-${f.id}`}
                     layout
                     initial={{ opacity: 0, x: -14 }}
                     animate={{ opacity: 1, x: 0 }}
