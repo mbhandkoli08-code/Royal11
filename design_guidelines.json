@@ -1,0 +1,109 @@
+{
+  "project_name": "ROYAL11",
+  "theme_strategy": {
+    "mode": "light",
+    "rationale": "A modern, bright, friendly, and trustworthy sports-app aesthetic (similar to Dream11 / FanCode). Avoids the dark, heavy casino look. Emphasizes clean spaces, soft neutrals, and energetic sports-inspired accent colors."
+  },
+  "colors": {
+    "background": "#F8FAFC",
+    "surface": "#FFFFFF",
+    "primary": "#4338CA",
+    "primary_hover": "#3730A3",
+    "accent": "#F97316",
+    "accent_hover": "#EA580C",
+    "success": "#10B981",
+    "success_light": "#D1FAE5",
+    "text_main": "#0F172A",
+    "text_muted": "#64748B",
+    "border": "#E2E8F0"
+  },
+  "typography": {
+    "headings": {
+      "family": "'Outfit', sans-serif",
+      "weights": ["600", "700", "800"],
+      "usage": "Use tight tracking (tracking-tight) for all headings. The main greeting on Home and Wallet Balance should be prominent."
+    },
+    "body": {
+      "family": "'Manrope', sans-serif",
+      "weights": ["400", "500", "600"],
+      "usage": "Use leading-relaxed for any descriptive text or disclaimers."
+    }
+  },
+  "layouts_and_grids": {
+    "global": "Full-width responsive layout. The container should expand gracefully on desktop (max-w-7xl mx-auto) instead of being constrained to a mobile phone frame. Use generous padding (px-6 md:px-12 lg:px-24) to keep it airy and uncluttered.",
+    "bento_strategy": "On desktop, arrange the Home sections using a Bento Grid approach (e.g., grid-cols-1 md:grid-cols-12 gap-6 or gap-8). For example, place the Balance Card and Quick Actions side-by-side on desktop.",
+    "mobile": "Mobile-first vertical stack, but ensure large tap targets and soft spacing (gap-6) between distinct sections."
+  },
+  "visual_enhancers": {
+    "shadows": "Use soft, ambient shadows for cards to make them float off the neutral background: shadow-[0_8px_30px_rgb(0,0,0,0.04)]",
+    "radii": "Use rounded-2xl or rounded-3xl for major cards to enhance the friendly, modern feel.",
+    "glassmorphism": "Apply to the bottom navigation bar and any sticky headers (backdrop-blur-xl bg-white/80 border-t border-slate-100).",
+    "textures": "Subtle noise or clean gradient meshes inside the Coin Balance Card and Fantasy Promo Banner to give them a premium 'hero' feel without being loud."
+  },
+  "motion_and_interactions": {
+    "page_load": "Awwwards-level kinetic reveal: Use Framer Motion for a line-by-line masked reveal on the Home greeting and Wallet total balance.",
+    "scroll": "Implement Lenis smooth scrolling for a premium, heavy momentum feel.",
+    "micro_interactions": "Game lobby tiles and quick action buttons should have a slight lift (-translate-y-1) and shadow expansion on hover.",
+    "parallax": "The Fantasy Contest Promo Banner should feature a subtle image parallax effect inside its rounded container as the user scrolls."
+  },
+  "components_structure": {
+    "bottom_nav": {
+      "layout": "Fixed at the bottom. Glassmorphism effect. Evenly spaced 5 icons (Home, Sports, Fantasy, Games, Wallet) with labels.",
+      "behavior": "Only Home and Wallet need to be functional for this scope."
+    },
+    "home_screen": {
+      "header": "Greeting text + Notification Bell + User Avatar.",
+      "coin_balance_card": "A large, premium card with a subtle gradient (Indigo to Violet), showing Coin Balance, '+X today' in a success pill, and 'View Wallet' / 'Earn Coins' actions.",
+      "quick_actions": "A row or grid of circular/rounded-square icons (Sports, Fantasy, Games, Rewards).",
+      "live_now": "Horizontal scrolling container (hide scrollbar) featuring 2 live match cards (e.g., Cricket and Football) with real images, team names, and 'Live' pulsating badge.",
+      "fantasy_promo": "A wide, visually striking banner with a background image, dark/indigo overlay, bold text ('Mega Contest Live'), and a prominent 'Join' CTA.",
+      "games_lobby": "A grid (grid-cols-3 md:grid-cols-6) of 6 tiles. Each tile has an icon (Lucide) and name (Teen Patti, Poker, Roulette, Aviator, Ludo, Call Break).",
+      "daily_streak": "A horizontal strip/card showing login days and a 'Claim' button."
+    },
+    "wallet_screen": {
+      "header": "Back button + 'Wallet' Title.",
+      "total_balance": "Massive typography for the balance amount, paired with the exact disclaimer: 'Virtual entertainment coins only — no real-money value, not withdrawable or redeemable for cash.'",
+      "stats_tiles": "A 3-column grid showing 'Earned this week', 'Spent this week', and 'Rewards claimed'.",
+      "action_buttons": "Two large, prominent buttons: 'How to Earn' (outline/secondary) and 'Redeem' (solid/primary).",
+      "transaction_history": "A clean list of 5 sample items (e.g., 'Daily Login', 'Joined Fantasy', 'Played Ludo'). Use color-coded amounts (+ in green, - in red/slate) and relative timestamps."
+    }
+  },
+  "image_urls": {
+    "avatar": {
+      "url": "https://images.unsplash.com/photo-1740252117044-2af197eea287?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NjZ8MHwxfHNlYXJjaHwxfHx1c2VyJTIwcHJvZmlsZSUyMGF2YXRhciUyMHBvcnRyYWl0fGVufDB8fHx8MTc4NjIwNTkyNHww&ixlib=rb-4.1.0&q=85",
+      "description": "User profile avatar cartoon"
+    },
+    "live_match_cricket": {
+      "url": "https://images.unsplash.com/photo-1771909713995-d793a0c93660?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxNzV8MHwxfHNlYXJjaHwzfHxjcmlja2V0JTIwc3RhZGl1bSUyMHN1bnNldHxlbnwwfHx8fDE3ODYyOTk0MTZ8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Cricket stadium sunset for live match card"
+    },
+    "live_match_football": {
+      "url": "https://images.unsplash.com/photo-1488474739786-757973c2dff6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHw0fHxmb290YmFsbCUyMGFjdGlvbiUyMHBsYXllcnxlbnwwfHx8fDE3ODYyOTk0MTZ8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Football action for live match card"
+    },
+    "fantasy_promo_bg": {
+      "url": "https://images.unsplash.com/photo-1508087625439-de3978963553?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjY2NzN8MHwxfHNlYXJjaHwyfHxmb290YmFsbCUyMGFjdGlvbiUyMHBsYXllcnxlbnwwfHx8fDE3ODYyOTk0MTZ8MA&ixlib=rb-4.1.0&q=85",
+      "description": "Silhouette player kicking soccer ball on field at sunset for the background of the fantasy promo banner"
+    }
+  },
+  "libraries_and_dependencies": [
+    "framer-motion (for scroll reveals, kinetic hero animations, and micro-interactions)",
+    "@studio-freight/react-lenis (for smooth scrolling)",
+    "lucide-react (for sleek, consistent icons in games lobby and UI)",
+    "clsx, tailwind-merge (for dynamic class utility)"
+  ],
+  "accessibility": {
+    "contrast": "Ensure minimum 4.5:1 ratio for text on all backgrounds. The disclaimer text in the Wallet must be clearly readable, not washed out.",
+    "testing": "All interactive elements (buttons, nav items, cards acting as links) MUST include a 'data-testid' attribute (e.g., data-testid='nav-wallet-button', data-testid='claim-streak-btn')."
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic outputs. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Do not constrain the app into a mobile phone frame (e.g. max-w-sm mx-auto). It must be a FULL-WIDTH responsive layout (max-w-7xl mx-auto) that looks expansive and airy on desktop.",
+    "Do not use dark backgrounds for the overall page; strictly adhere to the light/soft-neutral strategy.",
+    "Implement the 'Awwwards-level' motion: use framer-motion to reveal the main headers line-by-line, and apply a parallax effect to the Fantasy Promo banner image.",
+    "Ensure 'data-testid' is attached to every single button and interactive element.",
+    "Do not use generic 'inter' for headers. Import Outfit and Manrope via Google Fonts in index.css or index.html.",
+    "The games lobby tiles should use Lucide icons (e.g., Spade, Club, Circle/Roulette, Plane/Aviator, Grid/Ludo) with clear names and soft background tints, avoiding messy images for the icons.",
+    "Ensure generous spacing: use py-12 or py-16 between major sections on desktop, scaling to py-8 on mobile."
+  ]
+}
