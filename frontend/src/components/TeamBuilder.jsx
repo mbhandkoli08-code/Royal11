@@ -1,10 +1,11 @@
 import { useState, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Check, Plus, Users, Coins, Lock, Sparkles, Loader2 } from "lucide-react";
+import { X, Check, Plus, Users, Coins, Lock, Sparkles, Loader2, Heart } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { CONTEST, PLAYERS } from "@/lib/data";
+import { IPL_TEAMS, readableText, hexToRgb, useFavoriteTeam } from "@/lib/iplTeams";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -18,11 +19,25 @@ const MAX = 11;
 
 export const TeamBuilder = ({ open, onClose, onLock }) => {
   const { joinContest } = useWallet();
+  const { team, setFavorite } = useFavoriteTeam();
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [picked, setPicked] = useState([]);
   const [captain, setCaptain] = useState(null);
   const [vice, setVice] = useState(null);
   const [coachLoading, setCoachLoading] = useState(false);
   const [coachTip, setCoachTip] = useState(null);
+
+  // First run (no favorite yet) => show the picker; otherwise reflect the team.
+  const showPicker = pickerOpen || !team;
+  const accent = team?.primary || "#C8102E"; // fallback = app cherry red
+  const accent2 = team?.secondary || "#8A0F22";
+  const onAccent = readableText(accent);
+  const accentRgb = hexToRgb(accent);
+
+  const choose = (id) => {
+    setFavorite(id);
+    setPickerOpen(false);
+  };
 
   const askCoach = async () => {
     if (coachLoading) return;
@@ -108,20 +123,76 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
             transition={{ type: "spring", stiffness: 320, damping: 32 }}
             className="flex max-h-[92vh] w-full max-w-2xl flex-col overflow-hidden rounded-t-3xl bg-background sm:rounded-3xl"
           >
+            {showPicker ? (
+              <div className="flex flex-col" data-testid="team-picker">
+                <div className="flex items-start justify-between border-b border-slate-100 bg-white p-5">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-flame">Personalize</p>
+                    <h2 className="font-display text-xl font-extrabold tracking-tight text-slate-900">Choose your team</h2>
+                    <p className="mt-1 text-xs text-slate-500">Pick your favourite IPL side to theme your Fantasy screen.</p>
+                  </div>
+                  {team && (
+                    <button
+                      data-testid="team-picker-close"
+                      onClick={() => setPickerOpen(false)}
+                      className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-3 overflow-y-auto p-5 sm:grid-cols-3" style={{ maxHeight: "72vh" }}>
+                  {IPL_TEAMS.map((t) => {
+                    const selected = team?.id === t.id;
+                    return (
+                      <button
+                        key={t.id}
+                        data-testid={`team-option-${t.id}`}
+                        onClick={() => choose(t.id)}
+                        className="group relative flex flex-col items-center gap-2 rounded-2xl border-2 bg-white p-4 text-center transition-transform hover:-translate-y-0.5"
+                        style={{ borderColor: selected ? t.primary : "rgba(15,23,42,0.06)" }}
+                      >
+                        <span
+                          className="grid h-14 w-14 place-items-center rounded-2xl text-sm font-extrabold shadow-soft"
+                          style={{ background: `linear-gradient(135deg, ${t.primary}, ${t.secondary})`, color: readableText(t.primary) }}
+                        >
+                          {t.short}
+                        </span>
+                        <span className="text-xs font-bold leading-tight text-slate-800">{t.name}</span>
+                        {selected && (
+                          <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center rounded-full text-white" style={{ background: t.primary }}>
+                            <Heart className="h-3.5 w-3.5" fill="currentColor" />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+            <>
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-slate-100 bg-white p-5">
+            <div className="flex items-start justify-between p-5" style={{ background: `linear-gradient(135deg, ${accent}, ${accent2})` }}>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-flame">{CONTEST.sub}</p>
-                <h2 className="font-display text-xl font-extrabold tracking-tight text-slate-900">Build Your XI</h2>
+                <p className="text-xs font-semibold uppercase tracking-wide" style={{ color: onAccent, opacity: 0.8 }}>{CONTEST.sub}</p>
+                <h2 className="font-display text-xl font-extrabold tracking-tight" style={{ color: onAccent }}>Build Your XI</h2>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  data-testid="change-team-btn"
+                  onClick={() => setPickerOpen(true)}
+                  title={`Favourite: ${team.name} — tap to change`}
+                  className="grid h-9 w-9 place-items-center rounded-xl text-[11px] font-extrabold transition-transform hover:-translate-y-0.5"
+                  style={{ background: onAccent, color: accent }}
+                >
+                  {team.short}
+                </button>
                 <button
                   data-testid="ai-coach-btn"
                   onClick={askCoach}
                   disabled={coachLoading}
-                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-white transition-transform ${
-                    coachLoading ? "cursor-wait bg-royal/60" : "bg-royal hover:-translate-y-0.5"
-                  }`}
+                  className={`flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold transition-transform ${coachLoading ? "cursor-wait" : "hover:-translate-y-0.5"}`}
+                  style={{ background: "rgba(255,255,255,0.22)", color: onAccent }}
                 >
                   {coachLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                   {coachLoading ? "Thinking…" : "AI Coach"}
@@ -129,11 +200,20 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
                 <button
                   data-testid="team-builder-close"
                   onClick={onClose}
-                  className="grid h-9 w-9 place-items-center rounded-xl bg-slate-100 text-slate-600 transition-colors hover:bg-slate-200"
+                  className="grid h-9 w-9 place-items-center rounded-xl transition-colors"
+                  style={{ background: "rgba(255,255,255,0.22)", color: onAccent }}
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
+            </div>
+
+            {/* Slogan banner */}
+            <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-2.5" style={{ background: `rgba(${accentRgb}, 0.10)` }} data-testid="team-slogan">
+              <Heart className="h-3.5 w-3.5 shrink-0" style={{ color: accent }} fill="currentColor" />
+              <p className="text-xs font-semibold leading-tight" style={{ color: accent }}>
+                {`You're building your team, ${team.name} style — "${team.slogan}"`}
+              </p>
             </div>
 
             {coachTip && (
@@ -180,8 +260,9 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
                         <div
                           key={p.id}
                           className={`flex items-center gap-3 rounded-2xl border p-3 transition-colors ${
-                            isPicked ? "border-royal/40 bg-royal-light" : "border-slate-100 bg-white"
+                            isPicked ? "" : "border-slate-100 bg-white"
                           }`}
+                          style={isPicked ? { borderColor: accent, background: `rgba(${accentRgb}, 0.08)` } : undefined}
                         >
                           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-900 text-xs font-bold text-white">
                             {p.name.split(" ").map((w) => w[0]).join("").slice(0, 2)}
@@ -219,11 +300,12 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
                             disabled={disabled}
                             className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition-transform hover:scale-105 ${
                               isPicked
-                                ? "bg-royal text-white"
+                                ? "text-white"
                                 : disabled
                                 ? "cursor-not-allowed bg-slate-100 text-slate-300"
                                 : "bg-mint text-white"
                             }`}
+                            style={isPicked ? { background: accent, color: onAccent } : undefined}
                           >
                             {isPicked ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                           </button>
@@ -242,8 +324,9 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
                 onClick={lock}
                 disabled={!canLock}
                 className={`flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold transition-transform ${
-                  canLock ? "bg-royal text-white hover:-translate-y-0.5" : "cursor-not-allowed bg-slate-100 text-slate-400"
+                  canLock ? "hover:-translate-y-0.5" : "cursor-not-allowed bg-slate-100 text-slate-400"
                 }`}
+                style={canLock ? { background: accent, color: onAccent } : undefined}
               >
                 <Lock className="h-4 w-4" />
                 {canLock
@@ -255,6 +338,8 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
                   : "Tap VC to pick a Vice-Captain (1.5x)"}
               </button>
             </div>
+            </>
+            )}
           </motion.div>
         </motion.div>
       )}
