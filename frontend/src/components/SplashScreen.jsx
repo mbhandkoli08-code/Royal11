@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
+import { Volume2, VolumeX } from "lucide-react";
 import logo from "@/assets/royal11-logo.png";
 
 const VIDEO_SRC = `${process.env.PUBLIC_URL}/royal11-intro.mp4`;
@@ -8,12 +9,24 @@ const MAX_DURATION_MS = 11000; // safety net if `onended` never fires
 export const SplashScreen = ({ onFinish }) => {
   const videoRef = useRef(null);
   const finishedRef = useRef(false);
+  const [muted, setMuted] = useState(true);
   const [failed, setFailed] = useState(false);
 
   const finish = () => {
     if (finishedRef.current) return;
     finishedRef.current = true;
     onFinish?.();
+  };
+
+  const toggleMute = () => {
+    const v = videoRef.current;
+    const next = !muted;
+    setMuted(next);
+    if (v) {
+      v.muted = next;
+      // Unmuting is a user gesture, so it's safe to (re)start playback with audio.
+      if (!next) v.play?.().catch(() => {});
+    }
   };
 
   useEffect(() => {
@@ -73,6 +86,20 @@ export const SplashScreen = ({ onFinish }) => {
           </p>
           <p className="mt-2 text-sm font-medium text-slate-400">Virtual Coins Platform</p>
         </div>
+      )}
+
+      {/* Sound toggle (only while the video is the active experience) */}
+      {!failed && (
+        <button
+          data-testid="splash-mute-btn"
+          aria-label={muted ? "Unmute" : "Mute"}
+          aria-pressed={!muted}
+          onClick={toggleMute}
+          className="absolute left-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white ring-1 ring-white/20 backdrop-blur-sm transition-colors hover:bg-white/25"
+          style={{ marginTop: "env(safe-area-inset-top)" }}
+        >
+          {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+        </button>
       )}
 
       {/* Skip */}
