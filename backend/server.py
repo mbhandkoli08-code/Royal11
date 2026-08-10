@@ -234,6 +234,94 @@ async def fantasy_coach(req: CoachRequest):
     return result
 
 
+# ---------------- AI Match Preview (Gemini 3 Flash) ----------------
+
+class MatchPreviewRequest(BaseModel):
+    sport: str
+    league: str
+    team_a: str
+    team_b: str
+    context: str = ""
+
+class MatchPreviewResponse(BaseModel):
+    preview: str
+    favorite: str
+    win_prob: int
+    prediction: str
+    source: str  # "ai" or "fallback"
+
+
+@api_router.post("/match/preview", response_model=MatchPreviewResponse)
+async def match_preview(req: MatchPreviewRequest):
+    system_message = (
+        "You are ROYAL11's witty, sharp sports analyst. You write a crisp, exciting "
+        "pre-match preview and a win prediction. Reply with STRICT JSON only — no markdown, no prose."
+    )
+    prompt = (
+        f"Write a short, punchy preview for this live {req.sport} match in the {req.league}: "
+        f"{req.team_a} vs {req.team_b}. Current situation: {req.context or 'match in progress'}.\n\n"
+        f'Respond with STRICT JSON exactly like:\n'
+        f'{{"preview": "1-2 energetic sentences", "favorite": "{req.team_a} or {req.team_b}", '
+        f'"win_prob": 55, "prediction": "a short one-line verdict / likely result"}}\n'
+        f"win_prob is an integer 0-100 = the favorite's chance to win."
+    )
+
+    data = None
+    try:
+        chat = LlmChat(
+            api_key=os.environ['EMERGENT_LLM_KEY'],
+            session_id=str(uuid.uuid4()),
+            system_message=system_message,
+        ).with_model("gemini", "gemini-3-flash-preview")
+        resp = await chat.send_message(UserMessage(text=prompt))
+        text = resp if isinstance(resp, str) else getattr(resp, "text", str(resp))
+        data = _extract_json(text)
+    except Exception as e:
+        logger.error(f"Match preview error: {e}")
+        data = None
+
+    fav = req.team_a
+    prob = 50
+    valid = False
+    if data:
+        fav = data.get("favorite") if data.get("favorite") in (req.team_a, req.team_b) else req.team_a
+        try:
+            prob = max(0, min(100, int(data.get("win_prob", 50))))
+        except (TypeError, ValueError):
+            prob = 50
+        if str(data.get("preview", "")).strip():
+            valid = True
+
+    if valid:
+        result = {
+            "preview": str(data["preview"]).strip(),
+            "favorite": fav,
+            "win_prob": prob,
+            "prediction": str(data.get("prediction", "")).strip() or "Too close to call — should be a thriller.",
+            "source": "ai",
+        }
+    else:
+        result = {
+            "preview": f"{req.team_a} take on {req.team_b} in a {req.league} clash that's poised on a knife's edge.",
+            "favorite": req.team_a,
+            "win_prob": 55,
+            "prediction": "Momentum matters — expect a close finish.",
+            "source": "fallback",
+        }
+
+    try:
+        await db.match_previews.insert_one({
+            "id": str(uuid.uuid4()),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "match": req.model_dump(),
+            "result": result,
+        })
+    except Exception as e:
+        logger.error(f"Failed to store match preview: {e}")
+
+    return result
+
+
 # Include the router in the main app
 api_router.include_router(auth_router)
 api_router.include_router(wallet_router)
