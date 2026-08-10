@@ -40,14 +40,19 @@ teams, play casual games, and manage virtual coins — no real-money gambling.
 - 2026-06: **Fantasy AI Coach** (Claude Sonnet 4.6) — "AI Coach" button auto-picks XI + C/VC +
   rationale; backend enforces budget. Verified 100% (backend pytest + frontend flow).
 
-- 2026-06: **Server-authoritative backend** — JWT auth (`/api/auth/*`), coin-ledger wallet with idempotency (`/api/wallet/me`), and SUPER_ADMIN→MANAGER→ADMIN→PLAYER hierarchy (`/api/admin/*`) under `backend/app/` + `seed.py`. Verified 100% (32/32 pytest). Note: seed emails use `@royal11.com` (email-validator rejects `.local`). Frontend not yet wired to this backend (still in-memory by design of this task).
+- 2026-06: **Server-authoritative backend** — JWT auth (`/api/auth/*`), coin-ledger wallet with idempotency (`/api/wallet/me`), and SUPER_ADMIN→MANAGER→ADMIN→PLAYER hierarchy (`/api/admin/*`) under `backend/app/` + `seed.py`. Verified 100% (32/32 pytest). Note: seed emails use `@royal11.com` (email-validator rejects `.local`).
+
+- 2026-07: **Frontend wired to real backend (Auth + Wallet)** — `AuthContext` (JWT Bearer, `localStorage['royal11_token']`, `/api/auth/me` on mount, login/register/logout, `formatApiErrorDetail`), `AuthPage` (Log In / Sign Up, matches Cherry-Red theme), `ProtectedShell`/`AuthRoute` in `App.js` (unauth → `/auth`), and `WalletContext` now reads real balance + history from `GET /api/wallet/me` (never locally mutated). Logout button on Home; greeting uses real `display_name`. Per product decision, coin-spending actions without a ledger endpoint yet (Earn Coins, Redeem/buy, Lucky Spin, Boost extend, Contest join/lock, Streak claim) are **disabled** and show a "Coming soon" toast — no fake balance changes. Verified 100% (9/9 e2e flows, iteration_8).
+- 2026-07: **AI Match Preview (Gemini 3 Flash)** — `MatchDetail` modal fetches `POST /api/match/preview` on open, rendering an AI preview + favorite/win-probability bar + prediction (with graceful fallback). Verified live.
 
 ## Backlog / Remaining
+- P1: Real ledger endpoints for game mechanics so the "Coming soon" actions go live:
+  Earn Coins (daily/achievement credit), Rewards Store purchases (debit + owned items),
+  Lucky Spin (entry debit + reward credit), Boosts, Fantasy Contest join/lock, Streak claim.
 - P1: My Contests screen (joined contests with live rank); Match Alerts (wicket/goal toasts).
 - P1: Streak Calendar (7-day + day-7 milestone); Spin Cooldown (free daily spin).
-- P2: Persist wallet/state to backend + user accounts/auth; boost timer on more surfaces;
-  extend AI Coach with per-match context.
+- P2: Boost timer on more surfaces; extend AI Coach with per-match context; refresh token flow.
 
 ## Notes
-- Frontend-only state by explicit user choice (except the AI endpoint which needs a backend).
-- All interactive elements carry data-testid.
+- Frontend now server-authoritative for Auth + Wallet (JWT Bearer in `localStorage['royal11_token']`).
+- Coin-spending UI actions are intentionally disabled ("Coming soon") until their ledger endpoints exist.

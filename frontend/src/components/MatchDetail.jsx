@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { X, Sparkles, TrendingUp, Loader2 } from "lucide-react";
 import axios from "axios";
@@ -31,7 +31,6 @@ export const MatchDetail = ({ open, onClose, match }) => {
   const [state, setState] = useState(null);
   const [preview, setPreview] = useState(null);
   const [previewLoading, setPreviewLoading] = useState(false);
-  const idRef = useRef(0);
 
   // AI-generated match preview (Gemini 3 Flash) — fetched once per match open.
   useEffect(() => {
@@ -86,8 +85,7 @@ export const MatchDetail = ({ open, onClose, match }) => {
           let text, kind = "normal";
           if (oc === "W") { if (wkts < 9) wkts += 1; text = "OUT! Big wicket falls"; kind = "wicket"; }
           else { const n = Number(oc); runs += n; text = n === 4 ? "FOUR! Races to the fence" : n === 6 ? "SIX! Into the crowd" : n === 0 ? "no run" : `${n} run${n > 1 ? "s" : ""}`; kind = n === 4 ? "four" : n === 6 ? "six" : "normal"; }
-          idRef.current += 1;
-          setFeed((f) => [{ id: idRef.current, label: `${ov}.${ball || 6}`, who: `${bowler} to ${batter}`, text, kind }, ...f].slice(0, 30));
+          setFeed((f) => [{ id: crypto.randomUUID(), label: `${ov}.${ball || 6}`, who: `${bowler} to ${batter}`, text, kind }, ...f].slice(0, 30));
           return { ...s, runs, wkts, ov, ball };
         } else {
           let { a, b, min } = s;
@@ -95,8 +93,7 @@ export const MatchDetail = ({ open, onClose, match }) => {
           const ev = FOOT_EVENTS[Math.floor(Math.random() * FOOT_EVENTS.length)];
           let text = ev.t, kind = ev.k;
           if (ev.k === "goal") { Math.random() < 0.5 ? (a += 1) : (b += 1); }
-          idRef.current += 1;
-          setFeed((f) => [{ id: idRef.current, label: `${min}'`, who: "", text, kind }, ...f].slice(0, 30));
+          setFeed((f) => [{ id: crypto.randomUUID(), label: `${min}'`, who: "", text, kind }, ...f].slice(0, 30));
           return { ...s, a, b, min };
         }
       });
@@ -164,7 +161,7 @@ export const MatchDetail = ({ open, onClose, match }) => {
                 </div>
               </div>
               <div className="relative mt-4 flex items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-xs font-medium">
-                {isCric ? <span className="text-amber-300">Current Run Rate: {crr}</span> : <span className="text-amber-300">{state.min}' · Second half</span>}
+                {isCric ? <span className="text-amber-300">Current Run Rate: {crr}</span> : <span className="text-amber-300">{`${state.min}' · Second half`}</span>}
               </div>
             </div>
 
