@@ -1,9 +1,10 @@
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles, Smile, Ghost, Crown, Award, Trophy, Zap } from "lucide-react";
+import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles, Smile, Ghost, Crown, Award, Trophy, Zap, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
+import { useAuth } from "@/context/AuthContext";
 import { Reveal, MaskedLines } from "@/components/Reveal";
 import { Logo } from "@/components/Logo";
 import { TeamBuilder } from "@/components/TeamBuilder";
@@ -80,6 +81,7 @@ const LiveCard = ({ m, onOpen }) => (
 export default function HomePage() {
   const navigate = useNavigate();
   const { balance, todayEarned, streakClaimed, claimStreak, earnCoins, ownedItems, equippedAvatarId, boostUntil, extendBoost } = useWallet();
+  const { user, logout } = useAuth();
   const promoRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: promoRef, offset: ["start end", "end start"] });
   const promoY = useTransform(scrollYProgress, [0, 1], ["-12%", "12%"]);
@@ -134,18 +136,13 @@ export default function HomePage() {
   }, []);
 
   const handleEarn = () => {
-    const amt = earnCoins();
-    toast.success(`+${amt} coins earned!`, { description: amt > 100 ? "2x boost applied! ⚡" : "Added to your wallet." });
+    earnCoins();
   };
   const handleExtend = () => {
-    const r = extendBoost(60, 100);
-    if (r === "insufficient") toast.error("Not enough coins to extend");
-    else if (r === "success") toast.success("2x boost extended +60s ⚡");
+    extendBoost(60, 100);
   };
   const handleClaim = () => {
-    if (streakClaimed) return;
     claimStreak();
-    toast.success("Streak claimed · +50 coins", { description: "Come back tomorrow for Day 6!" });
   };
 
   return (
@@ -162,6 +159,16 @@ export default function HomePage() {
             >
               <Bell className="h-5 w-5" />
               <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-flame ring-2 ring-white" />
+            </button>
+            <button
+              data-testid="logout-btn"
+              onClick={() => {
+                logout();
+                toast("Logged out", { description: "See you again soon!" });
+              }}
+              className="relative grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition-transform hover:-translate-y-0.5 hover:text-royal"
+            >
+              <LogOut className="h-5 w-5" />
             </button>
             <button data-testid="profile-avatar" className="h-11 w-11 overflow-hidden rounded-2xl ring-2 ring-white shadow-soft">
               {equippedAvatar ? (
@@ -182,7 +189,7 @@ export default function HomePage() {
             lines={[
               <span className="text-sm font-medium text-slate-500">Good evening,</span>,
               <span className="font-display text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
-                {USER.name} 👋
+                {user?.display_name || USER.name} 👋
               </span>,
             ]}
           />

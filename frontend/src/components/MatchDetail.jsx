@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { X } from "lucide-react";
+import { X, Sparkles, TrendingUp, Loader2 } from "lucide-react";
+import axios from "axios";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const BOWLERS = ["Bumrah", "Boult", "Chahar", "Santner"];
 const BATTERS = ["Rohit", "Suryakumar", "Tilak", "Ishan"];
@@ -26,7 +29,35 @@ const kindStyle = {
 export const MatchDetail = ({ open, onClose, match }) => {
   const [feed, setFeed] = useState([]);
   const [state, setState] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const idRef = useRef(0);
+
+  // AI-generated match preview (Gemini 3 Flash) — fetched once per match open.
+  useEffect(() => {
+    if (!open || !match) return;
+    let active = true;
+    setPreview(null);
+    setPreviewLoading(true);
+    axios
+      .post(`${API}/match/preview`, {
+        sport: match.sport,
+        league: match.league,
+        team_a: match.teamA.name,
+        team_b: match.teamB.name,
+        context: match.note || "match in progress",
+      })
+      .then(({ data }) => {
+        if (active) setPreview(data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (active) setPreviewLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open, match]);
 
   useEffect(() => {
     if (!open || !match) return;
@@ -134,6 +165,49 @@ export const MatchDetail = ({ open, onClose, match }) => {
               </div>
               <div className="relative mt-4 flex items-center gap-2 rounded-2xl bg-white/10 px-3 py-2 text-xs font-medium">
                 {isCric ? <span className="text-amber-300">Current Run Rate: {crr}</span> : <span className="text-amber-300">{state.min}' · Second half</span>}
+              </div>
+            </div>
+
+            {/* AI Match Preview (Gemini) */}
+            <div className="border-b border-slate-100 px-5 py-4" data-testid="ai-preview-section">
+              <div className="rounded-2xl bg-gradient-to-br from-royal to-royal-dark p-4 text-white shadow-soft">
+                <div className="flex items-center gap-2">
+                  <span className="grid h-7 w-7 place-items-center rounded-lg bg-white/15">
+                    <Sparkles className="h-4 w-4 text-amber-300" />
+                  </span>
+                  <h3 className="font-display text-sm font-extrabold tracking-tight">AI Match Preview</h3>
+                  <span className="ml-auto rounded-full bg-white/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-rose-100">
+                    {preview?.source === "ai" ? "Gemini" : previewLoading ? "…" : "AI"}
+                  </span>
+                </div>
+
+                {previewLoading && (
+                  <div className="mt-3 flex items-center gap-2 text-xs font-medium text-rose-100" data-testid="ai-preview-loading">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Analysing the matchup…
+                  </div>
+                )}
+
+                {!previewLoading && preview && (
+                  <div data-testid="ai-preview-content">
+                    <p className="mt-2.5 text-sm leading-relaxed text-rose-50" data-testid="ai-preview-text">
+                      {preview.preview}
+                    </p>
+                    <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2">
+                      <TrendingUp className="h-4 w-4 shrink-0 text-amber-300" />
+                      <span className="text-xs font-semibold text-white" data-testid="ai-preview-prediction">
+                        {preview.favorite} favoured · {preview.win_prob}% · {preview.prediction}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/15">
+                      <motion.div
+                        className="h-full rounded-full bg-amber-300"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${preview.win_prob}%` }}
+                        transition={{ duration: 0.8, ease: "easeOut" }}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 

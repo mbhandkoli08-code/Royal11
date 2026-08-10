@@ -22,10 +22,8 @@ export const RewardsStore = ({ open, onClose }) => {
   const items = STORE_ITEMS.filter((i) => i.type === cat);
 
   const buy = (item) => {
-    const r = buyItem(item);
-    if (r === "owned") return toast("You already own this");
-    if (r === "insufficient") return toast.error("Not enough coins", { description: `You need ${fmt(item.price - balance)} more.` });
-    toast.success(`Redeemed ${item.name}!`, { description: `−${fmt(item.price)} coins` });
+    // Disabled until a real ledger endpoint exists — surfaces a "Coming soon" notice.
+    buyItem(item);
   };
 
   const equip = (item) => {

@@ -1,12 +1,14 @@
 import { useEffect } from "react";
 import Lenis from "lenis";
-import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
-import { Construction } from "lucide-react";
+import { Construction, Loader2 } from "lucide-react";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { WalletProvider } from "@/context/WalletContext";
 import { BottomNav } from "@/components/BottomNav";
 import HomePage from "@/pages/HomePage";
 import WalletPage from "@/pages/WalletPage";
+import AuthPage from "@/pages/AuthPage";
 import "@/App.css";
 
 const Placeholder = ({ title }) => (
@@ -24,6 +26,46 @@ const ScrollTop = () => {
   useEffect(() => window.scrollTo(0, 0), [pathname]);
   return null;
 };
+
+const FullScreenLoader = () => (
+  <div className="flex min-h-screen items-center justify-center bg-background" data-testid="auth-loading">
+    <Loader2 className="h-8 w-8 animate-spin text-royal" />
+  </div>
+);
+
+const ProtectedShell = () => {
+  const { loading, isAuthenticated } = useAuth();
+  if (loading) return <FullScreenLoader />;
+  if (!isAuthenticated) return <Navigate to="/auth" replace />;
+  return (
+    <WalletProvider>
+      <ScrollTop />
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/wallet" element={<WalletPage />} />
+        <Route path="/sports" element={<Placeholder title="Sports" />} />
+        <Route path="/fantasy" element={<Placeholder title="Fantasy" />} />
+        <Route path="/games" element={<Placeholder title="Games" />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+      <BottomNav />
+    </WalletProvider>
+  );
+};
+
+const AuthRoute = () => {
+  const { loading, isAuthenticated } = useAuth();
+  if (loading) return <FullScreenLoader />;
+  if (isAuthenticated) return <Navigate to="/" replace />;
+  return <AuthPage />;
+};
+
+const AppRoutes = () => (
+  <Routes>
+    <Route path="/auth" element={<AuthRoute />} />
+    <Route path="/*" element={<ProtectedShell />} />
+  </Routes>
+);
 
 function App() {
   useEffect(() => {
@@ -43,18 +85,10 @@ function App() {
   return (
     <div className="relative min-h-screen bg-background">
       <BrowserRouter>
-        <WalletProvider>
-          <ScrollTop />
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/wallet" element={<WalletPage />} />
-            <Route path="/sports" element={<Placeholder title="Sports" />} />
-            <Route path="/fantasy" element={<Placeholder title="Fantasy" />} />
-            <Route path="/games" element={<Placeholder title="Games" />} />
-          </Routes>
-          <BottomNav />
+        <AuthProvider>
+          <AppRoutes />
           <Toaster position="top-center" richColors />
-        </WalletProvider>
+        </AuthProvider>
       </BrowserRouter>
     </div>
   );

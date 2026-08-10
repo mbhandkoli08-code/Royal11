@@ -84,31 +84,9 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
 
   const lock = () => {
     if (!canLock) return;
-    const ok = joinContest(CONTEST.entryFee);
-    if (!ok) {
-      toast.error("Not enough coins to join this contest");
-      return;
-    }
-    const base = picked.reduce((s, id) => s + (PLAYERS.find((p) => p.id === id)?.points || 0), 0);
-    const capPts = PLAYERS.find((p) => p.id === captain)?.points || 0;
-    const vicePts = PLAYERS.find((p) => p.id === vice)?.points || 0;
-    const total = Math.round(base + capPts * 1 + vicePts * 0.5);
-    const roster = picked.map((id) => {
-      const p = PLAYERS.find((x) => x.id === id);
-      return { id, name: p.name, team: p.team, role: p.role, points: p.points, tag: id === captain ? "C" : id === vice ? "VC" : null };
-    });
-    toast.success("Lineup locked! 🏏", { description: `${CONTEST.name} · −${CONTEST.entryFee} coins` });
-    onLock?.({
-      points: total,
-      captainName: PLAYERS.find((p) => p.id === captain)?.name,
-      viceName: PLAYERS.find((p) => p.id === vice)?.name,
-      roster,
-    });
-    setPicked([]);
-    setCaptain(null);
-    setVice(null);
-    setCoachTip(null);
-    onClose();
+    // Joining a contest debits coins; disabled until a real ledger endpoint
+    // exists. joinContest() surfaces a "Coming soon" notice.
+    joinContest(CONTEST.entryFee);
   };
 
   return (

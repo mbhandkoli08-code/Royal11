@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend + integration e2e verified against real backend. All 9 requested flows passed: unauth redirect, wrong-password error rendering, player1 login (Rahul Sharma, balance 1,000), signup with fresh unique email (1,000 welcome bonus), Wallet page real balance + 'Welcome Bonus' transaction, logout clearing session, session persistence after reload, Match Detail modal fetching /api/match/preview (Gemini) with ai-preview-content populated, and all 'Coming soon' disabled actions (Earn Coins, Redeem/buy-item, Team Builder lock) show toast without mutating balance. Lucky Spin trigger was not directly reachable via a Spin store item (no store item currently opens the RewardWheel), but the underlying spin() code path uses the same disabled comingSoon() as the others, so no risk of fake balance mutation.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "MatchDetail commentary-feed", "issue": "React duplicate key warnings 'Encountered two children with the same key cric-2/cric-4' — key is `${match.id}-${f.id}` but idRef re-uses low numbers when the effect remounts. Cosmetic; no visible bug.", "selector": "[data-testid=\"commentary-feed\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_royal11_auth_wallet_admin.py",
+    "/app/backend/tests/test_fantasy_coach.py"
+  ],
+  "action_items": [
+    "(Optional) Fix duplicate React key in MatchDetail commentary feed by including a monotonically-increasing key across match opens (e.g., use crypto.randomUUID or include a mount-scoped nonce).",
+    "(Optional) There is no Store item that currently routes to the Lucky Spin RewardWheel from the RewardsStore UI, so spin-btn is not reachable from the wallet flow. If Lucky Spin is meant to be user-visible now, wire an entry point; if not, it is already safely disabled."
+  ],
+  "critical_code_review_comments": [
+    "AuthContext.formatApiErrorDetail correctly flattens FastAPI 422 detail arrays into a string — verified with wrong-password producing 'Incorrect email or password' inline (no React child-object crash).",
+    "WalletContext.refresh silently swallows errors; acceptable since AuthContext bootstrap handles invalid tokens, but consider logging a dev-only warning.",
+    "All 'coming soon' actions (earnCoins/joinContest/buyItem/spend/extendBoost/claimStreak) go through comingSoon() and never mutate balance state — confirmed empirically: balance stayed at 1,000 across every disabled interaction."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (not retested this iteration)", "frontend": "100% (9/9 flows)"},
+  "test_credentials": "player1@royal11.com / ChangeMe123! (seeded). Signup used testuser+<ts>@royal11.com / TestPass123!",
+  "seed_data_creation": "None — used existing seeded player1 and generated one fresh signup per run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Frontend is fully wired to backend for Auth, Wallet, and Match Preview. Balance is fetched from GET /api/wallet/me on login and never locally mutated by disabled actions. Bearer token stored in localStorage['royal11_token']; validated on mount via GET /api/auth/me. AI Match Preview is Gemini-backed via POST /api/match/preview. Lucky Spin exists as a component but has no UI entry point currently; safe to ignore unless product wants it exposed.",
+  "rca of the issue": "n/a — no functional issues found."
+}

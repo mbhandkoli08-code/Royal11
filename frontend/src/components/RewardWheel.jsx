@@ -18,28 +18,8 @@ export const RewardWheel = ({ open, onClose }) => {
 
   const spin = () => {
     if (spinning) return;
-    const ok = spend(SPIN_COST, "Lucky Spin", "Reward wheel", "Sparkles");
-    if (!ok) {
-      toast.error("Not enough coins to spin", { description: `You need ${SPIN_COST - balance} more.` });
-      return;
-    }
-    setSpinning(true);
-    setResult(null);
-    const idx = Math.floor(Math.random() * PRIZES.length);
-    const prize = PRIZES[idx];
-    // land the winning segment center under the top pointer
-    const target = 360 * 6 + (360 - (idx * SEG + SEG / 2));
-    setRotation((r) => r - (r % 360) + target);
-    setTimeout(() => {
-      setSpinning(false);
-      const won = prize > 0 ? credit(prize, "Lucky Spin Win", "Reward wheel", "Sparkles") : 0;
-      setResult({ prize, won });
-      if (prize > 0) {
-        toast.success(won > prize ? `${prize} × 2 boost = ${won} coins! 🎉` : `You won ${won} coins! 🎉`);
-      } else {
-        toast("No luck this time — spin again!");
-      }
-    }, 4200);
+    // Disabled until a real ledger endpoint exists — surfaces a "Coming soon" notice.
+    spend(SPIN_COST, "Lucky Spin", "Reward wheel", "Sparkles");
   };
 
   return (
