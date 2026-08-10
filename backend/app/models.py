@@ -146,3 +146,43 @@ class AssignPlayerRequest(BaseModel):
 
 class ReverseTransactionRequest(BaseModel):
     reason: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# API keys (Super Admin)
+# ---------------------------------------------------------------------------
+class ApiKeyCreate(BaseModel):
+    key: str = Field(min_length=8)
+    provider: Optional[str] = None  # auto-detected if omitted
+
+
+class ApiKeyTestRequest(BaseModel):
+    """Ad-hoc test of a raw key before it's saved."""
+    key: str = Field(min_length=8)
+    provider: Optional[str] = None
+
+
+class BalanceInfo(BaseModel):
+    amount: float
+    currency: str
+    checked_at: str
+
+
+class ApiKeyOut(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    provider: str
+    key_last4: str
+    added_by: Optional[str] = None
+    created_at: str
+    last_tested_at: Optional[str] = None
+    last_test_status: str = "untested"
+    last_test_message: Optional[str] = None
+    balance_info: Optional[BalanceInfo] = None
+
+
+class ApiKeyTestResult(BaseModel):
+    provider: str
+    status: str
+    message: str
+    balance_info: Optional[BalanceInfo] = None

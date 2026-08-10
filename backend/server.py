@@ -17,6 +17,7 @@ from app.wallet_service import ensure_indexes
 from app.routers.auth import router as auth_router
 from app.routers.wallet import router as wallet_router
 from app.routers.admin import router as admin_router
+from app.routers.api_keys import router as api_keys_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -326,6 +327,7 @@ async def match_preview(req: MatchPreviewRequest):
 api_router.include_router(auth_router)
 api_router.include_router(wallet_router)
 api_router.include_router(admin_router)
+api_router.include_router(api_keys_router)
 app.include_router(api_router)
 
 app.add_middleware(

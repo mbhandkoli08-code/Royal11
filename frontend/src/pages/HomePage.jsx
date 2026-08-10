@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles, Smile, Ghost, Crown, Award, Trophy, Zap, LogOut } from "lucide-react";
+import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles, Smile, Ghost, Crown, Award, Trophy, Zap, LogOut, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
 import { useAuth } from "@/context/AuthContext";
@@ -152,6 +152,16 @@ export default function HomePage() {
         <div className="flex items-center justify-between">
           <Logo />
           <div className="flex items-center gap-3">
+            {user?.role === "SUPER_ADMIN" && (
+              <button
+                data-testid="admin-nav-btn"
+                onClick={() => navigate("/admin")}
+                title="Super Admin dashboard"
+                className="relative grid h-11 w-11 place-items-center rounded-2xl bg-royal-light text-royal shadow-soft transition-transform hover:-translate-y-0.5"
+              >
+                <ShieldCheck className="h-5 w-5" />
+              </button>
+            )}
             <button
               data-testid="notification-btn"
               onClick={() => toast("No new notifications")}

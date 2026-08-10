@@ -11,6 +11,7 @@ import { SplashScreen } from "@/components/SplashScreen";
 import HomePage from "@/pages/HomePage";
 import WalletPage from "@/pages/WalletPage";
 import AuthPage from "@/pages/AuthPage";
+import AdminPage from "@/pages/AdminPage";
 import "@/App.css";
 
 const Placeholder = ({ title }) => (
@@ -62,9 +63,18 @@ const AuthRoute = () => {
   return <AuthPage />;
 };
 
+const AdminRoute = () => {
+  const { loading, isAuthenticated, user } = useAuth();
+  if (loading) return <FullScreenLoader />;
+  if (!isAuthenticated) return <Navigate to="/auth" replace />;
+  if (user?.role !== "SUPER_ADMIN") return <Navigate to="/" replace />;
+  return <AdminPage />;
+};
+
 const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<AuthRoute />} />
+    <Route path="/admin" element={<AdminRoute />} />
     <Route path="/*" element={<ProtectedShell />} />
   </Routes>
 );
