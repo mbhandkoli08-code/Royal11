@@ -50,11 +50,6 @@ html.lenis, html.lenis body { height: auto; }
     .font-display { font-family: 'Outfit', sans-serif; }
     .no-scrollbar::-webkit-scrollbar { display: none; }
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    @keyframes r11-twinkle {
-        0%, 100% { opacity: 0.15; transform: scale(0.7); }
-        50% { opacity: 1; transform: scale(1.15); }
-    }
-    .r11-twinkle { animation: r11-twinkle var(--twk-dur, 2.4s) ease-in-out infinite; }
     .grain {
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
     }
