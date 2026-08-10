@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles, Smile, Ghost, Crown, Award, Trophy, Zap, LogOut, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
+import axios from "axios";
 import { useWallet } from "@/context/WalletContext";
 import { useAuth } from "@/context/AuthContext";
 import { Reveal, MaskedLines } from "@/components/Reveal";
@@ -10,7 +11,11 @@ import { Logo } from "@/components/Logo";
 import { TeamBuilder } from "@/components/TeamBuilder";
 import { Leaderboard } from "@/components/Leaderboard";
 import { MatchDetail } from "@/components/MatchDetail";
-import { USER, QUICK_ACTIONS, LIVE_MATCHES, GAMES, FANTASY_PROMO_BG, STORE_ITEMS } from "@/lib/data";
+import { USER, QUICK_ACTIONS, GAMES, FANTASY_PROMO_BG, STORE_ITEMS } from "@/lib/data";
+
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const CRICKET_BG =
+  "https://images.unsplash.com/photo-1771909713995-d793a0c93660?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxNzV8MHwxfHNlYXJjaHwzfHxjcmlja2V0JTIwc3RhZGl1bSUyMHN1bnNldHxlbnwwfHx8fDE3ODYyOTk0MTZ8MA&ixlib=rb-4.1.0&q=85";
 
 const ICON_MAP = { Smile, Ghost, Crown, Award, Flame, Trophy };
 
@@ -40,7 +45,7 @@ const LiveCard = ({ m, onOpen }) => (
   >
     <div
       className="h-32 bg-cover bg-center opacity-70 transition-transform duration-700 group-hover:scale-110"
-      style={{ backgroundImage: `url(${m.image})` }}
+      style={{ backgroundImage: `url(${m.image || CRICKET_BG})` }}
     />
     <div className="absolute inset-x-0 top-0 flex items-center justify-between p-4">
       <span className="rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur">
@@ -86,7 +91,8 @@ export default function HomePage() {
   const { scrollYProgress } = useScroll({ target: promoRef, offset: ["start end", "end start"] });
   const promoY = useTransform(scrollYProgress, [0, 1], ["-12%", "12%"]);
 
-  const [matches, setMatches] = useState(LIVE_MATCHES);
+  const [matches, setMatches] = useState([]);
+  const [liveStatus, setLiveStatus] = useState("loading"); // loading | ok | unavailable
   const [builderOpen, setBuilderOpen] = useState(false);
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [lockedTeam, setLockedTeam] = useState(null);
@@ -104,35 +110,29 @@ export default function HomePage() {
     return () => clearInterval(iv);
   }, [boostUntil]);
 
+  // Live cricket scores from our backend (Sportmonks server-side + cached).
   useEffect(() => {
-    const chaseTarget = 219;
-    const iv = setInterval(() => {
-      setMatches((prev) =>
-        prev.map((m) => {
-          if (m.id === "cric") {
-            let [runs, wkts] = m.teamA.score.split("/").map(Number);
-            let [ov, ball] = m.teamA.ov.split(".").map(Number);
-            ball += 1;
-            if (ball > 5) { ball = 0; ov += 1; }
-            const delta = [0, 1, 1, 0, 2, 4, 6, 1][Math.floor(Math.random() * 8)];
-            runs += delta;
-            if (Math.random() < 0.05 && wkts < 9) wkts += 1;
-            const need = Math.max(chaseTarget - runs, 0);
-            const ballsLeft = Math.max((20 - ov) * 6 - ball, 0);
-            const note = need === 0 ? "MI won by 6 wickets 🎉" : ballsLeft === 0 ? "Innings over" : `MI need ${need} off ${ballsLeft}`;
-            return { ...m, teamA: { ...m.teamA, score: `${runs}/${wkts}`, ov: `${ov}.${ball}` }, note };
-          }
-          if (m.id === "foot" && Math.random() < 0.12) {
-            const a = Number(m.teamA.score), b = Number(m.teamB.score);
-            return Math.random() < 0.5
-              ? { ...m, teamA: { ...m.teamA, score: String(a + 1) }, note: "GOAL! " + m.note }
-              : { ...m, teamB: { ...m.teamB, score: String(b + 1) }, note: "GOAL! " + m.note };
-          }
-          return m;
-        })
-      );
-    }, 2600);
-    return () => clearInterval(iv);
+    let active = true;
+    const fetchLive = async () => {
+      try {
+        const { data } = await axios.get(`${API}/cricket/live`);
+        if (!active) return;
+        if (data.status === "ok") {
+          setMatches(data.matches || []);
+          setLiveStatus("ok");
+        } else {
+          setLiveStatus("unavailable");
+        }
+      } catch {
+        if (active) setLiveStatus("unavailable");
+      }
+    };
+    fetchLive();
+    const iv = setInterval(fetchLive, 45000); // aligns with backend cache TTL
+    return () => {
+      active = false;
+      clearInterval(iv);
+    };
   }, []);
 
   const handleEarn = () => {
@@ -197,8 +197,8 @@ export default function HomePage() {
         <div className="mt-6">
           <MaskedLines
             lines={[
-              <span className="text-sm font-medium text-slate-500">Good evening,</span>,
-              <span className="font-display text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
+              <span key="greet" className="text-sm font-medium text-slate-500">Good evening,</span>,
+              <span key="name" className="font-display text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl">
                 {user?.display_name || USER.name} 👋
               </span>,
             ]}
@@ -307,12 +307,39 @@ export default function HomePage() {
 
       {/* Live Now */}
       <section className="mt-12">
-        <SectionHead title="Live Now" action="See all" testid="live-see-all" />
-        <div className="no-scrollbar -mx-5 flex snap-x gap-4 overflow-x-auto px-5 pb-2 sm:mx-0 sm:px-0">
-          {matches.map((m) => (
-            <LiveCard key={m.id} m={m} onOpen={setDetailMatch} />
-          ))}
-        </div>
+        <SectionHead title="Live Cricket" action="See all" testid="live-see-all" />
+        {liveStatus === "loading" ? (
+          <div data-testid="live-loading" className="flex items-center gap-3 rounded-3xl bg-white p-6 text-sm font-medium text-slate-400 shadow-soft">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-200 border-t-royal" />
+            Loading live scores…
+          </div>
+        ) : liveStatus === "unavailable" ? (
+          <div data-testid="live-unavailable" className="flex items-center gap-3 rounded-3xl bg-white p-6 shadow-soft">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-amber-50 text-amber-500">
+              <Radio className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-bold text-slate-800">Live scores temporarily unavailable</p>
+              <p className="text-xs text-slate-500">{`We'll reconnect automatically — check back in a moment.`}</p>
+            </div>
+          </div>
+        ) : matches.length === 0 ? (
+          <div data-testid="live-empty" className="flex items-center gap-3 rounded-3xl bg-white p-6 shadow-soft">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-royal-light text-royal">
+              <Radio className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm font-bold text-slate-800">No live matches right now</p>
+              <p className="text-xs text-slate-500">Live cricket scores will appear here as soon as a match is underway.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="no-scrollbar -mx-5 flex snap-x gap-4 overflow-x-auto px-5 pb-2 sm:mx-0 sm:px-0" data-testid="live-list">
+            {matches.map((m) => (
+              <LiveCard key={m.id} m={m} onOpen={setDetailMatch} />
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Fantasy promo */}
