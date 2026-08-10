@@ -1,19 +1,20 @@
-import { Crown } from "lucide-react";
 import { motion } from "framer-motion";
+import logoSm from "@/assets/royal11-logo-sm.png";
 
 export const Logo = ({ compact = false }) => (
   <motion.div
     initial={{ opacity: 0, y: -8 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-    className="flex items-center gap-2.5 select-none"
+    className="flex items-center gap-3 select-none"
     data-testid="brand-logo"
   >
-    {/* Emblem */}
-    <div className="relative grid h-10 w-10 place-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-flame via-royal to-royal-dark shadow-[0_6px_18px_rgba(200,16,46,0.35)]">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-white/25" />
-      <div className="pointer-events-none absolute -right-2 -top-2 h-6 w-6 rounded-full bg-white/30 blur-md" />
-      <Crown className="relative h-5 w-5 text-white drop-shadow" strokeWidth={2.4} />
+    {/* Crest + thin gold accent bar */}
+    <div className="flex items-center gap-2.5">
+      <div className="relative h-11 w-11 overflow-hidden rounded-2xl ring-1 ring-amber-300/40 shadow-[0_6px_18px_rgba(200,16,46,0.35)]">
+        <img src={logoSm} alt="ROYAL11" className="h-full w-full object-cover" draggable={false} />
+      </div>
+      <span className="h-9 w-[3px] rounded-full bg-gradient-to-b from-amber-300 via-amber-400 to-amber-600" />
     </div>
     {!compact && (
       <div className="leading-none">

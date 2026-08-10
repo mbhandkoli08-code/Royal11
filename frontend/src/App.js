@@ -1,11 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Lenis from "lenis";
 import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import { Toaster } from "sonner";
 import { Construction, Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { WalletProvider } from "@/context/WalletContext";
 import { BottomNav } from "@/components/BottomNav";
+import { SplashScreen } from "@/components/SplashScreen";
 import HomePage from "@/pages/HomePage";
 import WalletPage from "@/pages/WalletPage";
 import AuthPage from "@/pages/AuthPage";
@@ -68,6 +70,8 @@ const AppRoutes = () => (
 );
 
 function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
   useEffect(() => {
     const lenis = new Lenis({ duration: 1.1, smoothWheel: true });
     let id;
@@ -90,6 +94,9 @@ function App() {
           <Toaster position="top-center" richColors />
         </AuthProvider>
       </BrowserRouter>
+      <AnimatePresence>
+        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+      </AnimatePresence>
     </div>
   );
 }
