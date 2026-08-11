@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Landmark, Copy, Loader2, Plus, Coins, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { X, Landmark, Copy, Loader2, Plus, Coins, Clock, CheckCircle2, XCircle, ImagePlus, Paperclip } from "lucide-react";
 import axios from "axios";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -39,6 +39,24 @@ export const AddCoins = ({ open, onClose, onSubmitted }) => {
   const [amount, setAmount] = useState("");
   const [ref, setRef] = useState("");
   const [busy, setBusy] = useState(false);
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const fileRef = useRef(null);
+
+  const pickFile = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) return toast.error("Please choose an image file");
+    if (f.size > 8 * 1024 * 1024) return toast.error("Image must be under 8 MB");
+    setFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  const clearFile = () => {
+    if (preview) URL.revokeObjectURL(preview);
+    setFile(null); setPreview(null);
+    if (fileRef.current) fileRef.current.value = "";
+  };
 
   const load = useCallback(async () => {
     try {
@@ -63,9 +81,15 @@ export const AddCoins = ({ open, onClose, onSubmitted }) => {
     if (!ref.trim()) return toast.error("Enter your payment reference / UTR");
     setBusy(true);
     try {
-      await axios.post(`${API}/wallet/deposit-request`, { amount_inr: amt, reference_note: ref.trim() }, authHeader);
+      const form = new FormData();
+      form.append("amount_inr", String(Math.round(amt)));
+      form.append("reference_note", ref.trim());
+      if (file) form.append("screenshot", file);
+      await axios.post(`${API}/wallet/deposit-request`, form, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       toast.success("Top-up request sent", { description: "Your agent will confirm it shortly." });
-      setAmount(""); setRef("");
+      setAmount(""); setRef(""); clearFile();
       await load();
       onSubmitted?.();
     } catch (e) {
@@ -136,6 +160,30 @@ export const AddCoins = ({ open, onClose, onSubmitted }) => {
                         value={ref} onChange={(e) => setRef(e.target.value)}
                         className="w-full rounded-2xl border-2 border-slate-100 bg-white px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-royal/40"
                       />
+
+                      {/* Optional payment screenshot */}
+                      <input ref={fileRef} data-testid="deposit-screenshot-input" type="file" accept="image/*" onChange={pickFile} className="hidden" />
+                      {preview ? (
+                        <div data-testid="deposit-screenshot-preview" className="relative overflow-hidden rounded-2xl border-2 border-slate-100">
+                          <img src={preview} alt="Payment screenshot preview" className="max-h-52 w-full object-contain bg-slate-50" />
+                          <button
+                            data-testid="deposit-screenshot-remove" onClick={clearFile}
+                            className="absolute right-2 top-2 grid h-8 w-8 place-items-center rounded-full bg-slate-900/60 text-white backdrop-blur transition-colors hover:bg-slate-900/80"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                          <span className="absolute bottom-2 left-2 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-700">
+                            <Paperclip className="h-3 w-3" /> Screenshot attached
+                          </span>
+                        </div>
+                      ) : (
+                        <button
+                          type="button" data-testid="deposit-screenshot-add" onClick={() => fileRef.current?.click()}
+                          className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-500 transition-colors hover:border-royal/40 hover:text-royal"
+                        >
+                          <ImagePlus className="h-4 w-4" /> Attach payment screenshot (optional)
+                        </button>
+                      )}
                       {amount > 0 && (
                         <p className="text-xs font-semibold text-slate-500">You'll receive <span className="text-royal">{fmt(Number(amount) * (info.ratio || 1))} coins</span> after confirmation.</p>
                       )}

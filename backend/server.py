@@ -15,7 +15,7 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 from app.db import client, db
 from app.wallet_service import ensure_indexes
 from app.deposit_service import ensure_deposit_indexes
-from app import revenue_service
+from app import revenue_service, storage_service
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date, timedelta
 from app.routers.auth import router as auth_router
@@ -370,6 +370,11 @@ async def _daily_maintenance():
 async def ensure_db_indexes():
     await ensure_indexes()
     await ensure_deposit_indexes()
+    try:
+        await storage_service.init_storage()
+        logger.info("Object storage initialized")
+    except Exception as e:
+        logger.error(f"Storage init failed (screenshots will retry lazily): {type(e).__name__}")
     # Runs every day at 00:10 UTC; lazy on-read generation covers the rest.
     scheduler.add_job(_daily_maintenance, "cron", hour=0, minute=10, id="daily_maintenance", replace_existing=True)
     scheduler.start()

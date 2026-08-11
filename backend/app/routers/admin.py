@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
-from .. import assignment_service, deposit_service, recharge_service, revenue_service, wallet_service
+from .. import assignment_service, deposit_service, recharge_service, revenue_service, storage_service, wallet_service
 from ..audit import log_action
 from ..constants import ADMIN_RECHARGE_BONUS_RATE, DEFAULT_SUPER_ADMIN_PCT
 from ..db import db
@@ -542,6 +542,23 @@ async def list_deposits(caller: dict = Depends(get_current_user), limit: int = 1
     """Deposit requests scoped to the caller: Admin sees their own players',
     Manager sees their whole chain's, Super Admin sees everything."""
     return await deposit_service.list_deposits(caller, limit=min(max(limit, 1), 200))
+
+
+@router.get("/deposits/{deposit_id}/screenshot",
+            dependencies=[Depends(require_roles(Role.SUPER_ADMIN, Role.MANAGER, Role.ADMIN))])
+async def deposit_screenshot(deposit_id: str, caller: dict = Depends(get_current_user)):
+    """Streams the player's payment screenshot for a deposit within the caller's
+    scope. Served through the backend (no direct storage URLs to the frontend)."""
+    dep = await deposit_service.get_deposit_scoped(caller, deposit_id)
+    if not dep:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Deposit not found")
+    if not dep.get("screenshot_path"):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No screenshot for this deposit")
+    try:
+        data, content_type = await storage_service.get_object(dep["screenshot_path"])
+    except Exception:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Screenshot unavailable")
+    return Response(content=data, media_type=content_type)
 
 
 @router.post("/deposits/{deposit_id}/confirm",

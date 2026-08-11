@@ -1,9 +1,86 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, X, Loader2, Clock, MessageSquare } from "lucide-react";
+import { Check, X, Loader2, Clock, MessageSquare, AlertTriangle, ShieldCheck, ShieldAlert, ScanLine, ImageOff, ZoomIn } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useConsoleApi, fmtCoins, fmtDate, shortId } from "./api";
 import { CARD, PanelHeader, PrimaryButton, GhostButton, StatusBadge, Modal, Field, Spinner, EmptyState } from "./primitives";
+
+// Loads a deposit's payment screenshot through the backend (auth header can't
+// be sent via <img src>), shows a thumbnail, and opens a full-size viewer.
+const DepositScreenshot = ({ depositId }) => {
+  const api = useConsoleApi();
+  const [url, setUrl] = useState(null);
+  const [state, setState] = useState("loading"); // loading | ok | error
+  const [zoom, setZoom] = useState(false);
+
+  useEffect(() => {
+    let objectUrl;
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await api.get(`/admin/deposits/${depositId}/screenshot`, { responseType: "blob" });
+        objectUrl = URL.createObjectURL(data);
+        if (alive) { setUrl(objectUrl); setState("ok"); }
+      } catch {
+        if (alive) setState("error");
+      }
+    })();
+    return () => { alive = false; if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [api, depositId]);
+
+  if (state === "loading") return <div data-testid={`screenshot-loading-${depositId}`} className="flex h-40 items-center justify-center rounded-xl bg-slate-50"><Loader2 className="h-5 w-5 animate-spin text-sky-500" /></div>;
+  if (state === "error") return <div data-testid={`screenshot-error-${depositId}`} className="flex h-40 flex-col items-center justify-center gap-1.5 rounded-xl bg-slate-50 text-slate-400"><ImageOff className="h-5 w-5" /><span className="text-xs">Screenshot unavailable</span></div>;
+
+  return (
+    <>
+      <button data-testid={`screenshot-thumb-${depositId}`} onClick={() => setZoom(true)} className="group relative block w-full overflow-hidden rounded-xl border border-slate-200">
+        <img src={url} alt="Payment screenshot" className="max-h-52 w-full object-contain bg-slate-50" />
+        <span className="absolute inset-0 flex items-center justify-center bg-slate-900/0 text-white opacity-0 transition-all group-hover:bg-slate-900/30 group-hover:opacity-100"><ZoomIn className="h-6 w-6" /></span>
+      </button>
+      <Modal open={zoom} onClose={() => setZoom(false)} title="Payment screenshot" testid={`screenshot-modal-${depositId}`}>
+        <img src={url} alt="Payment screenshot" className="max-h-[70vh] w-full rounded-xl object-contain bg-slate-50" />
+      </Modal>
+    </>
+  );
+};
+
+const FieldCheck = ({ label, ok, value }) => {
+  const cls = ok === true ? "text-emerald-600" : ok === false ? "text-rose-600" : "text-slate-400";
+  const Icon = ok === true ? Check : ok === false ? X : MessageSquare;
+  return (
+    <div className="flex items-center justify-between gap-2 text-xs">
+      <span className={`inline-flex items-center gap-1.5 font-semibold ${cls}`}><Icon className="h-3.5 w-3.5" /> {label}</span>
+      <span className="truncate text-slate-500">{value ?? "—"}</span>
+    </div>
+  );
+};
+
+// Green "Matches" / red "Review carefully" / grey "OCR unavailable" — advisory only.
+const OcrPanel = ({ ocr, enteredAmount, enteredRef }) => {
+  if (!ocr) return null;
+  const verdict = ocr.match?.overall;
+  const cfg = verdict === "match"
+    ? { cls: "bg-emerald-50 border-emerald-200 text-emerald-700", Icon: ShieldCheck, label: "Matches" }
+    : verdict === "review"
+      ? { cls: "bg-rose-50 border-rose-200 text-rose-700", Icon: ShieldAlert, label: "Review carefully" }
+      : { cls: "bg-slate-50 border-slate-200 text-slate-500", Icon: ScanLine, label: "OCR unavailable — review manually" };
+  const m = ocr.match || {};
+  const ex = ocr.extracted || {};
+  return (
+    <div data-testid="ocr-panel" className={`mt-3 rounded-xl border p-3 ${cfg.cls}`}>
+      <div className="flex items-center gap-1.5 text-xs font-bold" data-testid="ocr-verdict">
+        <cfg.Icon className="h-4 w-4" /> {cfg.label}
+      </div>
+      {verdict !== "unknown" && (
+        <div className="mt-2 space-y-1.5 rounded-lg bg-white/70 p-2.5">
+          <FieldCheck label="Amount" ok={m.amount} value={ex.amount_inr != null ? `₹${fmtCoins(ex.amount_inr)} vs ₹${fmtCoins(enteredAmount)}` : `entered ₹${fmtCoins(enteredAmount)}`} />
+          <FieldCheck label="UTR / Ref" ok={m.utr} value={ex.utr || enteredRef} />
+          <FieldCheck label="Timestamp" ok={m.timestamp} value={ex.timestamp || "not detected"} />
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Chat-thread-style deposit review. Only an ADMIN (the target agent) can
 // confirm/reject; Manager/Super Admin see it read-only for oversight.
@@ -83,6 +160,13 @@ export const DepositsPanel = ({ query = "" }) => {
                   </div>
                 </div>
 
+                {d.duplicate_utr && (
+                  <div data-testid={`deposit-duplicate-${d.id}`} className="mt-3 flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                    <p className="text-sm font-semibold text-amber-800">Possible duplicate — this reference/UTR matches a previously confirmed deposit. Verify before confirming.</p>
+                  </div>
+                )}
+
                 {/* Thread */}
                 <div className="mt-4 space-y-2">
                   <div className="flex items-start gap-2 rounded-xl bg-slate-50 px-3 py-2.5">
@@ -102,6 +186,22 @@ export const DepositsPanel = ({ query = "" }) => {
                     </div>
                   )}
                 </div>
+
+                {/* Screenshot + OCR verification (side-by-side on wide screens) */}
+                {d.has_screenshot ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Payment proof</p>
+                      <DepositScreenshot depositId={d.id} />
+                    </div>
+                    <div>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Auto-verification</p>
+                      <OcrPanel ocr={d.ocr} enteredAmount={d.amount_inr} enteredRef={d.reference_note} />
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs italic text-slate-400">No payment screenshot attached — review the reference manually.</p>
+                )}
 
                 <div className="mt-4 flex items-center justify-between">
                   {isPending ? <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600"><Clock className="h-3.5 w-3.5" /> Awaiting your confirmation</span> : <StatusBadge status={d.status} />}

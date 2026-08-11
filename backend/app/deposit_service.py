@@ -5,20 +5,24 @@ reference (UTR), and their assigned Admin explicitly CONFIRMS in-app — only th
 are coins credited (idempotently, via wallet_service.credit). Coins are never
 credited automatically.
 """
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from . import wallet_service
+from . import ocr_service, storage_service, wallet_service
 from .constants import INR_TO_COIN_RATIO
 from .db import db
 from .models import Role, TxnType
+
+logger = logging.getLogger(__name__)
 
 
 async def ensure_deposit_indexes() -> None:
     await db.deposits.create_index("player_id")
     await db.deposits.create_index("target_admin_id")
     await db.deposits.create_index("status")
+    await db.deposits.create_index("reference_note")
     await db.admin_bank_accounts.create_index("admin_id", unique=True)
     await db.users.create_index("referral_code", unique=True, sparse=True)
     await db.settlements.create_index([("admin_id", 1), ("week_start", 1)], unique=True)
@@ -52,10 +56,25 @@ async def deposit_info(player_id: str) -> dict:
     }
 
 
-async def create_deposit_request(player_id: str, amount_inr: int, reference_note: str) -> dict:
+async def create_deposit_request(
+    player_id: str,
+    amount_inr: int,
+    reference_note: str,
+    image_bytes: Optional[bytes] = None,
+    content_type: Optional[str] = None,
+    filename: Optional[str] = None,
+) -> dict:
     admin_id = await _assigned_admin_id(player_id)
     if not admin_id:
         raise ValueError("No collection agent is assigned to your account yet. Please contact support.")
+
+    created_at = datetime.now(timezone.utc).isoformat()
+
+    # Fraud check: has this exact UTR/reference already been CONFIRMED before?
+    dup = await db.deposits.find_one(
+        {"reference_note": reference_note, "status": "CONFIRMED"}, {"_id": 0, "id": 1}
+    )
+
     doc = {
         "id": str(uuid.uuid4()),
         "player_id": player_id,
@@ -68,8 +87,31 @@ async def create_deposit_request(player_id: str, amount_inr: int, reference_note
         "confirmed_at": None,
         "confirm_note": None,
         "rejected_reason": None,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "duplicate_utr": bool(dup),
+        "screenshot_path": None,
+        "has_screenshot": False,
+        "ocr": None,
+        "created_at": created_at,
     }
+
+    # Screenshot upload + OCR verification. Never let storage/OCR failures block
+    # the request — the Admin can always review manually.
+    if image_bytes:
+        ext = (filename or "").rsplit(".", 1)[-1].lower() if filename and "." in filename else "png"
+        path = f"{storage_service.APP_NAME}/deposits/{player_id}/{uuid.uuid4()}.{ext}"
+        try:
+            result = await storage_service.put_object(path, image_bytes, content_type or "image/png")
+            doc["screenshot_path"] = result["path"]
+            doc["has_screenshot"] = True
+        except Exception as e:  # noqa: BLE001 — storage is best-effort here
+            logger.error(f"Deposit screenshot upload failed: {type(e).__name__}")
+        try:
+            doc["ocr"] = await ocr_service.run_ocr_verification(
+                image_bytes, amount_inr, reference_note, created_at
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Deposit OCR failed: {type(e).__name__}")
+
     await db.deposits.insert_one(doc)
     doc.pop("_id", None)
     return doc
@@ -148,6 +190,13 @@ async def list_deposits(caller: dict, limit: int = 100) -> list[dict]:
             "admin_name": await name_of(d.get("target_admin_id")),
         })
     return out
+
+
+async def get_deposit_scoped(caller: dict, deposit_id: str) -> Optional[dict]:
+    """Fetch a single deposit only if it's within the caller's scope."""
+    q = await _scope_query(caller)
+    q["id"] = deposit_id
+    return await db.deposits.find_one(q, {"_id": 0})
 
 
 async def get_bank_account(user_id: str) -> Optional[dict]:
