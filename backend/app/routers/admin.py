@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pymongo import ReturnDocument
@@ -285,3 +286,245 @@ async def reverse_transaction(transaction_id: str, payload: ReverseTransactionRe
     await log_action(caller["id"], "COIN_REVERSED", target_type="ledger_transaction",
                      target_id=transaction_id, metadata={"reason": payload.reason})
     return TransactionOut(**txn)
+
+
+# ---------------------------------------------------------------------------
+# Read-only console endpoints (additive; no coin logic changed)
+# ---------------------------------------------------------------------------
+async def _wallet_balance(user_id: str) -> int:
+    w = await db.wallets.find_one({"user_id": user_id}, {"_id": 0})
+    return w["balance"] if w else 0
+
+
+@router.get("/managers", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def list_managers():
+    out = []
+    async for alloc in db.manager_allocations.find({}, {"_id": 0}):
+        u = await db.users.find_one({"id": alloc["user_id"]}, {"_id": 0})
+        if not u:
+            continue
+        admin_count = await db.admin_allocations.count_documents({"manager_id": alloc["user_id"]})
+        quota = alloc.get("authorized_quota", 0)
+        allocated = alloc.get("allocated_out", 0)
+        out.append({
+            "user": UserPublic(**u),
+            "authorized_quota": quota,
+            "allocated_out": allocated,
+            "remaining": quota - allocated,
+            "usage_pct": round((allocated / quota) * 100) if quota else 0,
+            "admin_count": admin_count,
+            "wallet_balance": await _wallet_balance(alloc["user_id"]),
+        })
+    out.sort(key=lambda m: m["user"].created_at, reverse=True)
+    return out
+
+
+async def _admin_flows(user_id: str) -> tuple[int, int]:
+    """Real coin flows for an Admin from the ledger: total received from their
+    Manager, and total granted out to players."""
+    allocated = 0
+    used = 0
+    async for t in db.ledger_transactions.find(
+        {"user_id": user_id, "status": "COMPLETED"}, {"_id": 0, "type": 1, "amount": 1}
+    ):
+        if t["type"] == TxnType.MANAGER_TO_ADMIN.value and t["amount"] > 0:
+            allocated += t["amount"]
+        elif t["type"] == TxnType.ADMIN_GRANT.value and t["amount"] < 0:
+            used += -t["amount"]
+    return allocated, used
+
+
+@router.get("/admins", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def list_admins():
+    out = []
+    async for alloc in db.admin_allocations.find({}, {"_id": 0}):
+        u = await db.users.find_one({"id": alloc["user_id"]}, {"_id": 0})
+        if not u:
+            continue
+        mgr = await db.users.find_one({"id": alloc.get("manager_id")}, {"_id": 0})
+        allocated, used = await _admin_flows(alloc["user_id"])
+        player_count = await db.player_assignments.count_documents({"admin_id": alloc["user_id"]})
+        out.append({
+            "user": UserPublic(**u),
+            "manager_id": alloc.get("manager_id"),
+            "manager_name": mgr["display_name"] if mgr else "—",
+            "player_capacity": alloc.get("player_capacity", 0),
+            "player_count": player_count,
+            "allocated": allocated,
+            "used": used,
+            "remaining": await _wallet_balance(alloc["user_id"]),
+            "usage_pct": round((used / allocated) * 100) if allocated else 0,
+            "wallet_balance": await _wallet_balance(alloc["user_id"]),
+        })
+    out.sort(key=lambda a: a["user"].created_at, reverse=True)
+    return out
+
+
+@router.get("/overview", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def overview():
+    """Super Admin dashboard — every number computed from real DB state. No
+    fabricated charts/metrics (usage graphs, DAU, alerts) are returned here;
+    the frontend shows honest 'coming soon' placeholders for those instead."""
+    managers = [m async for m in db.manager_allocations.find({}, {"_id": 0})]
+    admins = [a async for a in db.admin_allocations.find({}, {"_id": 0})]
+    player_count = await db.users.count_documents({"role": Role.PLAYER.value})
+
+    coins_in_circulation = 0
+    async for w in db.wallets.find({}, {"_id": 0, "balance": 1}):
+        coins_in_circulation += w.get("balance", 0)
+
+    coins_allocated = sum(m.get("allocated_out", 0) for m in managers)
+    total_quota = sum(m.get("authorized_quota", 0) for m in managers)
+    coins_remaining = total_quota - coins_allocated
+
+    admins_by_manager: dict[str, list] = {}
+    for a in admins:
+        admins_by_manager.setdefault(a.get("manager_id"), []).append(a["user_id"])
+
+    players_per_admin: dict[str, int] = {}
+    async for pa in db.player_assignments.find({}, {"_id": 0, "admin_id": 1}):
+        players_per_admin[pa["admin_id"]] = players_per_admin.get(pa["admin_id"], 0) + 1
+
+    manager_rows = []
+    for m in managers:
+        u = await db.users.find_one({"id": m["user_id"]}, {"_id": 0})
+        if not u:
+            continue
+        admin_ids = admins_by_manager.get(m["user_id"], [])
+        player_total = sum(players_per_admin.get(aid, 0) for aid in admin_ids)
+        quota = m.get("authorized_quota", 0)
+        allocated = m.get("allocated_out", 0)
+        manager_rows.append({
+            "id": m["user_id"],
+            "name": u["display_name"],
+            "status": u.get("status", UserStatus.ACTIVE.value),
+            "authorized_quota": quota,
+            "allocated_out": allocated,
+            "usage_pct": round((allocated / quota) * 100) if quota else 0,
+            "admin_count": len(admin_ids),
+            "player_count": player_total,
+            "wallet_balance": await _wallet_balance(m["user_id"]),
+        })
+    manager_rows.sort(key=lambda r: r["allocated_out"], reverse=True)
+
+    return {
+        "totals": {
+            "managers": len(managers),
+            "admins": len(admins),
+            "players": player_count,
+            "coins_in_circulation": coins_in_circulation,
+            "coins_allocated": coins_allocated,
+            "coins_remaining": coins_remaining,
+        },
+        "managers": manager_rows,
+    }
+
+
+@router.get("/transactions", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def list_transactions(limit: int = 50, skip: int = 0, type: Optional[str] = None):
+    """Paginated ledger feed with the player -> admin -> manager chain resolved
+    per row (honestly — '—' where a link doesn't exist)."""
+    limit = max(1, min(limit, 200))
+    skip = max(0, skip)
+    query: dict = {}
+    if type:
+        query["type"] = type
+    total = await db.ledger_transactions.count_documents(query)
+    cursor = db.ledger_transactions.find(query, {"_id": 0}).sort("created_at", -1).skip(skip).limit(limit)
+    rows = [t async for t in cursor]
+
+    user_cache: dict[str, dict] = {}
+
+    async def get_user(uid: Optional[str]) -> dict:
+        if not uid:
+            return {}
+        if uid not in user_cache:
+            user_cache[uid] = await db.users.find_one({"id": uid}, {"_id": 0}) or {}
+        return user_cache[uid]
+
+    items = []
+    for t in rows:
+        uid = t.get("user_id")
+        u = await get_user(uid)
+        role = u.get("role")
+        player_name = admin_name = manager_name = None
+        if role == Role.PLAYER.value:
+            player_name = u.get("display_name")
+            pa = await db.player_assignments.find_one({"player_id": uid}, {"_id": 0})
+            if pa:
+                admin_name = (await get_user(pa["admin_id"])).get("display_name")
+                aa = await db.admin_allocations.find_one({"user_id": pa["admin_id"]}, {"_id": 0})
+                if aa:
+                    manager_name = (await get_user(aa.get("manager_id"))).get("display_name")
+        elif role == Role.ADMIN.value:
+            admin_name = u.get("display_name")
+            aa = await db.admin_allocations.find_one({"user_id": uid}, {"_id": 0})
+            if aa:
+                manager_name = (await get_user(aa.get("manager_id"))).get("display_name")
+        elif role == Role.MANAGER.value:
+            manager_name = u.get("display_name")
+
+        items.append({
+            "id": t["id"],
+            "type": t.get("type"),
+            "amount": t.get("amount"),
+            "balance_after": t.get("balance_after"),
+            "status": t.get("status"),
+            "reason": t.get("reason"),
+            "created_at": t.get("created_at"),
+            "user_id": uid,
+            "user_name": u.get("display_name", "—"),
+            "user_role": role or "—",
+            "player_name": player_name,
+            "admin_name": admin_name,
+            "manager_name": manager_name,
+        })
+    return {"items": items, "total": total, "skip": skip, "limit": limit}
+
+
+@router.get("/my-allocation", dependencies=[Depends(require_roles(Role.MANAGER))])
+async def my_allocation(caller: dict = Depends(get_current_user)):
+    alloc = await db.manager_allocations.find_one({"user_id": caller["id"]}, {"_id": 0}) or {}
+    return {
+        "authorized_quota": alloc.get("authorized_quota", 0),
+        "allocated_out": alloc.get("allocated_out", 0),
+        "available_quota": alloc.get("authorized_quota", 0) - alloc.get("allocated_out", 0),
+        "wallet_balance": await _wallet_balance(caller["id"]),
+    }
+
+
+@router.get("/my-admins", dependencies=[Depends(require_roles(Role.MANAGER))])
+async def my_admins(caller: dict = Depends(get_current_user)):
+    out = []
+    async for alloc in db.admin_allocations.find({"manager_id": caller["id"]}, {"_id": 0}):
+        u = await db.users.find_one({"id": alloc["user_id"]}, {"_id": 0})
+        if not u:
+            continue
+        allocated, used = await _admin_flows(alloc["user_id"])
+        player_count = await db.player_assignments.count_documents({"admin_id": alloc["user_id"]})
+        out.append({
+            "user": UserPublic(**u),
+            "player_capacity": alloc.get("player_capacity", 0),
+            "player_count": player_count,
+            "allocated": allocated,
+            "used": used,
+            "usage_pct": round((used / allocated) * 100) if allocated else 0,
+            "wallet_balance": await _wallet_balance(alloc["user_id"]),
+        })
+    out.sort(key=lambda a: a["user"].created_at, reverse=True)
+    return out
+
+
+@router.get("/players", dependencies=[Depends(require_roles(Role.SUPER_ADMIN, Role.MANAGER))])
+async def list_players():
+    """Players + their current admin assignment (for the assignment UI)."""
+    out = []
+    async for u in db.users.find({"role": Role.PLAYER.value}, {"_id": 0}):
+        assign = await db.player_assignments.find_one({"player_id": u["id"]}, {"_id": 0})
+        out.append({
+            "user": UserPublic(**u),
+            "assigned_admin_id": assign["admin_id"] if assign else None,
+            "wallet_balance": await _wallet_balance(u["id"]),
+        })
+    out.sort(key=lambda p: p["user"].created_at, reverse=True)
+    return out

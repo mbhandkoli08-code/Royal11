@@ -11,8 +11,11 @@ import { SplashScreen } from "@/components/SplashScreen";
 import HomePage from "@/pages/HomePage";
 import WalletPage from "@/pages/WalletPage";
 import AuthPage from "@/pages/AuthPage";
-import AdminPage from "@/pages/AdminPage";
+import ConsolePage from "@/pages/ConsolePage";
+import SportsPage from "@/pages/SportsPage";
 import "@/App.css";
+
+const CONSOLE_ROLES = ["SUPER_ADMIN", "MANAGER", "ADMIN"];
 
 const Placeholder = ({ title }) => (
   <div className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center px-6 text-center">
@@ -46,7 +49,7 @@ const ProtectedShell = () => {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/wallet" element={<WalletPage />} />
-        <Route path="/sports" element={<Placeholder title="Sports" />} />
+        <Route path="/sports" element={<SportsPage />} />
         <Route path="/fantasy" element={<Placeholder title="Fantasy" />} />
         <Route path="/games" element={<Placeholder title="Games" />} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -57,24 +60,27 @@ const ProtectedShell = () => {
 };
 
 const AuthRoute = () => {
-  const { loading, isAuthenticated } = useAuth();
+  const { loading, isAuthenticated, user } = useAuth();
   if (loading) return <FullScreenLoader />;
-  if (isAuthenticated) return <Navigate to="/" replace />;
+  if (isAuthenticated) {
+    // Admin roles land on the dark Console after login; players go to the app.
+    return <Navigate to={CONSOLE_ROLES.includes(user?.role) ? "/console" : "/"} replace />;
+  }
   return <AuthPage />;
 };
 
-const AdminRoute = () => {
+const ConsoleRoute = () => {
   const { loading, isAuthenticated, user } = useAuth();
   if (loading) return <FullScreenLoader />;
   if (!isAuthenticated) return <Navigate to="/auth" replace />;
-  if (user?.role !== "SUPER_ADMIN") return <Navigate to="/" replace />;
-  return <AdminPage />;
+  if (!CONSOLE_ROLES.includes(user?.role)) return <Navigate to="/" replace />;
+  return <ConsolePage />;
 };
 
 const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<AuthRoute />} />
-    <Route path="/admin" element={<AdminRoute />} />
+    <Route path="/console" element={<ConsoleRoute />} />
     <Route path="/*" element={<ProtectedShell />} />
   </Routes>
 );

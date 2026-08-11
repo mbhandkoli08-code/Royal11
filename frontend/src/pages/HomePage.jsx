@@ -152,11 +152,11 @@ export default function HomePage() {
         <div className="flex items-center justify-between">
           <Logo />
           <div className="flex items-center gap-3">
-            {user?.role === "SUPER_ADMIN" && (
+            {["SUPER_ADMIN", "MANAGER", "ADMIN"].includes(user?.role) && (
               <button
                 data-testid="admin-nav-btn"
-                onClick={() => navigate("/admin")}
-                title="Super Admin dashboard"
+                onClick={() => navigate("/console")}
+                title="Admin Console"
                 className="relative grid h-11 w-11 place-items-center rounded-2xl bg-royal-light text-royal shadow-soft transition-transform hover:-translate-y-0.5"
               >
                 <ShieldCheck className="h-5 w-5" />

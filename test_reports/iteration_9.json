@@ -1,0 +1,39 @@
+{
+  "summary": "End-to-end verification of the new /console Admin dashboard (backend + frontend + role isolation). 21/21 pytest backend tests pass against the live public URL. Frontend flows verified via Playwright: Super Admin lands on /console with real Overview stats (all 6 stat cards sourced from GET /api/admin/overview — no mocked data), Managers tab creates/funds/quota-updates managers (row count 28 -> 29 after Add Manager), Admins tab renders admins-table, Transactions tab shows paginated ledger with type filter + reverse modal, API Keys panel renders. Manager view exposes only nav-my-admins/nav-my-transactions (no nav-managers). Admin view exposes nav-my-players only. Player login redirects to / and direct visit to /console also redirects to / (guard works).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "OverviewPanel", "issues": ["Testid naming mismatch vs review request: implementation uses stat-circulation/stat-allocated/stat-remaining while the request spec calls them stat-coins-in-circulation/stat-coins-allocated/stat-coins-remaining. Both render real values from GET /api/admin/overview — this is a docs/spec drift, not a functional bug. Consider aligning to the spec names OR updating the spec to match code."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_console_admin.py",
+    "/app/test_reports/pytest/console_admin.xml"
+  ],
+  "action_items": [
+    "(Optional) Align OverviewPanel stat testids to the spec: rename stat-circulation -> stat-coins-in-circulation, stat-allocated -> stat-coins-allocated, stat-remaining -> stat-coins-remaining. Or update the review spec/docs to reflect the current shorter names.",
+    "(Testing tip) Playwright force=True clicks on the console sidebar buttons sometimes fail to trigger the React onClick (likely because a toast overlay swallows the synthetic event). Use non-force clicks on nav-<tab> buttons — that works reliably."
+  ],
+  "critical_code_review_comments": [
+    "admin.py /admin/admins returns 'remaining' equal to wallet_balance — technically correct today because Admins only receive via MANAGER_TO_ADMIN and spend via ADMIN_GRANT so wallet==remaining, but semantically confusing. Consider computing remaining explicitly as allocated - used to make intent obvious even if values coincide.",
+    "admin.py /admin/allocate has good atomic quota reservation with rollback on InsufficientFunds — no double-spend hazard found in tests.",
+    "admin.py /admin/transactions per-row iterates users/player_assignments/admin_allocations with only an in-memory user_cache; assignment/allocation lookups still hit DB per row. Fine at limit<=200, but consider caching by admin_id if this endpoint gets hot.",
+    "OverviewPanel loads all metrics in a single /admin/overview call — good. No fabricated data, honest 'coming soon' placeholders for DAU/alerts/time-series.",
+    "Role guards: Manager/Admin correctly get 403 on /admin/overview, /admin/managers, /admin/admins, /admin/transactions (parametrized test passes). Player also 403 on /admin/overview.",
+    "ConsolePage guards player redirect via AuthRoute/CONSOLE_ROLES — verified: player1 direct visit to /console lands on /."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_console_admin.py (new — 21 pytest cases covering overview, managers CRUD/fund/quota, admins list, transactions pagination/filter/reverse, manager scope allocate, admin scope grant/wallet, role isolation matrix)"
+  ],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% (all requested flows verified)"},
+  "test_credentials": "superadmin@royal11.com / manager1@royal11.com / admin1@royal11.com / player1@royal11.com — all password ChangeMe123! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "Backend test created a few TEST_-prefixed managers (via POST /admin/managers) and a small reversal txn. Not cleaned up (no cleanup endpoint). Manager1 quota was topped up +100k and wallet funded +100k during the allocate test to give it headroom — that is real production-shape data (Super Admin funding a manager).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Console is fully wired. Backend endpoints under /api/admin/* return real DB numbers. Frontend testids in Overview differ slightly from the spec (see design_issues). When writing Playwright, avoid force=True on nav-<tab> buttons — a toast overlay from prior actions intercepts synthetic clicks; use a normal click on the button directly. Login should press Enter in auth-password-input (submit button is also intercepted by toast). Manager1 (seed) may have low available_quota after this run; top it up via /admin/managers/{id}/quota and /admin/managers/{id}/fund before running allocate tests."
+}
