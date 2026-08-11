@@ -62,11 +62,27 @@ async def main(demo_chain: bool):
         await db.manager_allocations.insert_one({
             "id": str(uuid.uuid4()), "user_id": manager["id"],
             "authorized_quota": 1_000_000, "allocated_out": 0,
+            "zonal_manager_id": None, "max_admins_allowed": None,
             "updated_at": datetime.now(timezone.utc).isoformat(),
         })
         await credit(manager["id"], TxnType.SUPER_ADMIN_TO_MANAGER, 1_000_000,
                      actor_id=super_admin["id"], reason="Seed funding",
                      request_id=f"seed-fund:{manager['id']}")
+
+    # Zonal Manager demo (the new tier). manager1 above intentionally has NO
+    # zone (backward-compat case); zonal1 owns its own funded wallet + quota so
+    # it can create/fund Managers in its zone via the API.
+    zonal = await _create_user("zonal1@royal11.com", "ChangeMe123!", "Zonal One",
+                               Role.ZONAL_MANAGER, created_by=super_admin["id"])
+    if not await db.zonal_manager_allocations.find_one({"user_id": zonal["id"]}):
+        await db.zonal_manager_allocations.insert_one({
+            "id": str(uuid.uuid4()), "user_id": zonal["id"],
+            "authorized_quota": 2_000_000, "allocated_out": 0,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
+        await credit(zonal["id"], TxnType.SUPER_ADMIN_TO_ZONAL, 2_000_000,
+                     actor_id=super_admin["id"], reason="Seed funding (zonal)",
+                     request_id=f"seed-fund-zonal:{zonal['id']}")
 
     admin = await _create_user("admin1@royal11.com", "ChangeMe123!", "Admin One",
                                Role.ADMIN, created_by=manager["id"])
@@ -86,10 +102,11 @@ async def main(demo_chain: bool):
                  request_id=f"welcome:{player['id']}")
 
     print("\nDone. Seeded accounts (password for all: ChangeMe123!):")
-    print(f"  Super Admin: {SUPER_ADMIN_EMAIL}")
-    print(f"  Manager:     manager1@royal11.com")
-    print(f"  Admin:       admin1@royal11.com")
-    print(f"  Player:      player1@royal11.com")
+    print(f"  Super Admin:    {SUPER_ADMIN_EMAIL}")
+    print(f"  Zonal Manager:  zonal1@royal11.com")
+    print(f"  Manager:        manager1@royal11.com  (no zone — backward-compat)")
+    print(f"  Admin:          admin1@royal11.com")
+    print(f"  Player:         player1@royal11.com")
 
 
 if __name__ == "__main__":

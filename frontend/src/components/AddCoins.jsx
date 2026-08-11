@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Landmark, Copy, Loader2, Plus, Coins, Clock, CheckCircle2, XCircle, ImagePlus, Paperclip } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import axios from "axios";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import { buildUpiUri } from "@/lib/upi";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const fmt = (n) => (n ?? 0).toLocaleString("en-IN");
@@ -128,11 +130,24 @@ export const AddCoins = ({ open, onClose, onSubmitted }) => {
                     <div className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-900">
                       <Landmark className="h-4 w-4 text-royal" /> Pay your agent {info.admin_name}
                     </div>
-                    <p className="mb-3 text-xs text-slate-500">Transfer to this account, then submit the amount + your reference below.</p>
-                    <Row label="Account holder" value={bank.account_holder_name} />
-                    <Row label="Account number" value={bank.account_number} />
-                    <Row label="IFSC" value={bank.ifsc} />
-                    <Row label="Bank" value={bank.bank_name} />
+                    <p className="mb-3 text-xs text-slate-500">Scan the QR with any UPI app, or transfer to the account below — then submit the amount + your reference.</p>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                      <div className="min-w-0 flex-1">
+                        <Row label="Account holder" value={bank.account_holder_name} />
+                        <Row label="Account number" value={bank.account_number} />
+                        <Row label="IFSC" value={bank.ifsc} />
+                        <Row label="Bank" value={bank.bank_name} />
+                        {bank.upi_id && <Row label="UPI ID" value={bank.upi_id} />}
+                      </div>
+                      {bank.upi_id && (
+                        <div className="mx-auto shrink-0 text-center sm:mx-0" data-testid="deposit-upi-qr">
+                          <div className="rounded-2xl border border-slate-100 bg-white p-2.5 shadow-soft">
+                            <QRCodeSVG value={buildUpiUri(bank.upi_id, bank.account_holder_name)} size={132} level="M" />
+                          </div>
+                          <p className="mt-1.5 text-[11px] font-semibold text-slate-400">Scan to pay via UPI</p>
+                        </div>
+                      )}
+                    </div>
                     <p className="mt-3 rounded-xl bg-royal-light px-3 py-2 text-[11px] font-semibold text-royal">
                       Rate: ₹1 = {info.ratio} coin{info.ratio === 1 ? "" : "s"}
                     </p>

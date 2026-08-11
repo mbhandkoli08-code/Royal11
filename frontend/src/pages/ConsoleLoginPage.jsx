@@ -5,7 +5,7 @@ import { Crown, Mail, Lock, ArrowRight, Loader2, Users, Banknote, Scale, BarChar
 import { toast } from "sonner";
 import { useAuth, formatApiErrorDetail } from "@/context/AuthContext";
 
-const CONSOLE_ROLES = ["SUPER_ADMIN", "MANAGER", "ADMIN"];
+const CONSOLE_ROLES = ["SUPER_ADMIN", "ZONAL_MANAGER", "MANAGER", "ADMIN"];
 
 const QUICK = [
   { icon: Users, label: "Team & Roles" },

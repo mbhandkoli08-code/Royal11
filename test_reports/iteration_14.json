@@ -1,0 +1,38 @@
+{
+  "summary": "Tested multi-bank + UPI QR feature end-to-end. Backend: 10/10 pytest passing (list/create rules, activate + isolation + 404, deposit stamping w/ account_id, per-account totals via aggregation, wallet/deposit-info shape, suspension 403 for add & activate). Frontend: admin console Bank Account panel renders 2 cards with active badge, per-account week+all-time totals, QR for account with UPI, toggle to activate an inactive account works, Add Account modal opens with live UPI preview QR. Player Add-Coins modal shows active bank details side-by-side with UPI QR (deposit-upi-qr present), UPI ID row visible, submit works and appears in history.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/admin/bank-accounts", "issue": "Legacy accounts created before upi_id field is missing the 'upi_id' key entirely (rather than null). New accounts include upi_id=null. Consider normalizing the response so 'upi_id' is always present (defaulting to null) for frontend safety."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_multi_bank_upi.py",
+    "/app/test_reports/pytest/multi_bank.xml"
+  ],
+  "action_items": [
+    "(Minor) In list_bank_accounts response, ensure every account exposes upi_id (default null) so frontends never see undefined for legacy docs."
+  ],
+  "critical_code_review_comments": [
+    "deposit_service.get_active_bank_account query does not filter by callback role but works because admin_id is scoped to the caller.id in the router — OK.",
+    "activate_bank_account uses update_many + update_one sequentially (not atomic); acceptable for single-user scope but worth noting: a race between two concurrent activates from the same admin could briefly leave zero active accounts. Consider a transaction or single aggregation pipeline update.",
+    "_week_start_iso uses ISO string comparison for confirmed_at >= week_start; correct only because created/confirmed_at are always stored as timezone-aware ISO with '+00:00'. If any code path writes a naive/non-UTC ISO, week totals would silently drift.",
+    "In create_bank_account, no de-duplication on (account_number, ifsc) — same account can be added twice. Consider a soft-warn / unique compound index if that's intended.",
+    "BankAccountPanel triggers `activate` only via Switch onCheckedChange; because the active switch is disabled, users cannot toggle OFF the active one (correct — exactly one active enforced)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_multi_bank_upi.py"
+  ],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "100% (all critical flows)"},
+  "test_credentials": "admin1@royal11.com / ChangeMe123!, player1@royal11.com / ChangeMe123!, manager1@royal11.com / ChangeMe123!, superadmin@royal11.com / ChangeMe123!",
+  "seed_data_creation": "Created TEST_bankadmin_* admin with 2 bank accounts (TEST Bank A active, TEST Bank B inactive w/ upi_id testb@okicici). Created TEST_UI_* deposits via player Add-Coins UI. Two TEST_MB_* deposit requests were confirmed as part of stamping test (₹111 to A, ₹222 to B) — reflected in admin1's HDFC TEST all-time total (₹888).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Multi-bank + UPI/QR feature verified. Backend tests live at /app/backend/tests/test_multi_bank_upi.py (uses -o addopts= to bypass xdist since fixtures share state via module scope). Note MONGO_URL/DB_NAME in .env are quoted — always strip quotes before using in scripts. Manager admin cap is 3 by default; raise via PATCH /admin/managers/{id}/max-admins with null before creating new test admins. There's no HTTP endpoint to suspend a user — direct db.users update is required.",
+  "rca of the issue": "N/A — no bugs blocking. The only observation is legacy accounts missing upi_id key in list response."
+}

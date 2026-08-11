@@ -15,12 +15,14 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 from app.db import client, db
 from app.wallet_service import ensure_indexes
 from app.deposit_service import ensure_deposit_indexes
+from app.hierarchy_service import ensure_hierarchy_indexes
 from app import revenue_service, storage_service
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date, timedelta
 from app.routers.auth import router as auth_router
 from app.routers.wallet import router as wallet_router
 from app.routers.admin import router as admin_router
+from app.routers.zonal import router as zonal_router
 from app.routers.superadmin import router as superadmin_router
 from app.routers.api_keys import router as api_keys_router
 from app.routers.cricket import router as cricket_router
@@ -333,6 +335,7 @@ async def match_preview(req: MatchPreviewRequest):
 api_router.include_router(auth_router)
 api_router.include_router(wallet_router)
 api_router.include_router(admin_router)
+api_router.include_router(zonal_router)
 api_router.include_router(superadmin_router)
 api_router.include_router(api_keys_router)
 api_router.include_router(cricket_router)
@@ -370,6 +373,7 @@ async def _daily_maintenance():
 async def ensure_db_indexes():
     await ensure_indexes()
     await ensure_deposit_indexes()
+    await ensure_hierarchy_indexes()
     try:
         await storage_service.init_storage()
         logger.info("Object storage initialized")

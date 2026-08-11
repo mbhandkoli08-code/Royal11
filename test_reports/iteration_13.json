@@ -1,0 +1,24 @@
+{
+  "summary": "Task 2 (Zonal Manager tier + Admin-creation approval + per-Manager cap) verified end-to-end. Backend: 23/23 pytest cases pass covering all 12 review points (ZM CRUD/quota/fund by SA, ZM console my-allocation/my-managers/create+fund manager, ZM out-of-zone 403, quota-exceed 400, per-manager cap set by SA & owning ZM, ZM outside-zone 403 on cap, cap floor rejection, direct MANAGER->POST /admin/admins now 403, admin-creation request submit returns PENDING with no password_hash leak, cap hard-block on submit, ZM cannot approve no-zone request 403, SA approves creates admin idempotently, re-approve 400, new admin logs in, ZM approves own-zone request, unrelated ZM 403 approve, scoping of GET /admin-requests for SA/ZM/MGR, SA can still fund manager1 directly). Frontend: all 3 console roles logged in, correct navs render: SA sees Zonal Managers + Managers (Zone/Cap columns) + Admin Requests; ZM sees ZONAL badge, My Managers with quota stat cards + Fund/Cap actions, Admin Requests; Manager sees 'Request New Admin' label and read-only Admin Requests with APPROVED status stamps.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_zonal_manager_hierarchy.py",
+    "/app/test_reports/pytest/task2_zonal.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "hierarchy_service.approve_admin_request is not transactional across users + admin_allocations + admin_creation_requests updates — a crash between the users.insert_one and the request status update could leave an orphan Admin with the request still PENDING (next approve attempt would then throw 'A user with this email already exists' 400). Consider marking the request APPROVED first with created_admin_id, or wrapping in a Motor transaction.",
+    "zonal.py POST /admin/zonal/fund-manager accepts a raw dict payload instead of a Pydantic model — inconsistent with the rest of the router and skips schema-level validation (only manual isinstance checks). Add a ZonalFundManagerRequest model.",
+    "admin.py POST /admin/admins (SA-only) uses hierarchy_service.admin_cap_state for the cap check but bypasses hierarchy_service._insert_user; two nearly-identical user-creation code paths (_create_user in admin.py vs hierarchy_service._insert_user) — DRY risk.",
+    "hierarchy_service._insert_user does an explicit find_one then insert_one instead of relying on the users.email unique index — small TOCTOU race window on concurrent inserts (the DuplicateKeyError catch pattern used in admin.py._create_user is safer)."
+  ],
+  "updated_files": ["/app/backend/tests/test_zonal_manager_hierarchy.py"],
+  "success_rate": {"backend": "100% (23/23)", "frontend": "100% (all 3 console roles verified)"},
+  "test_credentials": "SA superadmin@royal11.com / ChangeMe123! · ZM zonal1@royal11.com / ChangeMe123! · MGR manager1@royal11.com / ChangeMe123!",
+  "seed_data_creation": "Tests create TEST_-prefixed zonal managers/managers/admins per run (unique UUID suffix). No cleanup — accumulates in DB across runs. Does not conflict with seed data.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "pytest file /app/backend/tests/test_zonal_manager_hierarchy.py must be run with `-o addopts=''` to disable pytest-xdist (the repo's default pytest.ini enables xdist loadscope which breaks the module-scoped state fixture across workers). All 23 tests pass sequentially. Frontend verified via Playwright — panels for SA (ZonalManagersPanel, ManagersPanel with Zone/Cap, AdminRequestsPanel), ZM (MyManagersPanel, AdminRequestsPanel with badge=ZONAL), MGR (MyAdminsPanel 'Request New Admin', AdminRequestsPanel read-only). Backward-compat: manager1 no-zone still funded directly by SA — works.",
+  "rca of the issue": "N/A — no bugs found; all 12 acceptance criteria verified via independent tests."
+}

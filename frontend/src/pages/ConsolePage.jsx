@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import {
   LayoutGrid, Users, UserCheck, UsersRound, Receipt, KeyRound,
   Banknote, Landmark, Scale, Zap, Crown, LogOut, ExternalLink, Search, Menu, X,
+  Globe2, ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -20,13 +21,18 @@ import { BankAccountPanel } from "@/console/BankAccountPanel";
 import { SettlementsPanel } from "@/console/SettlementsPanel";
 import { RechargePanel } from "@/console/RechargePanel";
 import { RechargeQueuePanel } from "@/console/RechargeQueuePanel";
+import { ZonalManagersPanel } from "@/console/ZonalManagersPanel";
+import { MyManagersPanel } from "@/console/MyManagersPanel";
+import { AdminRequestsPanel } from "@/console/AdminRequestsPanel";
 
 const NAV = {
   SUPER_ADMIN: [
     { section: "Core", items: [
       { id: "overview", label: "Overview", icon: LayoutGrid },
+      { id: "zonal-managers", label: "Zonal Managers", icon: Globe2 },
       { id: "managers", label: "Managers", icon: UserCheck },
       { id: "admins", label: "Admins", icon: Users },
+      { id: "admin-requests", label: "Admin Requests", icon: ClipboardList },
     ] },
     { section: "Coins & Financials", items: [
       { id: "deposits", label: "Deposits", icon: Banknote },
@@ -38,8 +44,20 @@ const NAV = {
       { id: "apikeys", label: "API Keys", icon: KeyRound },
     ] },
   ],
+  ZONAL_MANAGER: [
+    { section: "Core", items: [
+      { id: "my-managers", label: "My Managers", icon: UserCheck },
+      { id: "admin-requests", label: "Admin Requests", icon: ClipboardList },
+    ] },
+    { section: "Coins & Financials", items: [
+      { id: "my-transactions", label: "Transactions", icon: Receipt },
+    ] },
+  ],
   MANAGER: [
-    { section: "Core", items: [{ id: "my-admins", label: "My Admins", icon: Users }] },
+    { section: "Core", items: [
+      { id: "my-admins", label: "My Admins", icon: Users },
+      { id: "admin-requests", label: "Admin Requests", icon: ClipboardList },
+    ] },
     { section: "Coins & Financials", items: [
       { id: "deposits", label: "Deposits", icon: Banknote },
       { id: "bank-account", label: "Bank Account", icon: Landmark },
@@ -57,7 +75,7 @@ const NAV = {
   ],
 };
 
-const ROLE_BADGE = { SUPER_ADMIN: "SUPER", MANAGER: "MANAGER", ADMIN: "ADMIN" };
+const ROLE_BADGE = { SUPER_ADMIN: "SUPER", ZONAL_MANAGER: "ZONAL", MANAGER: "MANAGER", ADMIN: "ADMIN" };
 
 const Brand = () => (
   <div className="flex items-center gap-2.5" data-testid="console-brand">
@@ -119,8 +137,11 @@ export default function ConsolePage() {
   const renderPanel = () => {
     switch (active) {
       case "overview": return <OverviewPanel />;
+      case "zonal-managers": return <ZonalManagersPanel query={query} />;
       case "managers": return <ManagersPanel query={query} />;
       case "admins": return <AdminsPanel query={query} />;
+      case "admin-requests": return <AdminRequestsPanel query={query} />;
+      case "my-managers": return <MyManagersPanel query={query} />;
       case "transactions": return <TransactionsPanel query={query} />;
       case "apikeys": return <ApiKeysPanel />;
       case "deposits": return <DepositsPanel query={query} />;

@@ -44,16 +44,16 @@ export const MyAdminsPanel = ({ query = "" }) => {
     if (busy) return;
     setBusy(true);
     try {
-      await api.post("/admin/admins", {
+      await api.post("/admin/admin-requests", {
         email: form.email.trim(), password: form.password,
         display_name: form.display_name.trim(),
         player_capacity: Number(form.player_capacity) || 0,
       });
-      toast.success("Admin created");
+      toast.success("Request submitted", { description: "Your Zonal Manager / Super Admin will approve it." });
       setModal(null);
       await load();
     } catch (e) {
-      toast.error("Couldn't create admin", { description: e.response?.data?.detail || "" });
+      toast.error("Couldn't submit request", { description: e.response?.data?.detail || "" });
     } finally { setBusy(false); }
   };
 
@@ -78,8 +78,12 @@ export const MyAdminsPanel = ({ query = "" }) => {
     <div data-testid="my-admins-panel">
       <PanelHeader
         title="My Admins"
-        subtitle="Coins you allocate flow from your wallet into your Admins’ wallets."
-        actions={<PrimaryButton data-testid="add-admin-btn" onClick={openCreate}><Plus className="h-4 w-4" /> Add New Admin</PrimaryButton>}
+        subtitle={
+          alloc?.max_admins_allowed != null
+            ? `Admin requests need approval. Cap: ${alloc.admin_count}/${alloc.max_admins_allowed} used${alloc.pending_admin_requests ? ` · ${alloc.pending_admin_requests} pending` : ""}.`
+            : "New Admins are requested here and approved by your Zonal Manager / Super Admin."
+        }
+        actions={<PrimaryButton data-testid="add-admin-btn" onClick={openCreate}><Plus className="h-4 w-4" /> Request New Admin</PrimaryButton>}
       />
 
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -132,14 +136,15 @@ export const MyAdminsPanel = ({ query = "" }) => {
         </div>
       )}
 
-      <Modal open={modal === "create"} onClose={() => setModal(null)} title="Add New Admin" testid="create-admin-modal">
+      <Modal open={modal === "create"} onClose={() => setModal(null)} title="Request New Admin" testid="create-admin-modal">
         <div className="space-y-4">
+          <p className="text-xs text-slate-400">Submitting sends this to your Zonal Manager (or Super Admin) for approval. The account is created only once approved.</p>
           <Field label="Display name" data-testid="ca-name" value={form.display_name || ""} onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))} />
           <Field label="Email" type="email" data-testid="ca-email" value={form.email || ""} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} placeholder="admin@royal11.com" />
           <Field label="Password" type="password" data-testid="ca-password" value={form.password || ""} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} hint="Minimum 8 characters" />
           <Field label="Player capacity" type="number" data-testid="ca-capacity" value={form.player_capacity ?? ""} onChange={(e) => setForm((f) => ({ ...f, player_capacity: e.target.value }))} hint="Max players this Admin can manage" />
           <PrimaryButton data-testid="ca-submit" onClick={submitCreate} disabled={busy || !form.email || !form.password || !form.display_name} className="w-full">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Create Admin
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Submit Request
           </PrimaryButton>
         </div>
       </Modal>

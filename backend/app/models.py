@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 class Role(str, Enum):
     SUPER_ADMIN = "SUPER_ADMIN"
+    ZONAL_MANAGER = "ZONAL_MANAGER"
     MANAGER = "MANAGER"
     ADMIN = "ADMIN"
     PLAYER = "PLAYER"
@@ -26,6 +27,8 @@ class TxnType(str, Enum):
     DAILY_BONUS = "DAILY_BONUS"
     ACHIEVEMENT = "ACHIEVEMENT"
     SUPER_ADMIN_TO_MANAGER = "SUPER_ADMIN_TO_MANAGER"
+    SUPER_ADMIN_TO_ZONAL = "SUPER_ADMIN_TO_ZONAL"
+    ZONAL_TO_MANAGER = "ZONAL_TO_MANAGER"
     MANAGER_TO_ADMIN = "MANAGER_TO_ADMIN"
     ADMIN_GRANT = "ADMIN_GRANT"
     ADMIN_RECHARGE = "ADMIN_RECHARGE"
@@ -112,10 +115,41 @@ class CreateManagerRequest(BaseModel):
     password: str = Field(min_length=8)
     display_name: str
     authorized_quota: int = Field(default=0, ge=0)
+    zonal_manager_id: Optional[str] = None  # SA may attach the Manager to a zone
+
+
+class CreateZonalManagerRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    display_name: str
+    authorized_quota: int = Field(default=0, ge=0)
 
 
 class UpdateManagerQuotaRequest(BaseModel):
     authorized_quota: int = Field(ge=0)
+
+
+class SetMaxAdminsRequest(BaseModel):
+    # null = unlimited
+    max_admins_allowed: Optional[int] = Field(default=None, ge=0)
+
+
+class AdminCreationRequestCreate(BaseModel):
+    """A Manager's request to create an Admin (needs ZM/SA approval)."""
+    email: EmailStr
+    password: str = Field(min_length=8)
+    display_name: str
+    player_capacity: int = Field(default=50, ge=0)
+
+
+class ZonalFundManagerRequest(BaseModel):
+    manager_id: str
+    amount: int = Field(gt=0)
+    request_id: Optional[str] = None
+
+
+class ApproveRejectRequest(BaseModel):
+    reason: Optional[str] = Field(default=None, max_length=200)
 
 
 class FundManagerRequest(BaseModel):
@@ -225,6 +259,7 @@ class BankAccountInput(BaseModel):
     account_number: str = Field(min_length=4, max_length=34)
     ifsc: str = Field(min_length=4, max_length=15)
     bank_name: str = Field(min_length=1, max_length=120)
+    upi_id: Optional[str] = Field(default=None, max_length=100)
     is_active: bool = True
 
 

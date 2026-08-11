@@ -7,7 +7,7 @@ credited automatically.
 """
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from . import ocr_service, storage_service, wallet_service
@@ -23,7 +23,22 @@ async def ensure_deposit_indexes() -> None:
     await db.deposits.create_index("target_admin_id")
     await db.deposits.create_index("status")
     await db.deposits.create_index("reference_note")
-    await db.admin_bank_accounts.create_index("admin_id", unique=True)
+    await db.deposits.create_index("account_id")
+    # Multi-bank: an Admin/Manager may now hold several accounts (one active).
+    # Drop the legacy unique(admin_id) index if it lingers from Part 1b.
+    try:
+        await db.admin_bank_accounts.drop_index("admin_id_1")
+    except Exception:
+        pass
+    await db.admin_bank_accounts.create_index("admin_id")
+    # Backfill: give legacy single-account docs a stable id + is_active flag.
+    async for acc in db.admin_bank_accounts.find({"id": {"$exists": False}}, {"_id": 1}):
+        await db.admin_bank_accounts.update_one(
+            {"_id": acc["_id"]},
+            {"$set": {"id": str(uuid.uuid4())}, "$setOnInsert": {}},
+        )
+    await db.admin_bank_accounts.update_many(
+        {"is_active": {"$exists": False}}, {"$set": {"is_active": True}})
     await db.users.create_index("referral_code", unique=True, sparse=True)
     await db.settlements.create_index([("admin_id", 1), ("week_start", 1)], unique=True)
     await db.daily_summaries.create_index("date", unique=True)
@@ -70,6 +85,10 @@ async def create_deposit_request(
 
     created_at = datetime.now(timezone.utc).isoformat()
 
+    # Record which bank account was active/shown at this moment (auto, not
+    # picked at confirm time) so per-account reporting is exact.
+    active_account = await get_active_bank_account(admin_id)
+
     # Fraud check: has this exact UTR/reference already been CONFIRMED before?
     dup = await db.deposits.find_one(
         {"reference_note": reference_note, "status": "CONFIRMED"}, {"_id": 0, "id": 1}
@@ -88,6 +107,7 @@ async def create_deposit_request(
         "confirm_note": None,
         "rejected_reason": None,
         "duplicate_utr": bool(dup),
+        "account_id": active_account["id"] if active_account else None,
         "screenshot_path": None,
         "has_screenshot": False,
         "ocr": None,
@@ -199,15 +219,73 @@ async def get_deposit_scoped(caller: dict, deposit_id: str) -> Optional[dict]:
     return await db.deposits.find_one(q, {"_id": 0})
 
 
-async def get_bank_account(user_id: str) -> Optional[dict]:
-    return await db.admin_bank_accounts.find_one({"admin_id": user_id}, {"_id": 0})
+def _week_start_iso() -> str:
+    """Start of the current settlement week (Sunday 00:00 UTC)."""
+    now = datetime.now(timezone.utc)
+    start = (now - timedelta(days=(now.weekday() + 1) % 7)).replace(
+        hour=0, minute=0, second=0, microsecond=0)
+    return start.isoformat()
 
 
-async def upsert_bank_account(user_id: str, data: dict) -> dict:
+async def _account_totals(account_ids: list[str]) -> dict[str, dict]:
+    """Per-account CONFIRMED deposit totals: all-time + current week."""
+    if not account_ids:
+        return {}
+    week_start = _week_start_iso()
+    pipeline = [
+        {"$match": {"account_id": {"$in": account_ids}, "status": "CONFIRMED"}},
+        {"$group": {
+            "_id": "$account_id",
+            "all_time": {"$sum": "$amount_inr"},
+            "week": {"$sum": {"$cond": [
+                {"$gte": [{"$ifNull": ["$confirmed_at", ""]}, week_start]}, "$amount_inr", 0]}},
+        }},
+    ]
+    out: dict[str, dict] = {}
+    async for row in db.deposits.aggregate(pipeline):
+        out[row["_id"]] = {"all_time": row["all_time"], "week": row["week"]}
+    return out
+
+
+async def list_bank_accounts(user_id: str) -> list[dict]:
+    accounts = [a async for a in db.admin_bank_accounts.find({"admin_id": user_id}, {"_id": 0})]
+    totals = await _account_totals([a["id"] for a in accounts if a.get("id")])
+    for a in accounts:
+        t = totals.get(a.get("id"), {"all_time": 0, "week": 0})
+        a["confirmed_total_all_time"] = t["all_time"]
+        a["confirmed_total_week"] = t["week"]
+        a.setdefault("upi_id", None)
+    accounts.sort(key=lambda a: (not a.get("is_active"), a.get("created_at", "")))
+    return accounts
+
+
+async def create_bank_account(user_id: str, data: dict) -> dict:
+    """First account for a user becomes active automatically; others start inactive."""
+    has_any = await db.admin_bank_accounts.find_one({"admin_id": user_id}, {"_id": 0, "id": 1})
+    now = datetime.now(timezone.utc).isoformat()
     doc = {
-        **data,
+        "id": str(uuid.uuid4()),
         "admin_id": user_id,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "account_holder_name": data["account_holder_name"],
+        "account_number": data["account_number"],
+        "ifsc": data["ifsc"],
+        "bank_name": data["bank_name"],
+        "upi_id": data.get("upi_id") or None,
+        "is_active": not has_any,
+        "created_at": now,
+        "updated_at": now,
     }
-    await db.admin_bank_accounts.update_one({"admin_id": user_id}, {"$set": doc}, upsert=True)
+    await db.admin_bank_accounts.insert_one(doc)
+    doc.pop("_id", None)
     return doc
+
+
+async def activate_bank_account(user_id: str, account_id: str) -> dict:
+    acc = await db.admin_bank_accounts.find_one({"admin_id": user_id, "id": account_id}, {"_id": 0})
+    if not acc:
+        raise ValueError("Bank account not found")
+    await db.admin_bank_accounts.update_many({"admin_id": user_id}, {"$set": {"is_active": False}})
+    await db.admin_bank_accounts.update_one(
+        {"admin_id": user_id, "id": account_id},
+        {"$set": {"is_active": True, "updated_at": datetime.now(timezone.utc).isoformat()}})
+    return {"account_id": account_id, "is_active": True}

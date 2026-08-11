@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
-from .. import assignment_service, deposit_service, recharge_service, revenue_service, storage_service, wallet_service
+from .. import assignment_service, deposit_service, hierarchy_service, recharge_service, revenue_service, storage_service, wallet_service
 from ..audit import log_action
 from ..constants import ADMIN_RECHARGE_BONUS_RATE, DEFAULT_SUPER_ADMIN_PCT
 from ..db import db
@@ -64,18 +64,15 @@ async def _create_user(*, email: str, password: str, display_name: str, role: Ro
 @router.post("/managers", response_model=UserPublic,
              dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
 async def create_manager(payload: CreateManagerRequest, caller: dict = Depends(get_current_user)):
-    user = await _create_user(email=payload.email, password=payload.password,
-                              display_name=payload.display_name, role=Role.MANAGER,
-                              created_by=caller["id"])
-    await db.manager_allocations.insert_one({
-        "id": str(uuid.uuid4()),
-        "user_id": user["id"],
-        "authorized_quota": payload.authorized_quota,
-        "allocated_out": 0,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-    })
+    try:
+        user = await hierarchy_service.create_manager(
+            caller["id"], payload.email, payload.password, payload.display_name,
+            payload.authorized_quota, zonal_manager_id=payload.zonal_manager_id)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     await log_action(caller["id"], "MANAGER_CREATED", target_type="user", target_id=user["id"],
-                     metadata={"authorized_quota": payload.authorized_quota})
+                     metadata={"authorized_quota": payload.authorized_quota,
+                               "zonal_manager_id": payload.zonal_manager_id})
     return UserPublic(**user)
 
 
@@ -124,21 +121,24 @@ async def fund_manager(manager_id: str, payload: FundManagerRequest,
 
 
 # ---------------------------------------------------------------------------
-# Super Admin or Manager: create Admins
+# Super Admin: create Admins directly (Managers now use the approval workflow
+# in routers/zonal.py: POST /admin/admin-requests -> approve).
 # ---------------------------------------------------------------------------
 @router.post("/admins", response_model=UserPublic,
-             dependencies=[Depends(require_roles(Role.SUPER_ADMIN, Role.MANAGER)), Depends(require_not_suspended)])
+             dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
 async def create_admin(payload: CreateAdminRequest, caller: dict = Depends(get_current_user)):
-    if caller["role"] == Role.MANAGER.value:
-        manager_id = caller["id"]
-    else:
-        if not payload.manager_id:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST,
-                                "manager_id is required when a Super Admin creates an Admin")
-        manager = await db.manager_allocations.find_one({"user_id": payload.manager_id})
-        if not manager:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Manager not found")
-        manager_id = payload.manager_id
+    if not payload.manager_id:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "manager_id is required when a Super Admin creates an Admin")
+    manager = await db.manager_allocations.find_one({"user_id": payload.manager_id})
+    if not manager:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Manager not found")
+
+    # Respect the Manager's admin cap even for a direct Super Admin create.
+    state = await hierarchy_service.admin_cap_state(payload.manager_id)
+    if state["cap"] is not None and state["existing"] >= state["cap"]:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            f"Manager is at the admin cap ({state['cap']}).")
 
     user = await _create_user(email=payload.email, password=payload.password,
                               display_name=payload.display_name, role=Role.ADMIN,
@@ -146,14 +146,14 @@ async def create_admin(payload: CreateAdminRequest, caller: dict = Depends(get_c
     await db.admin_allocations.insert_one({
         "id": str(uuid.uuid4()),
         "user_id": user["id"],
-        "manager_id": manager_id,
+        "manager_id": payload.manager_id,
         "player_capacity": payload.player_capacity,
         "revenue_split_super_admin_pct": DEFAULT_SUPER_ADMIN_PCT,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     })
     await log_action(caller["id"], "ADMIN_CREATED", target_type="user", target_id=user["id"],
-                     metadata={"manager_id": manager_id, "player_capacity": payload.player_capacity})
+                     metadata={"manager_id": payload.manager_id, "player_capacity": payload.player_capacity})
     return UserPublic(**user)
 
 
@@ -311,13 +311,22 @@ async def _wallet_balance(user_id: str) -> int:
 @router.get("/managers", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
 async def list_managers():
     out = []
+    zm_cache: dict[str, dict] = {}
     async for alloc in db.manager_allocations.find({}, {"_id": 0}):
         u = await db.users.find_one({"id": alloc["user_id"]}, {"_id": 0})
         if not u:
             continue
         admin_count = await db.admin_allocations.count_documents({"manager_id": alloc["user_id"]})
+        pending = await db.admin_creation_requests.count_documents(
+            {"manager_id": alloc["user_id"], "status": "PENDING"})
         quota = alloc.get("authorized_quota", 0)
         allocated = alloc.get("allocated_out", 0)
+        zm_id = alloc.get("zonal_manager_id")
+        zm_name = None
+        if zm_id:
+            if zm_id not in zm_cache:
+                zm_cache[zm_id] = await db.users.find_one({"id": zm_id}, {"_id": 0}) or {}
+            zm_name = zm_cache[zm_id].get("display_name")
         out.append({
             "user": UserPublic(**u),
             "authorized_quota": quota,
@@ -325,6 +334,10 @@ async def list_managers():
             "remaining": quota - allocated,
             "usage_pct": round((allocated / quota) * 100) if quota else 0,
             "admin_count": admin_count,
+            "pending_admin_requests": pending,
+            "max_admins_allowed": alloc.get("max_admins_allowed"),
+            "zonal_manager_id": zm_id,
+            "zonal_manager_name": zm_name,
             "wallet_balance": await _wallet_balance(alloc["user_id"]),
         })
     out.sort(key=lambda m: m["user"].created_at, reverse=True)
@@ -485,11 +498,16 @@ async def list_transactions(limit: int = 50, skip: int = 0, type: Optional[str] 
 @router.get("/my-allocation", dependencies=[Depends(require_roles(Role.MANAGER))])
 async def my_allocation(caller: dict = Depends(get_current_user)):
     alloc = await db.manager_allocations.find_one({"user_id": caller["id"]}, {"_id": 0}) or {}
+    cap_state = await hierarchy_service.admin_cap_state(caller["id"])
     return {
         "authorized_quota": alloc.get("authorized_quota", 0),
         "allocated_out": alloc.get("allocated_out", 0),
         "available_quota": alloc.get("authorized_quota", 0) - alloc.get("allocated_out", 0),
         "wallet_balance": await _wallet_balance(caller["id"]),
+        "zonal_manager_id": alloc.get("zonal_manager_id"),
+        "max_admins_allowed": cap_state["cap"],
+        "admin_count": cap_state["existing"],
+        "pending_admin_requests": cap_state["pending"],
     }
 
 
@@ -592,21 +610,35 @@ async def reject_deposit(deposit_id: str, payload: RejectDepositRequest,
 
 
 # ---------------------------------------------------------------------------
-# Collection bank account (Part 1b) — Admin/Manager manage their own
+# Collection bank accounts (Part 1b + multi-bank) — Admin/Manager manage own
 # ---------------------------------------------------------------------------
-@router.get("/bank-account",
+@router.get("/bank-accounts",
             dependencies=[Depends(require_roles(Role.ADMIN, Role.MANAGER))])
-async def get_bank_account(caller: dict = Depends(get_current_user)):
-    return await deposit_service.get_bank_account(caller["id"])
+async def list_bank_accounts(caller: dict = Depends(get_current_user)):
+    """All of the caller's collection accounts, each with its CONFIRMED-deposit
+    running totals (this week + all-time). Active account is listed first."""
+    return await deposit_service.list_bank_accounts(caller["id"])
 
 
-@router.put("/bank-account",
-            dependencies=[Depends(require_roles(Role.ADMIN, Role.MANAGER)), Depends(require_not_suspended)])
-async def put_bank_account(payload: BankAccountInput, caller: dict = Depends(get_current_user)):
-    doc = await deposit_service.upsert_bank_account(caller["id"], payload.model_dump())
-    await log_action(caller["id"], "BANK_ACCOUNT_UPDATED", target_type="bank_account",
-                     target_id=caller["id"], metadata={"bank_name": payload.bank_name})
+@router.post("/bank-accounts",
+             dependencies=[Depends(require_roles(Role.ADMIN, Role.MANAGER)), Depends(require_not_suspended)])
+async def create_bank_account(payload: BankAccountInput, caller: dict = Depends(get_current_user)):
+    doc = await deposit_service.create_bank_account(caller["id"], payload.model_dump())
+    await log_action(caller["id"], "BANK_ACCOUNT_ADDED", target_type="bank_account",
+                     target_id=doc["id"], metadata={"bank_name": payload.bank_name})
     return doc
+
+
+@router.patch("/bank-accounts/{account_id}/activate",
+              dependencies=[Depends(require_roles(Role.ADMIN, Role.MANAGER)), Depends(require_not_suspended)])
+async def activate_bank_account(account_id: str, caller: dict = Depends(get_current_user)):
+    try:
+        res = await deposit_service.activate_bank_account(caller["id"], account_id)
+    except ValueError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+    await log_action(caller["id"], "BANK_ACCOUNT_ACTIVATED", target_type="bank_account",
+                     target_id=account_id)
+    return res
 
 
 

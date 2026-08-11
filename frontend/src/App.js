@@ -16,7 +16,7 @@ import ConsoleLoginPage from "@/pages/ConsoleLoginPage";
 import SportsPage from "@/pages/SportsPage";
 import "@/App.css";
 
-const CONSOLE_ROLES = ["SUPER_ADMIN", "MANAGER", "ADMIN"];
+const CONSOLE_ROLES = ["SUPER_ADMIN", "ZONAL_MANAGER", "MANAGER", "ADMIN"];
 
 const Placeholder = ({ title }) => (
   <div className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center px-6 text-center">
