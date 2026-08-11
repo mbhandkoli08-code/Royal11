@@ -67,7 +67,7 @@ teams, play casual games, and manage virtual coins — no real-money gambling.
   - **Fraud**: `deposit_service.create_deposit_request` sets `duplicate_utr=true` when reference_note exactly matches a previously CONFIRMED deposit; shows amber banner in console.
   - **API change**: `POST /api/wallet/deposit-request` is now **multipart/form-data** (`amount_inr`, `reference_note`, optional `screenshot` file; 8 MB + image/* validation).
   - **UI**: player `AddCoins.jsx` — optional screenshot attach + preview + FormData submit. Console `DepositsPanel.jsx` — side-by-side "Payment proof" thumbnail (fetch-as-blob, click to zoom) + "Auto-verification" OcrPanel + duplicate banner.
-  - **PENDING (user action)**: user will send the `GOOGLE_CLOUD_VISION_API_KEY` in a separate chat message; add it to `backend/.env` + restart to activate live OCR. Regression pytest: `tests/test_ocr_service.py`, `tests/test_deposit_screenshot_ocr.py`.
+  - **PENDING (user action)**: ✅ RESOLVED 2026-08 — `GOOGLE_CLOUD_VISION_API_KEY` added to `backend/.env`; **live OCR verified end-to-end** (real screenshot → green "Matches" with amount+UTR+timestamp all correct; mismatch → red "Review carefully"). Regression pytest: `tests/test_ocr_service.py`, `tests/test_deposit_screenshot_ocr.py`.
 
 
 ## Backlog / Remaining
