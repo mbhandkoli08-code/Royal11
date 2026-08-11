@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Loader2, Plus, Landmark, CheckCircle2, QrCode } from "lucide-react";
+import { Loader2, Plus, Landmark, CheckCircle2, QrCode, MessageCircle, Check } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useConsoleApi, fmtCoins } from "./api";
 import { CARD, PanelHeader, PrimaryButton, GhostButton, Modal, Field, Spinner, EmptyState } from "./primitives";
 import { Switch } from "@/components/ui/switch";
 import { buildUpiUri } from "@/lib/upi";
+import { buildWaLink } from "@/lib/whatsapp";
 
-const EMPTY = { account_holder_name: "", account_number: "", ifsc: "", bank_name: "", upi_id: "" };
+const EMPTY = { account_holder_name: "", account_number: "", ifsc: "", bank_name: "", label: "", upi_id: "" };
 
 // Admin/Manager manage MULTIPLE collection accounts; exactly one is active and
 // that's what players see (with its auto-generated UPI QR). Old accounts stay
@@ -22,15 +23,27 @@ export const BankAccountPanel = () => {
   const [busy, setBusy] = useState(false);
   const [modal, setModal] = useState(false);
   const [form, setForm] = useState(EMPTY);
+  const [whatsapp, setWhatsapp] = useState("");
+  const [waSaving, setWaSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const { data } = await api.get("/admin/bank-accounts");
-      setRows(data);
+      const [acc, prof] = await Promise.all([api.get("/admin/bank-accounts"), api.get("/admin/profile")]);
+      setRows(acc.data);
+      setWhatsapp(prof.data.whatsapp_number || "");
     } catch { toast.error("Couldn't load bank accounts"); }
     finally { setLoading(false); }
   }, [api]);
   useEffect(() => { load(); }, [load]);
+
+  const saveWhatsapp = async () => {
+    if (waSaving) return; setWaSaving(true);
+    try {
+      await api.put("/admin/profile/whatsapp", { whatsapp_number: whatsapp.trim() || null });
+      toast.success("WhatsApp contact saved");
+    } catch (e) { toast.error("Couldn't save", { description: e.response?.data?.detail || "" }); }
+    finally { setWaSaving(false); }
+  };
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -45,6 +58,7 @@ export const BankAccountPanel = () => {
         account_number: form.account_number.trim(),
         ifsc: form.ifsc.trim().toUpperCase(),
         bank_name: form.bank_name.trim(),
+        label: form.label.trim() || null,
         upi_id: form.upi_id.trim() || null,
       });
       toast.success("Bank account added");
@@ -75,6 +89,24 @@ export const BankAccountPanel = () => {
         actions={<PrimaryButton data-testid="bank-add-btn" disabled={suspended} onClick={() => { setForm(EMPTY); setModal(true); }}><Plus className="h-4 w-4" /> Add Account</PrimaryButton>}
       />
 
+      {/* WhatsApp contact shown to players (wa.me) */}
+      <div className={`${CARD} mb-6 p-5`} data-testid="whatsapp-card">
+        <div className="mb-2 flex items-center gap-2 font-display text-base font-bold text-slate-900">
+          <MessageCircle className="h-5 w-5 text-emerald-500" /> WhatsApp contact
+        </div>
+        <p className="mb-3 text-xs text-slate-400">Players see a "Chat on WhatsApp" button when this is set. Use full number with country code (e.g. +91XXXXXXXXXX). Leave blank to hide it.</p>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            data-testid="whatsapp-input" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)}
+            placeholder="+91XXXXXXXXXX" disabled={suspended}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 sm:max-w-xs"
+          />
+          <PrimaryButton data-testid="whatsapp-save" onClick={saveWhatsapp} disabled={waSaving || suspended} className="!bg-emerald-600">
+            {waSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Save
+          </PrimaryButton>
+        </div>
+      </div>
+
       {rows.length === 0 ? (
         <EmptyState testid="bank-empty" title="No bank accounts yet" subtitle="Add your first collection account — it becomes the active one automatically." />
       ) : (
@@ -87,8 +119,8 @@ export const BankAccountPanel = () => {
                   <div className="flex items-center gap-2.5">
                     <span className="grid h-10 w-10 place-items-center rounded-xl bg-sky-50 text-sky-600"><Landmark className="h-5 w-5" /></span>
                     <div>
-                      <p className="font-bold text-slate-900">{a.bank_name}</p>
-                      <p className="text-[11px] text-slate-400">{a.account_holder_name}</p>
+                      <p className="font-bold text-slate-900">{a.label || a.bank_name}</p>
+                      <p className="text-[11px] text-slate-400">{a.label ? `${a.bank_name} · ` : ""}{a.account_holder_name}</p>
                     </div>
                   </div>
                   {a.is_active
@@ -135,8 +167,9 @@ export const BankAccountPanel = () => {
       <Modal open={modal} onClose={() => setModal(false)} title="Add collection account" testid="bank-add-modal">
         <div className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Account holder name" data-testid="bank-holder" value={form.account_holder_name} onChange={set("account_holder_name")} />
+            <Field label="Nickname / label (optional)" data-testid="bank-label" value={form.label} onChange={set("label")} placeholder="e.g. Primary GPay" />
             <Field label="Bank name" data-testid="bank-name" value={form.bank_name} onChange={set("bank_name")} />
+            <Field label="Account holder name" data-testid="bank-holder" value={form.account_holder_name} onChange={set("account_holder_name")} />
             <Field label="Account number" data-testid="bank-number" value={form.account_number} onChange={set("account_number")} />
             <Field label="IFSC" data-testid="bank-ifsc" value={form.ifsc} onChange={set("ifsc")} />
           </div>

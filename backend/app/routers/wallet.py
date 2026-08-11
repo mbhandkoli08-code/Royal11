@@ -36,6 +36,12 @@ async def deposit_info(user: dict = Depends(get_current_user)):
     return await deposit_service.deposit_info(user["id"])
 
 
+@router.get("/my-agent")
+async def my_agent(user: dict = Depends(get_current_user)):
+    """The player's assigned Admin + contact (used at signup + for help)."""
+    return await deposit_service.my_agent(user["id"])
+
+
 @router.post("/deposit-request")
 async def create_deposit_request(
     amount_inr: int = Form(..., gt=0),

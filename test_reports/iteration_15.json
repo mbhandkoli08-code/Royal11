@@ -1,0 +1,27 @@
+{
+  "summary": "Task 3 (Payroll salary+incentive) + WhatsApp contact + Bank label — full end-to-end verification. Backend pytest 18/18 passing (payroll SET auth, payroll VIEW math for target-met and target-unmet paths, run_payroll_for_week idempotency w/ SALARY txn count exactly 1, WhatsApp set/get on ADMIN & MANAGER + player-side surfaces on /wallet/my-agent & /wallet/deposit-info, null whatsapp graceful, PLAYER forbidden 403, bank account label create+list). Frontend: Super Admin Managers panel Pay button + modal (payroll-manager-{id} / payroll-salary-input/target-input/pct-input/submit); Zonal Managers panel Pay button + modal (payroll-zonal-{id} / payroll-zonal-salary/target/pct/submit) with actual save round-trip; Manager console shows payroll-card (₹5,000 salary / ₹426 incentive / ₹5,426 total + progress bar) driven by /admin/my-payroll (downline revenue ₹4,260 × 10%); Zonal console shows payroll-card via /admin/zonal/my-payroll (₹8,000 total, target not met); Admin Bank Account tab shows whatsapp-card with whatsapp-input+whatsapp-save that persists, and bank-add modal exposes bank-label field; Player Add-Coins shows deposit-whatsapp-btn with correct https://wa.me/919876543210?text=Hi%2C%20I%20need%20help%20with%20my%20payment href; new-player registration shows welcome-agent-modal identifying assigned admin, gracefully renders 'no WhatsApp yet' note when admin has none, and DOES NOT reappear on page reload (r11_welcome flag cleared).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_payroll_whatsapp_banklabel.py",
+    "/app/test_reports/pytest/payroll_whatsapp.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "payroll_service._compute uses round(revenue * pct / 100) with pct as float — banker's rounding could differ by ₹1 vs frontend if UI ever recomputes; UI correctly reads projected_incentive_inr from backend so no drift observed.",
+    "payroll_service.run_recent_payroll pays LAST week only; if the daily scheduler ever misses >1 week the missed week is silently skipped. Consider a small catch-up loop over unpaid weeks (idempotency guarantees safety).",
+    "set_payroll uses collection-name string 'manager'/'zonal' as an implicit switch; a typo would silently target manager_allocations. A Literal[str] param or enum would harden this.",
+    "payroll_view.history uses simple limit(12) without pagination; fine for weekly cadence but should be labeled as 'recent 12' in UI (currently is).",
+    "Admin.list_managers returns weekly_salary_inr/incentive_target_inr/incentive_pct alongside quota fields — good; ZM list should mirror this for consistency in ZonalManagersPanel (currently reads from row and works, but a fresh listing after payroll save requires an explicit refresh which the modal does).",
+    "deposit_service.set_whatsapp_number stores whatsapp with no format validation (no digits-only strip / country code check). Frontend link builder uses only digits, so bad input silently produces broken wa.me link. Consider server-side normalization to digits.",
+    "Welcome modal flag (localStorage 'r11_welcome') is per-browser; if user registers, closes the tab immediately, and opens on a new device, they will see it again. Acceptable for a welcome nudge but noted."
+  ],
+  "updated_files": ["/app/backend/tests/test_payroll_whatsapp_banklabel.py"],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% (all Task 3 flows)"},
+  "test_credentials": "superadmin@royal11.com, zonal1@royal11.com, manager1@royal11.com, admin1@royal11.com, player1@royal11.com / ChangeMe123!",
+  "seed_data_creation": "manager1 payroll re-set to salary=5000 / target=1000 / pct=10 (as expected by review). zonal1 payroll set to salary=8000 / target=5000 / pct=5 via SA UI. admin1 whatsapp confirmed at +919876543210 (was already set). Created 2 TEST_LBL_* / TEST_NOLBL_* bank accounts on admin1 to verify label field. Registered ephemeral welcome-test player (testpw{ts}@royal11.com / ChangeMe123!, display 'Welcome PW') — got assigned to 'BrokeAdm' (no whatsapp), which exercised the graceful 'no WhatsApp yet' path.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Payroll+WhatsApp+bank-label feature verified end-to-end (iteration_15). Idempotency asserted directly by invoking payroll_service.run_payroll_for_week twice and asserting wallet balance unchanged + SALARY ledger txn count = 1 for the current week request_id 'salary:{uid}:{ws}'. Console nav testids follow pattern nav-{id} where id ∈ {overview, managers, zonal-managers, admin-requests, admins, deposits, settlements, transactions, recharge-queue, apikeys, my-managers, my-admins, my-players, my-transactions, bank-account, recharge}. Auth tabs are auth-tab-login / auth-tab-signup. Note the splash screen — set localStorage 'r11_splash_seen'='1' before navigating in Playwright to skip it.",
+  "rca of the issue": "N/A — no bugs found."
+}

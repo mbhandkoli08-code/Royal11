@@ -122,6 +122,9 @@ async def list_zonal_managers() -> list[dict]:
             "usage_pct": round((allocated / quota) * 100) if quota else 0,
             "manager_count": manager_count,
             "wallet_balance": await _wallet_balance(alloc["user_id"]),
+            "weekly_salary_inr": alloc.get("weekly_salary_inr", 0),
+            "incentive_target_inr": alloc.get("incentive_target_inr", 0),
+            "incentive_pct": alloc.get("incentive_pct", 0),
         })
     out.sort(key=lambda z: z["user"].get("created_at", ""), reverse=True)
     return out
@@ -185,6 +188,9 @@ async def _enrich_manager(alloc: dict) -> Optional[dict]:
         "pending_admin_requests": pending,
         "max_admins_allowed": alloc.get("max_admins_allowed"),
         "wallet_balance": await _wallet_balance(alloc["user_id"]),
+        "weekly_salary_inr": alloc.get("weekly_salary_inr", 0),
+        "incentive_target_inr": alloc.get("incentive_target_inr", 0),
+        "incentive_pct": alloc.get("incentive_pct", 0),
     }
 
 

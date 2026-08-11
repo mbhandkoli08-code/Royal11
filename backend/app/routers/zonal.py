@@ -5,8 +5,9 @@ raise ValueError (-> 400) / PermissionError (-> 403); this router maps them.
 """
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from .. import hierarchy_service
+from .. import hierarchy_service, payroll_service
 from ..audit import log_action
+from ..db import db
 from ..deps import get_current_user, require_not_suspended, require_roles
 from ..models import (
     AdminCreationRequestCreate,
@@ -14,6 +15,7 @@ from ..models import (
     CreateManagerRequest,
     CreateZonalManagerRequest,
     FundManagerRequest,
+    PayrollRequest,
     Role,
     SetMaxAdminsRequest,
     TransactionOut,
@@ -141,8 +143,42 @@ async def set_max_admins(manager_id: str, payload: SetMaxAdminsRequest,
 
 
 # ---------------------------------------------------------------------------
-# Admin-creation approval workflow
+# Salary + Incentive payroll
 # ---------------------------------------------------------------------------
+@router.patch("/managers/{manager_id}/payroll",
+              dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def set_manager_payroll(manager_id: str, payload: PayrollRequest, caller: dict = Depends(get_current_user)):
+    try:
+        res = await payroll_service.set_payroll("manager", manager_id, payload.weekly_salary_inr,
+                                                payload.incentive_target_inr, payload.incentive_pct)
+    except ValueError as e:
+        raise _map(e)
+    await log_action(caller["id"], "PAYROLL_SET", target_type="user", target_id=manager_id, metadata=res)
+    return res
+
+
+@router.patch("/zonal-managers/{zm_id}/payroll",
+              dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def set_zonal_payroll(zm_id: str, payload: PayrollRequest, caller: dict = Depends(get_current_user)):
+    try:
+        res = await payroll_service.set_payroll("zonal", zm_id, payload.weekly_salary_inr,
+                                                payload.incentive_target_inr, payload.incentive_pct)
+    except ValueError as e:
+        raise _map(e)
+    await log_action(caller["id"], "PAYROLL_SET", target_type="user", target_id=zm_id, metadata=res)
+    return res
+
+
+@router.get("/my-payroll", dependencies=[Depends(require_roles(Role.MANAGER))])
+async def my_manager_payroll(caller: dict = Depends(get_current_user)):
+    alloc = await db.manager_allocations.find_one({"user_id": caller["id"]}, {"_id": 0}) or {}
+    return await payroll_service.payroll_view(caller["id"], Role.MANAGER.value, alloc)
+
+
+@router.get("/zonal/my-payroll", dependencies=[Depends(require_roles(Role.ZONAL_MANAGER))])
+async def my_zonal_payroll(caller: dict = Depends(get_current_user)):
+    alloc = await db.zonal_manager_allocations.find_one({"user_id": caller["id"]}, {"_id": 0}) or {}
+    return await payroll_service.payroll_view(caller["id"], Role.ZONAL_MANAGER.value, alloc)
 @router.post("/admin-requests",
              dependencies=[Depends(require_roles(Role.MANAGER)), Depends(require_not_suspended)])
 async def submit_admin_request(payload: AdminCreationRequestCreate, caller: dict = Depends(get_current_user)):

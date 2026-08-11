@@ -7,6 +7,7 @@ import { Construction, Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { WalletProvider } from "@/context/WalletContext";
 import { BottomNav } from "@/components/BottomNav";
+import { WelcomeAgentModal } from "@/components/WelcomeAgentModal";
 import { SplashScreen } from "@/components/SplashScreen";
 import HomePage from "@/pages/HomePage";
 import WalletPage from "@/pages/WalletPage";
@@ -47,6 +48,7 @@ const ProtectedShell = () => {
   return (
     <WalletProvider>
       <ScrollTop />
+      <WelcomeAgentModal />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/wallet" element={<WalletPage />} />

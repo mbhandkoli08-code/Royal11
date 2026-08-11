@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Coins, Loader2, Landmark, ArrowUpRight, Wallet2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { useConsoleApi, fmtCoins, shortId } from "./api";
+import { PayrollCard } from "./PayrollCard";
 import {
   CARD, thCls, tdCls, PanelHeader, StatCard, PrimaryButton, GhostButton,
   UsageBar, Modal, Field, Spinner, EmptyState,
@@ -82,6 +83,8 @@ export const MyManagersPanel = ({ query = "" }) => {
         <StatCard testid="zm-available" icon={Coins} label="Available Quota" value={fmtCoins(alloc?.available_quota)} />
         <StatCard testid="zm-wallet" icon={Wallet2} label="Wallet Balance" value={fmtCoins(alloc?.wallet_balance)} />
       </div>
+
+      <PayrollCard endpoint="/admin/zonal/my-payroll" />
 
       {filtered.length === 0 ? (
         <EmptyState testid="my-managers-empty" title="No managers yet" subtitle="Create your first Manager, then fund their wallet." />

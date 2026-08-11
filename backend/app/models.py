@@ -34,6 +34,8 @@ class TxnType(str, Enum):
     ADMIN_RECHARGE = "ADMIN_RECHARGE"
     DEPOSIT_TOPUP = "DEPOSIT_TOPUP"
     REFERRAL_BONUS = "REFERRAL_BONUS"
+    SALARY = "SALARY"
+    INCENTIVE = "INCENTIVE"
     GAME_ENTRY = "GAME_ENTRY"
     GAME_REWARD = "GAME_REWARD"
     FANTASY_ENTRY = "FANTASY_ENTRY"
@@ -132,6 +134,16 @@ class UpdateManagerQuotaRequest(BaseModel):
 class SetMaxAdminsRequest(BaseModel):
     # null = unlimited
     max_admins_allowed: Optional[int] = Field(default=None, ge=0)
+
+
+class PayrollRequest(BaseModel):
+    weekly_salary_inr: int = Field(default=0, ge=0)
+    incentive_target_inr: int = Field(default=0, ge=0)
+    incentive_pct: float = Field(default=0, ge=0, le=100)
+
+
+class WhatsappRequest(BaseModel):
+    whatsapp_number: Optional[str] = Field(default=None, max_length=20)
 
 
 class AdminCreationRequestCreate(BaseModel):
@@ -259,6 +271,7 @@ class BankAccountInput(BaseModel):
     account_number: str = Field(min_length=4, max_length=34)
     ifsc: str = Field(min_length=4, max_length=15)
     bank_name: str = Field(min_length=1, max_length=120)
+    label: Optional[str] = Field(default=None, max_length=60)
     upi_id: Optional[str] = Field(default=None, max_length=100)
     is_active: bool = True
 

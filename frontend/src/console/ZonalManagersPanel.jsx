@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Wallet2, SlidersHorizontal, Loader2, Globe2 } from "lucide-react";
+import { Plus, Wallet2, SlidersHorizontal, Loader2, Globe2, BadgeIndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import { useConsoleApi, fmtCoins, shortId } from "./api";
 import {
@@ -61,6 +61,18 @@ export const ZonalManagersPanel = ({ query = "" }) => {
     } catch (e) { toast.error("Couldn't update quota", { description: e.response?.data?.detail || "" }); }
     finally { setBusy(false); }
   };
+  const submitPayroll = async () => {
+    if (busy) return; setBusy(true);
+    try {
+      await api.patch(`/admin/zonal-managers/${modal.row.user.id}/payroll`, {
+        weekly_salary_inr: Number(form.weekly_salary_inr) || 0,
+        incentive_target_inr: Number(form.incentive_target_inr) || 0,
+        incentive_pct: Number(form.incentive_pct) || 0,
+      });
+      toast.success("Payroll updated"); setModal(null); await load();
+    } catch (e) { toast.error("Couldn't update payroll", { description: e.response?.data?.detail || "" }); }
+    finally { setBusy(false); }
+  };
 
   return (
     <div data-testid="zonal-managers-panel">
@@ -100,6 +112,7 @@ export const ZonalManagersPanel = ({ query = "" }) => {
                       <div className="flex items-center justify-end gap-2">
                         <GhostButton data-testid={`fund-zonal-${r.user.id}`} onClick={() => { setForm({ amount: "", reason: "" }); setModal({ type: "fund", row: r }); }} className="!px-3 !py-2 text-xs"><Wallet2 className="h-3.5 w-3.5" /> Fund</GhostButton>
                         <GhostButton data-testid={`quota-zonal-${r.user.id}`} onClick={() => { setForm({ authorized_quota: r.authorized_quota }); setModal({ type: "quota", row: r }); }} className="!px-3 !py-2 text-xs"><SlidersHorizontal className="h-3.5 w-3.5" /> Quota</GhostButton>
+                        <GhostButton data-testid={`payroll-zonal-${r.user.id}`} onClick={() => { setForm({ weekly_salary_inr: r.weekly_salary_inr ?? 0, incentive_target_inr: r.incentive_target_inr ?? 0, incentive_pct: r.incentive_pct ?? 0 }); setModal({ type: "payroll", row: r }); }} className="!px-3 !py-2 text-xs"><BadgeIndianRupee className="h-3.5 w-3.5" /> Pay</GhostButton>
                       </div>
                     </td>
                   </tr>
@@ -136,6 +149,18 @@ export const ZonalManagersPanel = ({ query = "" }) => {
           <p className="text-xs text-slate-400">Caps how many coins this Zonal Manager may allocate out. Cannot be set below what's already allocated ({fmtCoins(modal?.row?.allocated_out)}).</p>
           <Field label="Authorized quota" type="number" data-testid="quota-zonal-amount" value={form.authorized_quota ?? ""} onChange={(e) => setForm((f) => ({ ...f, authorized_quota: e.target.value }))} />
           <PrimaryButton data-testid="quota-zonal-submit" onClick={submitQuota} disabled={busy} className="w-full">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <SlidersHorizontal className="h-4 w-4" />} Update Quota</PrimaryButton>
+        </div>
+      </Modal>
+
+      <Modal open={modal?.type === "payroll"} onClose={() => setModal(null)} title={`Weekly pay — ${modal?.row?.user.display_name || ""}`} testid="payroll-zonal-modal">
+        <div className="space-y-4">
+          <p className="text-xs text-slate-400">Paid every settlement week from the Super Admin share. Salary is guaranteed; incentive is a bonus only when zone downline confirmed-deposit revenue meets the target.</p>
+          <Field label="Weekly salary (₹)" type="number" data-testid="payroll-zonal-salary" value={form.weekly_salary_inr ?? ""} onChange={(e) => setForm((f) => ({ ...f, weekly_salary_inr: e.target.value }))} hint="Guaranteed each week. 0 = no salary." />
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Incentive target (₹)" type="number" data-testid="payroll-zonal-target" value={form.incentive_target_inr ?? ""} onChange={(e) => setForm((f) => ({ ...f, incentive_target_inr: e.target.value }))} hint="0 = no incentive" />
+            <Field label="Incentive %" type="number" data-testid="payroll-zonal-pct" value={form.incentive_pct ?? ""} onChange={(e) => setForm((f) => ({ ...f, incentive_pct: e.target.value }))} hint="of zone revenue" />
+          </div>
+          <PrimaryButton data-testid="payroll-zonal-submit" onClick={submitPayroll} disabled={busy} className="w-full">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeIndianRupee className="h-4 w-4" />} Save Payroll</PrimaryButton>
         </div>
       </Modal>
     </div>

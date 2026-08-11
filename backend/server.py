@@ -16,7 +16,7 @@ from app.db import client, db
 from app.wallet_service import ensure_indexes
 from app.deposit_service import ensure_deposit_indexes
 from app.hierarchy_service import ensure_hierarchy_indexes
-from app import revenue_service, storage_service
+from app import revenue_service, storage_service, payroll_service
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date, timedelta
 from app.routers.auth import router as auth_router
@@ -365,6 +365,7 @@ async def _daily_maintenance():
     try:
         await revenue_service.generate_daily_summary(date.today() - timedelta(days=1))
         await revenue_service.ensure_recent_settlements()
+        await payroll_service.run_recent_payroll()
     except Exception as e:
         logger.error(f"daily maintenance failed: {e}")
 

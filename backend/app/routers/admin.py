@@ -16,6 +16,7 @@ from ..models import (
     AllocateToAdminRequest,
     AssignPlayerRequest,
     BankAccountInput,
+    WhatsappRequest,
     ConfirmDepositRequest,
     CreateAdminRequest,
     CreateManagerRequest,
@@ -339,6 +340,9 @@ async def list_managers():
             "zonal_manager_id": zm_id,
             "zonal_manager_name": zm_name,
             "wallet_balance": await _wallet_balance(alloc["user_id"]),
+            "weekly_salary_inr": alloc.get("weekly_salary_inr", 0),
+            "incentive_target_inr": alloc.get("incentive_target_inr", 0),
+            "incentive_pct": alloc.get("incentive_pct", 0),
         })
     out.sort(key=lambda m: m["user"].created_at, reverse=True)
     return out
@@ -607,6 +611,22 @@ async def reject_deposit(deposit_id: str, payload: RejectDepositRequest,
     await log_action(caller["id"], "DEPOSIT_REJECTED", target_type="deposit", target_id=deposit_id,
                      metadata={"reason": payload.reason})
     return dep
+
+
+# ---------------------------------------------------------------------------
+# Contact profile — Admin/Manager WhatsApp number shown to players (wa.me)
+# ---------------------------------------------------------------------------
+@router.get("/profile", dependencies=[Depends(require_roles(Role.ADMIN, Role.MANAGER))])
+async def get_profile(caller: dict = Depends(get_current_user)):
+    return await deposit_service.get_profile_contact(caller["id"])
+
+
+@router.put("/profile/whatsapp",
+            dependencies=[Depends(require_roles(Role.ADMIN, Role.MANAGER)), Depends(require_not_suspended)])
+async def set_whatsapp(payload: WhatsappRequest, caller: dict = Depends(get_current_user)):
+    res = await deposit_service.set_whatsapp_number(caller["id"], payload.whatsapp_number)
+    await log_action(caller["id"], "WHATSAPP_UPDATED", target_type="user", target_id=caller["id"])
+    return res
 
 
 # ---------------------------------------------------------------------------

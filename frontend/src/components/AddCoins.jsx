@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Landmark, Copy, Loader2, Plus, Coins, Clock, CheckCircle2, XCircle, ImagePlus, Paperclip } from "lucide-react";
+import { X, Landmark, Copy, Loader2, Plus, Coins, Clock, CheckCircle2, XCircle, ImagePlus, Paperclip, MessageCircle } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import axios from "axios";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { buildUpiUri } from "@/lib/upi";
+import { buildWaLink } from "@/lib/whatsapp";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const fmt = (n) => (n ?? 0).toLocaleString("en-IN");
@@ -151,6 +152,16 @@ export const AddCoins = ({ open, onClose, onSubmitted }) => {
                     <p className="mt-3 rounded-xl bg-royal-light px-3 py-2 text-[11px] font-semibold text-royal">
                       Rate: ₹1 = {info.ratio} coin{info.ratio === 1 ? "" : "s"}
                     </p>
+                    {buildWaLink(info.admin_whatsapp, "Hi, I need help with my payment") && (
+                      <a
+                        data-testid="deposit-whatsapp-btn"
+                        href={buildWaLink(info.admin_whatsapp, "Hi, I need help with my payment")}
+                        target="_blank" rel="noopener noreferrer"
+                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#25D366] px-4 py-3 text-sm font-bold text-white transition-transform hover:scale-[1.01] active:scale-95"
+                      >
+                        <MessageCircle className="h-4 w-4" /> Chat on WhatsApp for payment help
+                      </a>
+                    )}
                   </div>
                 ) : (
                   <div data-testid="deposit-no-bank" className="rounded-2xl bg-white p-5 text-sm text-slate-500 shadow-soft">

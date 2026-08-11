@@ -94,6 +94,7 @@ export const AuthProvider = ({ children }) => {
       ...(referral_code ? { referral_code } : {}),
     });
     localStorage.setItem(TOKEN_KEY, data.access_token);
+    localStorage.setItem("r11_welcome", "1");  // trigger one-time agent welcome
     setToken(data.access_token);
     setUser(data.user);
     return data.user;

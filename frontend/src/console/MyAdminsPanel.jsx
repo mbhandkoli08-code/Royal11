@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Coins, Loader2, Landmark, ArrowUpRight, Wallet2 } from "lucide-react";
 import { toast } from "sonner";
 import { useConsoleApi, fmtCoins, shortId } from "./api";
+import { PayrollCard } from "./PayrollCard";
 import {
   CARD, thCls, tdCls, PanelHeader, StatCard, PrimaryButton, GhostButton,
   UsageBar, UsageBadge, Modal, Field, Spinner, EmptyState,
@@ -85,6 +86,8 @@ export const MyAdminsPanel = ({ query = "" }) => {
         }
         actions={<PrimaryButton data-testid="add-admin-btn" onClick={openCreate}><Plus className="h-4 w-4" /> Request New Admin</PrimaryButton>}
       />
+
+      <PayrollCard endpoint="/admin/my-payroll" />
 
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard testid="mgr-quota" icon={Landmark} label="Authorized Quota" value={fmtCoins(alloc?.authorized_quota)} />

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Plus, Wallet2, SlidersHorizontal, Loader2, ShieldCheck } from "lucide-react";
+import { Plus, Wallet2, SlidersHorizontal, Loader2, ShieldCheck, BadgeIndianRupee } from "lucide-react";
 import { toast } from "sonner";
 import { useConsoleApi, fmtCoins, shortId } from "./api";
 import {
@@ -40,6 +40,7 @@ export const ManagersPanel = ({ query = "" }) => {
   const openFund = (row) => { setForm({ amount: "", reason: "" }); setModal({ type: "fund", row }); };
   const openQuota = (row) => { setForm({ authorized_quota: row.authorized_quota }); setModal({ type: "quota", row }); };
   const openCap = (row) => { setForm({ max_admins_allowed: row.max_admins_allowed ?? "" }); setModal({ type: "cap", row }); };
+  const openPayroll = (row) => { setForm({ weekly_salary_inr: row.weekly_salary_inr ?? 0, incentive_target_inr: row.incentive_target_inr ?? 0, incentive_pct: row.incentive_pct ?? 0 }); setModal({ type: "payroll", row }); };
 
   const submitCreate = async () => {
     if (busy) return;
@@ -104,6 +105,23 @@ export const ManagersPanel = ({ query = "" }) => {
     } finally { setBusy(false); }
   };
 
+  const submitPayroll = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await api.patch(`/admin/managers/${modal.row.user.id}/payroll`, {
+        weekly_salary_inr: Number(form.weekly_salary_inr) || 0,
+        incentive_target_inr: Number(form.incentive_target_inr) || 0,
+        incentive_pct: Number(form.incentive_pct) || 0,
+      });
+      toast.success("Payroll updated");
+      setModal(null);
+      await load();
+    } catch (e) {
+      toast.error("Couldn't update payroll", { description: e.response?.data?.detail || "" });
+    } finally { setBusy(false); }
+  };
+
   return (
     <div data-testid="managers-panel">
       <PanelHeader
@@ -157,6 +175,7 @@ export const ManagersPanel = ({ query = "" }) => {
                         <GhostButton data-testid={`fund-manager-${r.user.id}`} onClick={() => openFund(r)} className="!px-3 !py-2 text-xs"><Wallet2 className="h-3.5 w-3.5" /> Fund</GhostButton>
                         <GhostButton data-testid={`quota-manager-${r.user.id}`} onClick={() => openQuota(r)} className="!px-3 !py-2 text-xs"><SlidersHorizontal className="h-3.5 w-3.5" /> Quota</GhostButton>
                         <GhostButton data-testid={`cap-manager-${r.user.id}`} onClick={() => openCap(r)} className="!px-3 !py-2 text-xs"><ShieldCheck className="h-3.5 w-3.5" /> Cap</GhostButton>
+                        <GhostButton data-testid={`payroll-manager-${r.user.id}`} onClick={() => openPayroll(r)} className="!px-3 !py-2 text-xs"><BadgeIndianRupee className="h-3.5 w-3.5" /> Pay</GhostButton>
                       </div>
                     </td>
                   </tr>
@@ -222,6 +241,21 @@ export const ManagersPanel = ({ query = "" }) => {
           <Field label="Max admins" type="number" data-testid="cap-amount" value={form.max_admins_allowed ?? ""} onChange={(e) => setForm((f) => ({ ...f, max_admins_allowed: e.target.value }))} placeholder="Blank = unlimited" />
           <PrimaryButton data-testid="cap-submit" onClick={submitCap} disabled={busy} className="w-full">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />} Update Cap
+          </PrimaryButton>
+        </div>
+      </Modal>
+
+      {/* Salary + Incentive */}
+      <Modal open={modal?.type === "payroll"} onClose={() => setModal(null)} title={`Weekly pay — ${modal?.row?.user.display_name || ""}`} testid="payroll-manager-modal">
+        <div className="space-y-4">
+          <p className="text-xs text-slate-400">Paid every settlement week from your (Super Admin) share. Salary is guaranteed; incentive is a bonus only when downline confirmed-deposit revenue meets the target.</p>
+          <Field label="Weekly salary (₹)" type="number" data-testid="payroll-salary-input" value={form.weekly_salary_inr ?? ""} onChange={(e) => setForm((f) => ({ ...f, weekly_salary_inr: e.target.value }))} hint="Guaranteed each week. 0 = no salary." />
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Incentive target (₹)" type="number" data-testid="payroll-target-input" value={form.incentive_target_inr ?? ""} onChange={(e) => setForm((f) => ({ ...f, incentive_target_inr: e.target.value }))} hint="0 = no incentive" />
+            <Field label="Incentive %" type="number" data-testid="payroll-pct-input" value={form.incentive_pct ?? ""} onChange={(e) => setForm((f) => ({ ...f, incentive_pct: e.target.value }))} hint="of downline revenue" />
+          </div>
+          <PrimaryButton data-testid="payroll-submit" onClick={submitPayroll} disabled={busy} className="w-full">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <BadgeIndianRupee className="h-4 w-4" />} Save Payroll
           </PrimaryButton>
         </div>
       </Modal>

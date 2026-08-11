@@ -49,6 +49,17 @@ async def _assigned_admin_id(player_id: str) -> Optional[str]:
     return a["admin_id"] if a else None
 
 
+async def get_profile_contact(user_id: str) -> dict:
+    u = await db.users.find_one({"id": user_id}, {"_id": 0, "whatsapp_number": 1})
+    return {"whatsapp_number": (u or {}).get("whatsapp_number")}
+
+
+async def set_whatsapp_number(user_id: str, whatsapp_number: Optional[str]) -> dict:
+    value = (whatsapp_number or "").strip() or None
+    await db.users.update_one({"id": user_id}, {"$set": {"whatsapp_number": value}})
+    return {"whatsapp_number": value}
+
+
 async def get_active_bank_account(admin_id: Optional[str]) -> Optional[dict]:
     if not admin_id:
         return None
@@ -66,8 +77,21 @@ async def deposit_info(player_id: str) -> dict:
     return {
         "admin_id": admin_id,
         "admin_name": admin["display_name"] if admin else None,
+        "admin_whatsapp": admin.get("whatsapp_number") if admin else None,
         "bank_account": bank,
         "ratio": INR_TO_COIN_RATIO,
+    }
+
+
+async def my_agent(player_id: str) -> dict:
+    """The player's assigned collection Admin + contact — used at signup and for
+    payment help. Returns nulls gracefully when no agent/contact is set."""
+    admin_id = await _assigned_admin_id(player_id)
+    admin = await db.users.find_one({"id": admin_id}, {"_id": 0}) if admin_id else None
+    return {
+        "admin_id": admin_id,
+        "admin_name": admin["display_name"] if admin else None,
+        "admin_whatsapp": admin.get("whatsapp_number") if admin else None,
     }
 
 
@@ -255,6 +279,7 @@ async def list_bank_accounts(user_id: str) -> list[dict]:
         a["confirmed_total_all_time"] = t["all_time"]
         a["confirmed_total_week"] = t["week"]
         a.setdefault("upi_id", None)
+        a.setdefault("label", None)
     accounts.sort(key=lambda a: (not a.get("is_active"), a.get("created_at", "")))
     return accounts
 
@@ -270,6 +295,7 @@ async def create_bank_account(user_id: str, data: dict) -> dict:
         "account_number": data["account_number"],
         "ifsc": data["ifsc"],
         "bank_name": data["bank_name"],
+        "label": data.get("label") or None,
         "upi_id": data.get("upi_id") or None,
         "is_active": not has_any,
         "created_at": now,
