@@ -2,23 +2,30 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 
-from .. import assignment_service, wallet_service
+from .. import assignment_service, deposit_service, recharge_service, revenue_service, wallet_service
 from ..audit import log_action
+from ..constants import ADMIN_RECHARGE_BONUS_RATE, DEFAULT_SUPER_ADMIN_PCT
 from ..db import db
-from ..deps import get_current_user, require_roles
+from ..deps import get_current_user, require_not_suspended, require_roles
 from ..models import (
+    AdminRechargeCreate,
     AllocateToAdminRequest,
     AssignPlayerRequest,
+    BankAccountInput,
+    ConfirmDepositRequest,
     CreateAdminRequest,
     CreateManagerRequest,
     FundManagerRequest,
     GrantToPlayerRequest,
+    RejectDepositRequest,
     ReverseTransactionRequest,
+    RevenueSplitRequest,
     Role,
+    SettleRequest,
     TransactionOut,
     TxnType,
     UpdateManagerQuotaRequest,
@@ -120,7 +127,7 @@ async def fund_manager(manager_id: str, payload: FundManagerRequest,
 # Super Admin or Manager: create Admins
 # ---------------------------------------------------------------------------
 @router.post("/admins", response_model=UserPublic,
-             dependencies=[Depends(require_roles(Role.SUPER_ADMIN, Role.MANAGER))])
+             dependencies=[Depends(require_roles(Role.SUPER_ADMIN, Role.MANAGER)), Depends(require_not_suspended)])
 async def create_admin(payload: CreateAdminRequest, caller: dict = Depends(get_current_user)):
     if caller["role"] == Role.MANAGER.value:
         manager_id = caller["id"]
@@ -141,6 +148,7 @@ async def create_admin(payload: CreateAdminRequest, caller: dict = Depends(get_c
         "user_id": user["id"],
         "manager_id": manager_id,
         "player_capacity": payload.player_capacity,
+        "revenue_split_super_admin_pct": DEFAULT_SUPER_ADMIN_PCT,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     })
@@ -152,7 +160,7 @@ async def create_admin(payload: CreateAdminRequest, caller: dict = Depends(get_c
 # ---------------------------------------------------------------------------
 # Manager -> Admin coin allocation
 # ---------------------------------------------------------------------------
-@router.post("/allocate", dependencies=[Depends(require_roles(Role.MANAGER))])
+@router.post("/allocate", dependencies=[Depends(require_roles(Role.MANAGER)), Depends(require_not_suspended)])
 async def allocate_to_admin(payload: AllocateToAdminRequest, caller: dict = Depends(get_current_user)):
     admin_alloc = await db.admin_allocations.find_one({"user_id": payload.admin_id}, {"_id": 0})
     if not admin_alloc or admin_alloc["manager_id"] != caller["id"]:
@@ -200,13 +208,15 @@ async def allocate_to_admin(payload: AllocateToAdminRequest, caller: dict = Depe
 
     await log_action(caller["id"], "COIN_ALLOCATED", target_type="user", target_id=payload.admin_id,
                      metadata={"amount": payload.amount})
+    # Fresh coins may lift a coins-exhausted suspension on the target Admin.
+    await revenue_service.sync_admin_usage_suspension(payload.admin_id)
     return {"debit": TransactionOut(**debit_txn), "credit": TransactionOut(**credit_txn)}
 
 
 # ---------------------------------------------------------------------------
 # Admin -> Player coin grant
 # ---------------------------------------------------------------------------
-@router.post("/grant", dependencies=[Depends(require_roles(Role.ADMIN))])
+@router.post("/grant", dependencies=[Depends(require_roles(Role.ADMIN)), Depends(require_not_suspended)])
 async def grant_to_player(payload: GrantToPlayerRequest, caller: dict = Depends(get_current_user)):
     assignment = await db.player_assignments.find_one({"player_id": payload.player_id}, {"_id": 0})
     if not assignment or assignment["admin_id"] != caller["id"]:
@@ -223,13 +233,15 @@ async def grant_to_player(payload: GrantToPlayerRequest, caller: dict = Depends(
 
     await log_action(caller["id"], "COIN_GRANTED", target_type="user", target_id=payload.player_id,
                      metadata={"amount": payload.amount, "reason": payload.reason})
+    # If this grant exhausted the Admin's allocation, auto-suspend until re-funded.
+    await revenue_service.sync_admin_usage_suspension(caller["id"])
     return {"debit": TransactionOut(**debit_txn), "credit": TransactionOut(**credit_txn)}
 
 
 # ---------------------------------------------------------------------------
 # Player assignment
 # ---------------------------------------------------------------------------
-@router.post("/players/assign", dependencies=[Depends(require_roles(Role.SUPER_ADMIN, Role.MANAGER))])
+@router.post("/players/assign", dependencies=[Depends(require_roles(Role.SUPER_ADMIN, Role.MANAGER)), Depends(require_not_suspended)])
 async def assign_player(payload: AssignPlayerRequest, caller: dict = Depends(get_current_user)):
     admin_alloc = await db.admin_allocations.find_one({"user_id": payload.admin_id}, {"_id": 0})
     if not admin_alloc:
@@ -319,21 +331,6 @@ async def list_managers():
     return out
 
 
-async def _admin_flows(user_id: str) -> tuple[int, int]:
-    """Real coin flows for an Admin from the ledger: total received from their
-    Manager, and total granted out to players."""
-    allocated = 0
-    used = 0
-    async for t in db.ledger_transactions.find(
-        {"user_id": user_id, "status": "COMPLETED"}, {"_id": 0, "type": 1, "amount": 1}
-    ):
-        if t["type"] == TxnType.MANAGER_TO_ADMIN.value and t["amount"] > 0:
-            allocated += t["amount"]
-        elif t["type"] == TxnType.ADMIN_GRANT.value and t["amount"] < 0:
-            used += -t["amount"]
-    return allocated, used
-
-
 @router.get("/admins", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
 async def list_admins():
     out = []
@@ -342,8 +339,9 @@ async def list_admins():
         if not u:
             continue
         mgr = await db.users.find_one({"id": alloc.get("manager_id")}, {"_id": 0})
-        allocated, used = await _admin_flows(alloc["user_id"])
+        allocated, used = await revenue_service.admin_flows(alloc["user_id"])
         player_count = await db.player_assignments.count_documents({"admin_id": alloc["user_id"]})
+        usage_pct = round((used / allocated) * 100) if allocated else 0
         out.append({
             "user": UserPublic(**u),
             "manager_id": alloc.get("manager_id"),
@@ -352,8 +350,10 @@ async def list_admins():
             "player_count": player_count,
             "allocated": allocated,
             "used": used,
-            "remaining": await _wallet_balance(alloc["user_id"]),
-            "usage_pct": round((used / allocated) * 100) if allocated else 0,
+            "remaining": allocated - used,
+            "usage_pct": usage_pct,
+            "usage_level": revenue_service.usage_level(usage_pct),
+            "revenue_split_super_admin_pct": alloc.get("revenue_split_super_admin_pct", DEFAULT_SUPER_ADMIN_PCT),
             "wallet_balance": await _wallet_balance(alloc["user_id"]),
         })
     out.sort(key=lambda a: a["user"].created_at, reverse=True)
@@ -500,15 +500,17 @@ async def my_admins(caller: dict = Depends(get_current_user)):
         u = await db.users.find_one({"id": alloc["user_id"]}, {"_id": 0})
         if not u:
             continue
-        allocated, used = await _admin_flows(alloc["user_id"])
+        allocated, used = await revenue_service.admin_flows(alloc["user_id"])
         player_count = await db.player_assignments.count_documents({"admin_id": alloc["user_id"]})
+        usage_pct = round((used / allocated) * 100) if allocated else 0
         out.append({
             "user": UserPublic(**u),
             "player_capacity": alloc.get("player_capacity", 0),
             "player_count": player_count,
             "allocated": allocated,
             "used": used,
-            "usage_pct": round((used / allocated) * 100) if allocated else 0,
+            "usage_pct": usage_pct,
+            "usage_level": revenue_service.usage_level(usage_pct),
             "wallet_balance": await _wallet_balance(alloc["user_id"]),
         })
     out.sort(key=lambda a: a["user"].created_at, reverse=True)
@@ -528,3 +530,148 @@ async def list_players():
         })
     out.sort(key=lambda p: p["user"].created_at, reverse=True)
     return out
+
+
+
+# ---------------------------------------------------------------------------
+# Coin top-up / deposits (Part 1) — admin side
+# ---------------------------------------------------------------------------
+@router.get("/deposits",
+            dependencies=[Depends(require_roles(Role.SUPER_ADMIN, Role.MANAGER, Role.ADMIN))])
+async def list_deposits(caller: dict = Depends(get_current_user), limit: int = 100):
+    """Deposit requests scoped to the caller: Admin sees their own players',
+    Manager sees their whole chain's, Super Admin sees everything."""
+    return await deposit_service.list_deposits(caller, limit=min(max(limit, 1), 200))
+
+
+@router.post("/deposits/{deposit_id}/confirm",
+             dependencies=[Depends(require_roles(Role.ADMIN)), Depends(require_not_suspended)])
+async def confirm_deposit(deposit_id: str, payload: ConfirmDepositRequest,
+                          caller: dict = Depends(get_current_user)):
+    try:
+        dep = await deposit_service.confirm_deposit(deposit_id, caller["id"], payload.note)
+    except PermissionError as e:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(e))
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    await log_action(caller["id"], "DEPOSIT_CONFIRMED", target_type="deposit", target_id=deposit_id,
+                     metadata={"coins": dep["coins_to_credit"], "amount_inr": dep["amount_inr"]})
+    return dep
+
+
+@router.post("/deposits/{deposit_id}/reject",
+             dependencies=[Depends(require_roles(Role.ADMIN)), Depends(require_not_suspended)])
+async def reject_deposit(deposit_id: str, payload: RejectDepositRequest,
+                         caller: dict = Depends(get_current_user)):
+    try:
+        dep = await deposit_service.reject_deposit(deposit_id, caller["id"], payload.reason)
+    except PermissionError as e:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, str(e))
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    await log_action(caller["id"], "DEPOSIT_REJECTED", target_type="deposit", target_id=deposit_id,
+                     metadata={"reason": payload.reason})
+    return dep
+
+
+# ---------------------------------------------------------------------------
+# Collection bank account (Part 1b) — Admin/Manager manage their own
+# ---------------------------------------------------------------------------
+@router.get("/bank-account",
+            dependencies=[Depends(require_roles(Role.ADMIN, Role.MANAGER))])
+async def get_bank_account(caller: dict = Depends(get_current_user)):
+    return await deposit_service.get_bank_account(caller["id"])
+
+
+@router.put("/bank-account",
+            dependencies=[Depends(require_roles(Role.ADMIN, Role.MANAGER)), Depends(require_not_suspended)])
+async def put_bank_account(payload: BankAccountInput, caller: dict = Depends(get_current_user)):
+    doc = await deposit_service.upsert_bank_account(caller["id"], payload.model_dump())
+    await log_action(caller["id"], "BANK_ACCOUNT_UPDATED", target_type="bank_account",
+                     target_id=caller["id"], metadata={"bank_name": payload.bank_name})
+    return doc
+
+
+
+# ---------------------------------------------------------------------------
+# Revenue split + settlements (Part 2) — Super Admin
+# ---------------------------------------------------------------------------
+@router.patch("/admins/{admin_id}/revenue-split",
+              dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def set_revenue_split(admin_id: str, payload: RevenueSplitRequest,
+                            caller: dict = Depends(get_current_user)):
+    res = await db.admin_allocations.update_one(
+        {"user_id": admin_id},
+        {"$set": {"revenue_split_super_admin_pct": payload.revenue_split_super_admin_pct,
+                  "updated_at": datetime.now(timezone.utc).isoformat()}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Admin not found")
+    await log_action(caller["id"], "REVENUE_SPLIT_UPDATED", target_type="user", target_id=admin_id,
+                     metadata={"pct": payload.revenue_split_super_admin_pct})
+    return {"admin_id": admin_id, "revenue_split_super_admin_pct": payload.revenue_split_super_admin_pct}
+
+
+@router.get("/settlements", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def list_settlements(limit: int = 200):
+    return await revenue_service.list_settlements(limit=min(max(limit, 1), 500))
+
+
+@router.post("/settlements/{settlement_id}/settle",
+             dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def settle_settlement(settlement_id: str, payload: SettleRequest,
+                            caller: dict = Depends(get_current_user)):
+    try:
+        s = await revenue_service.settle(settlement_id, caller["id"])
+    except ValueError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+    await log_action(caller["id"], "SETTLEMENT_SETTLED", target_type="settlement",
+                     target_id=settlement_id, metadata={"note": payload.note})
+    return s
+
+
+# ---------------------------------------------------------------------------
+# Daily transaction summary (Super Admin) — buildable now from real ledger
+# ---------------------------------------------------------------------------
+@router.get("/daily-summary", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def daily_summary(days: int = 14):
+    return await revenue_service.get_daily_summaries(days=min(max(days, 1), 90))
+
+
+@router.get("/daily-summary/export", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def daily_summary_export(days: int = 30):
+    rows = await revenue_service.get_daily_summaries(days=min(max(days, 1), 365))
+    lines = ["date,total_deposits_inr,total_allocations_coins,total_transactions"]
+    for r in rows:
+        lines.append(f"{r['date']},{r['total_deposits_inr']},{r['total_allocations_coins']},{r['total_transactions']}")
+    csv = "\n".join(lines) + "\n"
+    return Response(
+        content=csv, media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=daily_summary.csv"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Admin self-recharge (Part 5) — Admin submits; suspension does NOT block this
+# (a coins-exhausted Admin needs to be able to top up to recover).
+# ---------------------------------------------------------------------------
+@router.post("/recharge-request", dependencies=[Depends(require_roles(Role.ADMIN))])
+async def create_recharge_request(payload: AdminRechargeCreate, caller: dict = Depends(get_current_user)):
+    doc = await recharge_service.create_recharge_request(
+        caller["id"], payload.amount_inr, payload.reference_note
+    )
+    await log_action(caller["id"], "ADMIN_RECHARGE_REQUESTED", target_type="admin_recharge",
+                     target_id=doc["id"], metadata={"amount_inr": payload.amount_inr})
+    return doc
+
+
+@router.get("/my-recharges", dependencies=[Depends(require_roles(Role.ADMIN))])
+async def my_recharges(caller: dict = Depends(get_current_user), limit: int = 50):
+    cursor = db.admin_recharges.find({"admin_id": caller["id"]}, {"_id": 0}).sort("created_at", -1).limit(limit)
+    return [r async for r in cursor]
+
+
+@router.get("/recharge-info", dependencies=[Depends(require_roles(Role.ADMIN))])
+async def recharge_info():
+    return {"bonus_rate": ADMIN_RECHARGE_BONUS_RATE}
+

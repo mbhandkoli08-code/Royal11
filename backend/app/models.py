@@ -18,6 +18,7 @@ class Role(str, Enum):
 class UserStatus(str, Enum):
     ACTIVE = "ACTIVE"
     DISABLED = "DISABLED"
+    SUSPENDED = "SUSPENDED"
 
 
 class TxnType(str, Enum):
@@ -27,6 +28,9 @@ class TxnType(str, Enum):
     SUPER_ADMIN_TO_MANAGER = "SUPER_ADMIN_TO_MANAGER"
     MANAGER_TO_ADMIN = "MANAGER_TO_ADMIN"
     ADMIN_GRANT = "ADMIN_GRANT"
+    ADMIN_RECHARGE = "ADMIN_RECHARGE"
+    DEPOSIT_TOPUP = "DEPOSIT_TOPUP"
+    REFERRAL_BONUS = "REFERRAL_BONUS"
     GAME_ENTRY = "GAME_ENTRY"
     GAME_REWARD = "GAME_REWARD"
     FANTASY_ENTRY = "FANTASY_ENTRY"
@@ -47,6 +51,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
     display_name: str = Field(min_length=1, max_length=80)
+    referral_code: Optional[str] = Field(default=None, max_length=16)
 
 
 class LoginRequest(BaseModel):
@@ -62,6 +67,8 @@ class UserPublic(BaseModel):
     role: Role
     status: UserStatus
     created_at: datetime
+    suspension_reason: Optional[str] = None
+    referral_code: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
@@ -186,3 +193,47 @@ class ApiKeyTestResult(BaseModel):
     status: str
     message: str
     balance_info: Optional[BalanceInfo] = None
+
+
+
+# ---------------------------------------------------------------------------
+# Coin top-up / deposits (Part 1)
+# ---------------------------------------------------------------------------
+class DepositRequestCreate(BaseModel):
+    amount_inr: int = Field(gt=0)
+    reference_note: str = Field(min_length=1, max_length=200)
+
+
+class ConfirmDepositRequest(BaseModel):
+    note: Optional[str] = Field(default=None, max_length=200)
+
+
+class AdminRechargeCreate(BaseModel):
+    amount_inr: int = Field(gt=0)
+    reference_note: str = Field(min_length=1, max_length=200)
+
+
+class RejectDepositRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=200)
+
+
+# ---------------------------------------------------------------------------
+# Collection bank account (Part 1b)
+# ---------------------------------------------------------------------------
+class BankAccountInput(BaseModel):
+    account_holder_name: str = Field(min_length=1, max_length=120)
+    account_number: str = Field(min_length=4, max_length=34)
+    ifsc: str = Field(min_length=4, max_length=15)
+    bank_name: str = Field(min_length=1, max_length=120)
+    is_active: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Revenue split + settlement (Part 2)
+# ---------------------------------------------------------------------------
+class RevenueSplitRequest(BaseModel):
+    revenue_split_super_admin_pct: int = Field(ge=0, le=100)
+
+
+class SettleRequest(BaseModel):
+    note: Optional[str] = Field(default=None, max_length=200)

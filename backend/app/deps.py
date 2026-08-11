@@ -22,8 +22,23 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer_
     user = await db.users.find_one({"id": payload.get("sub")}, {"_id": 0})
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User no longer exists")
-    if user["status"] != "ACTIVE":
+    # DISABLED accounts are fully locked out. SUSPENDED accounts may still
+    # authenticate (read-only Console) — individual action endpoints guard
+    # against SUSPENDED via require_not_suspended.
+    if user["status"] == "DISABLED":
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Account disabled")
+    return user
+
+
+def require_not_suspended(user: dict = Depends(get_current_user)) -> dict:
+    """Guard for state-changing Console actions. A SUSPENDED account can view
+    but cannot create/allocate/grant/confirm — it must be reinstated first."""
+    if user["status"] == "SUSPENDED":
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"Account suspended ({user.get('suspension_reason') or 'contact your Super Admin'}). "
+            "Action blocked until reinstated.",
+        )
     return user
 
 

@@ -14,9 +14,14 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 
 from app.db import client, db
 from app.wallet_service import ensure_indexes
+from app.deposit_service import ensure_deposit_indexes
+from app import revenue_service
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from datetime import date, timedelta
 from app.routers.auth import router as auth_router
 from app.routers.wallet import router as wallet_router
 from app.routers.admin import router as admin_router
+from app.routers.superadmin import router as superadmin_router
 from app.routers.api_keys import router as api_keys_router
 from app.routers.cricket import router as cricket_router
 
@@ -328,6 +333,7 @@ async def match_preview(req: MatchPreviewRequest):
 api_router.include_router(auth_router)
 api_router.include_router(wallet_router)
 api_router.include_router(admin_router)
+api_router.include_router(superadmin_router)
 api_router.include_router(api_keys_router)
 api_router.include_router(cricket_router)
 app.include_router(api_router)
@@ -347,10 +353,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+scheduler = AsyncIOScheduler(timezone="UTC")
+
+
+async def _daily_maintenance():
+    """Idempotent: regenerate yesterday's summary, (re)generate the most recent
+    week's settlements, and apply/lift settlement-overdue suspensions."""
+    try:
+        await revenue_service.generate_daily_summary(date.today() - timedelta(days=1))
+        await revenue_service.ensure_recent_settlements()
+    except Exception as e:
+        logger.error(f"daily maintenance failed: {e}")
+
+
 @app.on_event("startup")
 async def ensure_db_indexes():
     await ensure_indexes()
+    await ensure_deposit_indexes()
+    # Runs every day at 00:10 UTC; lazy on-read generation covers the rest.
+    scheduler.add_job(_daily_maintenance, "cron", hour=0, minute=10, id="daily_maintenance", replace_existing=True)
+    scheduler.start()
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    try:
+        scheduler.shutdown(wait=False)
+    except Exception:
+        pass
     client.close()

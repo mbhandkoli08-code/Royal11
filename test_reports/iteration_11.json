@@ -1,0 +1,33 @@
+{
+  "summary": "Verified Part 5 (Admin self-recharge) end-to-end AND the /console re-theme regression. Backend: 6/6 pytest passed against live public URL — role isolation on both /superadmin/recharges (Manager/Admin → 403) and /admin/recharge-request (Super/Manager/Player → 403); /admin/recharge-info returns bonus_rate=1.5; create → PENDING with coins_credited = ₹amount * 1.5 (₹200 → 300 coins); Super sees it in queue with admin_name; my-recharges lists it; confirm credits admin wallet with exactly +300 and second confirm returns 400 with NO double-credit (idempotent via request_id=admin_recharge:{id}); reject sets status REJECTED with rejected_reason and does NOT credit, subsequent confirm returns 400; suspension recovery: fresh manager→admin chain funded (quota 1M, wallet 1M), fresh player assigned, admin grants full 100-coin quota → status auto-flips to SUSPENDED (COINS_EXHAUSTED), /admin/recharge-request STILL allowed while suspended (200), /admin/grant blocked (403), Super confirms recharge → sync_admin_usage_suspension flips admin back to ACTIVE. Frontend: Super Admin logged in via /console/login (Enter-to-submit); all 8 tabs render (nav-overview, nav-managers, nav-admins, nav-transactions, nav-deposits, nav-settlements, nav-recharge-queue, nav-apikeys); Overview toggle switches between economy stat cards and activity (daily-summary-table + export-summary-btn); recharge-queue-panel visible with 12 recharge-* elements; Manager (nav-my-admins, nav-deposits, nav-bank-account) and Admin (nav-my-players, nav-deposits, nav-recharge, nav-bank-account) panels all mount post-retheme; Admin submitted a fresh recharge via UI (recharge-amount + recharge-reference + recharge-submit) which appeared in my-recharges (7 items). Player logging in at /console/login is correctly redirected to /. Old /auth login still authenticates and lands on /console for admins.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_royal11_recharge_part5.py",
+    "/app/test_reports/pytest/recharge_part5.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "recharge_service.confirm_recharge uses request_id=f'admin_recharge:{recharge_id}' before the status flip — wallet-layer idempotency guarantees no double credit even if the status update fails between calls (same defensive pattern as deposit_service).",
+    "recharge-request is intentionally NOT gated by require_not_suspended (verified) — this is the ONLY escape hatch for a coins-exhausted admin to self-recover. Correct product design.",
+    "revenue_service.sync_admin_usage_suspension is called on confirm — it only lifts COINS_EXHAUSTED suspensions, so a settlement-overdue admin correctly stays SUSPENDED even after a fresh recharge. Good separation of concerns.",
+    "constants.ADMIN_RECHARGE_BONUS_RATE = 1.5 hard-coded — fine for now, but consider making it configurable via env or a settings collection if bonus tiers are added later.",
+    "recharge_service.list_recharges caches admin_id → display_name within a single call (avoids N repeated user lookups). Nice.",
+    "Minor nit: reject/confirm both raise ValueError on already-processed rows and the router maps to 400 — consistent with deposit endpoints; consider raising a shared DomainError for uniform mapping across services.",
+    "admin.py is now 678 lines and includes recharge endpoints on top of the existing managers/admins/deposits/settlements — worth splitting into feature routers as previously flagged.",
+    "The re-theme preserved all data-testids and did not break any tested UI flow (100% of tested testids resolved and clickable across Super/Manager/Admin roles)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_royal11_recharge_part5.py (new — 6 pytest cases)"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (all tested testids/flows verified across 3 roles)"},
+  "test_credentials": "superadmin@royal11.com / manager1@royal11.com / admin1@royal11.com / player1@royal11.com — all ChangeMe123!",
+  "seed_data_creation": "Created a fresh TEST_ manager+admin+player chain (quota 1M, wallet 1M, allocated 100) for the suspension-lift test; created 2 additional TEST_REF and 1 TEST_REJ admin_recharge docs against admin1. Also created 1 UITEST_ recharge from the Playwright run. Not cleaned up (safe — TEST_ prefixed).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Manager/Admin console uses nav-my-transactions (not nav-transactions) for the Transactions tab — that's by design (Super Admin uses nav-transactions for the global list). /wallet/me response is nested — use r.json()['wallet']['balance']. Manager quota patch payload key is authorized_quota; fund payload uses amount + reason (not note). Grant/Allocate payloads use reason (not note). /admin/my-players returns [{player: UserPublic, balance, assigned_at}] — player id is at row.player.id."
+}

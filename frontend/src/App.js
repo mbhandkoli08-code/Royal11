@@ -12,6 +12,7 @@ import HomePage from "@/pages/HomePage";
 import WalletPage from "@/pages/WalletPage";
 import AuthPage from "@/pages/AuthPage";
 import ConsolePage from "@/pages/ConsolePage";
+import ConsoleLoginPage from "@/pages/ConsoleLoginPage";
 import SportsPage from "@/pages/SportsPage";
 import "@/App.css";
 
@@ -69,10 +70,19 @@ const AuthRoute = () => {
   return <AuthPage />;
 };
 
+const ConsoleLoginRoute = () => {
+  const { loading, isAuthenticated, user } = useAuth();
+  if (loading) return <FullScreenLoader />;
+  if (isAuthenticated) {
+    return <Navigate to={CONSOLE_ROLES.includes(user?.role) ? "/console" : "/"} replace />;
+  }
+  return <ConsoleLoginPage />;
+};
+
 const ConsoleRoute = () => {
   const { loading, isAuthenticated, user } = useAuth();
   if (loading) return <FullScreenLoader />;
-  if (!isAuthenticated) return <Navigate to="/auth" replace />;
+  if (!isAuthenticated) return <Navigate to="/console/login" replace />;
   if (!CONSOLE_ROLES.includes(user?.role)) return <Navigate to="/" replace />;
   return <ConsolePage />;
 };
@@ -80,6 +90,7 @@ const ConsoleRoute = () => {
 const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<AuthRoute />} />
+    <Route path="/console/login" element={<ConsoleLoginRoute />} />
     <Route path="/console" element={<ConsoleRoute />} />
     <Route path="/*" element={<ProtectedShell />} />
   </Routes>

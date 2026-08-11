@@ -10,6 +10,7 @@ module.exports = {
       fontFamily: {
         display: ['Outfit', 'sans-serif'],
         body: ['Manrope', 'sans-serif'],
+        console: ['IBM Plex Sans', 'sans-serif'],
       },
       borderRadius: {
         lg: 'var(--radius)',

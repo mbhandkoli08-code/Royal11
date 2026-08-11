@@ -1,0 +1,35 @@
+{
+  "summary": "End-to-end verification of Parts 1–4 (deposit top-ups, bank account, revenue split + settlements, auto-suspend/reinstate, referral, activity nudge, daily summary). Backend: 16/16 pytest passed against the live public URL — deposit create doesn't credit, confirm credits exactly once (second confirm → 400 already confirmed, no double-credit), reject leaves balance untouched, scope of GET /admin/deposits is Super≥Manager≥Admin, revenue split PATCH + validation (422 for >100) works, settlements list math verified per-row, referral registration credits referrer +200, activity nudge shape correct, daily summary + CSV export work, /admin/admins now exposes usage_level+revenue_split_super_admin_pct, and a full auto-suspend→reinstate chain (fresh manager→admin→player, allocate 100 → grant 100 → admin auto-SUSPENDED with reason COINS_EXHAUSTED, /auth/me still 200, /grant returns 403, manager reallocates → ACTIVE). Frontend: Wallet 'Add Coins' modal renders bank details for the assigned agent, submits a deposit which appears as PENDING in deposit-history; referral-card + referral-code + copy-referral-btn all render for the player; signup form exposes auth-referral-input on Sign Up mode. Admin Console: nav-deposits and nav-bank-account both mount their panels; suspended-banner correctly absent for active admin1. Super Admin Console: nav-settlements, nav-overview, nav-admins all present; daily-summary-table + export-summary-btn render on Overview; Admins tab exposes 10 split-<id> buttons and the split modal (split-pct + split-save) works.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_royal11_deposits_referrals.py",
+    "/app/test_reports/pytest/deposits_referrals.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "revenue_service._admin_split_pct falls back to DEFAULT_SUPER_ADMIN_PCT (70) when the alloc doc has no key — good; ensures older admins (pre-split field) still generate correct settlements.",
+    "deposit_service.confirm_deposit uses request_id=f'deposit:{deposit_id}' for wallet_service.credit, giving idempotency even before the status flip — a wallet-layer retry can't double-credit even if the deposit status update fails between calls. Nicely defensive.",
+    "revenue_service.generate_settlements_for_week overwrites a PENDING settlement with fresh totals (good — supports late-confirmed deposits) but never rewrites SETTLED (correct — payouts are frozen). Explicit and safe.",
+    "sync_admin_usage_suspension only reinstates when the suspension reason is COINS_EXHAUSTED — settlement-overdue suspensions correctly stay in place until settled. Good separation of concerns.",
+    "auth.register credits the referrer using request_id=f'referral:{new_user_id}', so an admin retrying the register endpoint (or a duplicate call) can never double-pay the referral bonus. Verified once during the test run.",
+    "Small nit: /admin/settlements triggers ensure_recent_settlements on every read — cheap today (one week × few admins) but could be moved to a scheduler if the list is polled aggressively.",
+    "Minor: wallet.py imports WalletWithHistory which forces the /wallet/me response through a pydantic serialization; combined with admin.py's endpoints this is already large (650 lines) — consider splitting admin.py by feature (managers, admins, deposits, settlements, summary) as it grows further."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_royal11_deposits_referrals.py (new — 16 pytest cases covering deposit flow idempotency, reject, scope, revenue split, settlement math + role guard, referral +200 credit, activity nudge shape, daily summary + CSV, usage_level exposure, and full auto-suspend→reinstate lifecycle)"
+  ],
+  "success_rate": {"backend": "100% (16/16)", "frontend": "100% (all requested testids/flows verified)"},
+  "test_credentials": "superadmin@royal11.com / manager1@royal11.com / admin1@royal11.com / player1@royal11.com — all ChangeMe123!",
+  "seed_data_creation": "Backend test created a fresh TEST_ mgr+admin+player chain to exercise auto-suspend end-to-end, a TEST bank account on admin1, and a PENDING deposit submitted via the player UI (still visible in admin1's deposit list). Not cleaned up.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Login by pressing Enter in auth-password-input (force-click hits toast overlay). Between multi-role Playwright runs, clear cookies+localStorage or the app auto-redirects away from /auth. Settlements table renders 'settlements-empty' when no CONFIRMED deposits exist from prior weeks — this is expected; to see a populated table, insert a CONFIRMED deposit with created_at last week. The visual retheme mentioned by the main agent preserves all data-testids, so this test file should stay valid post-retheme."
+}

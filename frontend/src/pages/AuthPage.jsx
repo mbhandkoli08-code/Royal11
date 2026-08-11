@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, User as UserIcon, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
+import { Mail, Lock, User as UserIcon, ArrowRight, Loader2, ShieldCheck, Gift } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, formatApiErrorDetail } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
@@ -21,6 +21,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [referralCode, setReferralCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -32,7 +33,7 @@ export default function AuthPage() {
     setBusy(true);
     try {
       if (isSignup) {
-        await register(email.trim(), password, displayName.trim());
+        await register(email.trim(), password, displayName.trim(), referralCode.trim().toUpperCase());
         toast.success("Welcome to ROYAL11!", { description: "1,000 bonus coins added to your wallet." });
       } else {
         await login(email.trim(), password);
@@ -117,6 +118,26 @@ export default function AuthPage() {
                   onChange={(e) => setDisplayName(e.target.value)}
                   required
                   data-testid="auth-name-input"
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence initial={false} mode="popLayout">
+            {isSignup && (
+              <motion.div
+                key="referral-field"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <Field
+                  icon={Gift}
+                  type="text"
+                  placeholder="Referral code (optional)"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value)}
+                  data-testid="auth-referral-input"
                 />
               </motion.div>
             )}

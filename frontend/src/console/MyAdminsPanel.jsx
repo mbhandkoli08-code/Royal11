@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useConsoleApi, fmtCoins, shortId } from "./api";
 import {
   CARD, thCls, tdCls, PanelHeader, StatCard, PrimaryButton, GhostButton,
-  UsageBar, Modal, Field, Spinner, EmptyState,
+  UsageBar, UsageBadge, Modal, Field, Spinner, EmptyState,
 } from "./primitives";
 
 // Manager console: my quota, my admins, create admin, allocate coins to admins.
@@ -96,7 +96,7 @@ export const MyAdminsPanel = ({ query = "" }) => {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[820px] text-left text-sm" data-testid="my-admins-table">
               <thead>
-                <tr className="border-b border-white/5">
+                <tr className="border-b border-slate-100">
                   <th className={thCls}>Admin</th>
                   <th className={thCls}>Allocated</th>
                   <th className={thCls}>Used</th>
@@ -106,18 +106,18 @@ export const MyAdminsPanel = ({ query = "" }) => {
                   <th className={`${thCls} text-right`}>Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {filtered.map((r) => (
-                  <tr key={r.user.id} data-testid={`my-admin-row-${r.user.id}`} className="transition-colors hover:bg-white/[0.02]">
+                  <tr key={r.user.id} data-testid={`my-admin-row-${r.user.id}`} className="transition-colors hover:bg-slate-50">
                     <td className={tdCls}>
-                      <p className="font-bold text-white">{r.user.display_name}</p>
-                      <p className="text-[11px] text-[#8c8385]">{r.user.email}</p>
-                      <p className="font-mono text-[11px] text-[#8c8385]">{shortId(r.user.id)}</p>
+                      <p className="font-bold text-slate-900">{r.user.display_name}</p>
+                      <p className="text-[11px] text-slate-400">{r.user.email}</p>
+                      <p className="font-mono text-[11px] text-slate-400">{shortId(r.user.id)}</p>
                     </td>
-                    <td className={`${tdCls} text-[#d4af37]`}>{fmtCoins(r.allocated)}</td>
+                    <td className={`${tdCls} text-sky-600`}>{fmtCoins(r.allocated)}</td>
                     <td className={tdCls}>{fmtCoins(r.used)}</td>
-                    <td className={tdCls}><UsageBar pct={r.usage_pct} /></td>
-                    <td className={tdCls}>{r.player_count}<span className="text-[#8c8385]"> / {r.player_capacity}</span></td>
+                    <td className={tdCls}><div className="flex items-center"><UsageBar pct={r.usage_pct} /><UsageBadge level={r.usage_level} /></div></td>
+                    <td className={tdCls}>{r.player_count}<span className="text-slate-400"> / {r.player_capacity}</span></td>
                     <td className={tdCls}>{fmtCoins(r.wallet_balance)}</td>
                     <td className={tdCls}>
                       <div className="flex justify-end">
@@ -146,7 +146,7 @@ export const MyAdminsPanel = ({ query = "" }) => {
 
       <Modal open={modal?.type === "allocate"} onClose={() => setModal(null)} title={`Allocate to ${modal?.row?.user.display_name || ""}`} testid="allocate-modal">
         <div className="space-y-4">
-          <p className="text-xs text-[#8c8385]">Moves coins from your wallet ({fmtCoins(alloc?.wallet_balance)} available) into this Admin’s wallet. Counts against your quota.</p>
+          <p className="text-xs text-slate-400">Moves coins from your wallet ({fmtCoins(alloc?.wallet_balance)} available) into this Admin’s wallet. Counts against your quota.</p>
           <Field label="Amount" type="number" data-testid="allocate-amount" value={form.amount || ""} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} placeholder="e.g. 10000" />
           <PrimaryButton data-testid="allocate-submit" onClick={submitAllocate} disabled={busy} className="w-full">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Coins className="h-4 w-4" />} Allocate Coins

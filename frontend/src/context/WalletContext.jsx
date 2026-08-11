@@ -16,6 +16,8 @@ const TXN_META = {
   FANTASY_ENTRY: { label: "Fantasy Contest Entry", icon: "Users" },
   FANTASY_REWARD: { label: "Fantasy Reward", icon: "Users" },
   ADMIN_GRANT: { label: "Coins Granted", icon: "Sparkles" },
+  DEPOSIT_TOPUP: { label: "Coin Top-Up", icon: "Gift" },
+  REFERRAL_BONUS: { label: "Referral Bonus", icon: "Users" },
   MANAGER_TO_ADMIN: { label: "Allocation", icon: "Sparkles" },
   SUPER_ADMIN_TO_MANAGER: { label: "Allocation", icon: "Sparkles" },
   REVERSAL: { label: "Reversal", icon: "Sparkles" },

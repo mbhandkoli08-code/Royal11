@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ChevronLeft, TrendingUp, TrendingDown, Award, HelpCircle, Gift,
-  Users, Dice5, Sparkles, Trophy, Flame, ShieldCheck, Zap,
+  Users, Dice5, Sparkles, Trophy, Flame, ShieldCheck, Zap, Coins,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
+import { useAuth } from "@/context/AuthContext";
 import { Reveal, MaskedLines } from "@/components/Reveal";
 import { RewardsStore } from "@/components/RewardsStore";
+import { AddCoins } from "@/components/AddCoins";
 
 const fmt = (n) => n.toLocaleString("en-IN");
 
@@ -16,8 +18,10 @@ const ICONS = { Gift, Users, Dice5, Sparkles, Trophy, Flame };
 
 export default function WalletPage() {
   const navigate = useNavigate();
-  const { balance, txns, rewardsClaimed, boostUntil, extendBoost } = useWallet();
+  const { balance, txns, rewardsClaimed, boostUntil, extendBoost, refresh } = useWallet();
+  const { user } = useAuth();
   const [storeOpen, setStoreOpen] = useState(false);
+  const [addCoinsOpen, setAddCoinsOpen] = useState(false);
 
   const [now, setNow] = useState(Date.now());
   const boostActive = boostUntil && now < boostUntil;
@@ -113,6 +117,13 @@ export default function WalletPage() {
 
       {/* Actions */}
       <Reveal className="mt-6">
+        <button
+          data-testid="add-coins-btn"
+          onClick={() => setAddCoinsOpen(true)}
+          className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-royal px-5 py-4 text-sm font-bold text-white shadow-lift transition-transform hover:-translate-y-0.5"
+        >
+          <Coins className="h-4 w-4" /> Add Coins
+        </button>
         <div className="grid grid-cols-2 gap-3 sm:gap-4">
           <button
             data-testid="how-to-earn-btn"
@@ -130,6 +141,33 @@ export default function WalletPage() {
           </button>
         </div>
       </Reveal>
+
+      {/* Refer & earn */}
+      {user?.referral_code && (
+        <Reveal className="mt-4">
+          <div data-testid="referral-card" className="rounded-2xl border-2 border-royal/15 bg-white p-5 shadow-soft">
+            <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              <Gift className="h-4 w-4 text-royal" /> Refer &amp; earn 200 coins
+            </div>
+            <p className="mt-1 text-xs text-slate-500">Share your code. When a friend signs up with it, you get 200 coins.</p>
+            <div className="mt-3 flex items-center gap-2">
+              <code data-testid="referral-code" className="flex-1 rounded-xl bg-royal-light px-4 py-3 text-center font-display text-lg font-extrabold tracking-widest text-royal">
+                {user.referral_code}
+              </code>
+              <button
+                data-testid="copy-referral-btn"
+                onClick={() => {
+                  navigator.clipboard?.writeText(`Join me on ROYAL11! Use my referral code ${user.referral_code} to get started.`);
+                  toast.success("Referral message copied");
+                }}
+                className="rounded-xl bg-royal px-4 py-3 text-sm font-bold text-white transition-transform hover:-translate-y-0.5"
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+        </Reveal>
+      )}
 
       {/* Transactions */}
       <section className="mt-10">
@@ -164,6 +202,7 @@ export default function WalletPage() {
       </section>
 
       <RewardsStore open={storeOpen} onClose={() => setStoreOpen(false)} />
+      <AddCoins open={addCoinsOpen} onClose={() => setAddCoinsOpen(false)} onSubmitted={refresh} />
     </div>
   );
 }

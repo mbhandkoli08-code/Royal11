@@ -16,7 +16,7 @@ const TXN_TYPES = [
 const LIMIT = 25;
 
 const Amount = ({ value }) => (
-  <span className={value < 0 ? "font-bold text-red-400" : "font-bold text-emerald-400"}>
+  <span className={value < 0 ? "font-bold text-rose-600" : "font-bold text-emerald-600"}>
     {value < 0 ? "−" : "+"}{fmtCoins(Math.abs(value))}
   </span>
 );
@@ -81,7 +81,7 @@ export const TransactionsPanel = ({ query = "" }) => {
             data-testid="txn-type-filter"
             value={typeFilter}
             onChange={(e) => { setSkip(0); setTypeFilter(e.target.value); }}
-            className="rounded-xl border border-white/10 bg-[#0d0d0d] px-3 py-2.5 text-sm font-semibold text-white outline-none focus:border-[#d4af37]/50"
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-semibold text-slate-900 outline-none focus:border-sky-400"
           >
             <option value="">All types</option>
             {TXN_TYPES.map((t) => <option key={t} value={t}>{t.replaceAll("_", " ")}</option>)}
@@ -97,7 +97,7 @@ export const TransactionsPanel = ({ query = "" }) => {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[980px] text-left text-sm" data-testid="transactions-table">
                 <thead>
-                  <tr className="border-b border-white/5">
+                  <tr className="border-b border-slate-100">
                     <th className={thCls}>Txn ID</th>
                     <th className={thCls}>Player / Client</th>
                     <th className={thCls}>Admin</th>
@@ -109,22 +109,22 @@ export const TransactionsPanel = ({ query = "" }) => {
                     <th className={`${thCls} text-right`}>Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-slate-100">
                   {filtered.map((t) => (
-                    <tr key={t.id} data-testid={`txn-row-${t.id}`} className="transition-colors hover:bg-white/[0.02]">
-                      <td className={`${tdCls} font-mono text-[11px] text-[#8c8385]`}>{shortId(t.id)}</td>
+                    <tr key={t.id} data-testid={`txn-row-${t.id}`} className="transition-colors hover:bg-slate-50">
+                      <td className={`${tdCls} font-mono text-[11px] text-slate-400`}>{shortId(t.id)}</td>
                       <td className={tdCls}>{t.player_name || "—"}</td>
                       <td className={tdCls}>{t.admin_name || "—"}</td>
                       <td className={tdCls}>{t.manager_name || "—"}</td>
-                      <td className={`${tdCls} text-xs font-semibold text-[#a3999b]`}>{(t.type || "").replaceAll("_", " ")}</td>
+                      <td className={`${tdCls} text-xs font-semibold text-slate-500`}>{(t.type || "").replaceAll("_", " ")}</td>
                       <td className={tdCls}><Amount value={t.amount} /></td>
-                      <td className={`${tdCls} text-xs text-[#8c8385]`}>{fmtDate(t.created_at)}</td>
+                      <td className={`${tdCls} text-xs text-slate-400`}>{fmtDate(t.created_at)}</td>
                       <td className={tdCls}><StatusBadge status={t.status} /></td>
                       <td className={tdCls}>
                         <div className="flex justify-end">
                           {t.status === "COMPLETED" && t.type !== "REVERSAL" ? (
                             <GhostButton data-testid={`reverse-${t.id}`} onClick={() => setReverseTarget(t)} className="!px-3 !py-2 text-xs"><Undo2 className="h-3.5 w-3.5" /> Reverse</GhostButton>
-                          ) : <span className="text-xs text-[#8c8385]">—</span>}
+                          ) : <span className="text-xs text-slate-400">—</span>}
                         </div>
                       </td>
                     </tr>
@@ -139,8 +139,8 @@ export const TransactionsPanel = ({ query = "" }) => {
 
       <Modal open={!!reverseTarget} onClose={() => { setReverseTarget(null); setReason(""); }} title="Reverse transaction" testid="reverse-modal">
         <div className="space-y-4">
-          <div className="flex items-start gap-2 rounded-xl bg-[#c41230]/10 px-3 py-3 text-xs font-semibold text-[#f0a4b0]">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[#c41230]" />
+          <div className="flex items-start gap-2 rounded-xl bg-rose-50 px-3 py-3 text-xs font-semibold text-rose-600">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" />
             This creates a compensating REVERSAL entry for {reverseTarget && <Amount value={reverseTarget.amount} />}. The original row is kept for audit.
           </div>
           <Field label="Reason (optional)" data-testid="reverse-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Duplicate grant" />

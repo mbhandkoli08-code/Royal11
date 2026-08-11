@@ -75,23 +75,23 @@ export const MyPlayersPanel = ({ query = "" }) => {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[640px] text-left text-sm" data-testid="my-players-table">
               <thead>
-                <tr className="border-b border-white/5">
+                <tr className="border-b border-slate-100">
                   <th className={thCls}>Player</th>
                   <th className={thCls}>Balance</th>
                   <th className={thCls}>Assigned</th>
                   <th className={`${thCls} text-right`}>Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-slate-100">
                 {filtered.map((r) => (
-                  <tr key={r.player.id} data-testid={`my-player-row-${r.player.id}`} className="transition-colors hover:bg-white/[0.02]">
+                  <tr key={r.player.id} data-testid={`my-player-row-${r.player.id}`} className="transition-colors hover:bg-slate-50">
                     <td className={tdCls}>
-                      <p className="font-bold text-white">{r.player.display_name}</p>
-                      <p className="text-[11px] text-[#8c8385]">{r.player.email}</p>
-                      <p className="font-mono text-[11px] text-[#8c8385]">{shortId(r.player.id)}</p>
+                      <p className="font-bold text-slate-900">{r.player.display_name}</p>
+                      <p className="text-[11px] text-slate-400">{r.player.email}</p>
+                      <p className="font-mono text-[11px] text-slate-400">{shortId(r.player.id)}</p>
                     </td>
-                    <td className={`${tdCls} text-[#d4af37]`}>{fmtCoins(r.balance)}</td>
-                    <td className={`${tdCls} text-xs text-[#8c8385]`}>{fmtDate(r.assigned_at)}</td>
+                    <td className={`${tdCls} text-sky-600`}>{fmtCoins(r.balance)}</td>
+                    <td className={`${tdCls} text-xs text-slate-400`}>{fmtDate(r.assigned_at)}</td>
                     <td className={tdCls}>
                       <div className="flex justify-end">
                         <GhostButton data-testid={`grant-${r.player.id}`} onClick={() => openGrant(r)} className="!px-3 !py-2 text-xs"><Gift className="h-3.5 w-3.5" /> Grant</GhostButton>
@@ -107,7 +107,7 @@ export const MyPlayersPanel = ({ query = "" }) => {
 
       <Modal open={!!grantTarget} onClose={() => setGrantTarget(null)} title={`Grant to ${grantTarget?.player.display_name || ""}`} testid="grant-modal">
         <div className="space-y-4">
-          <p className="text-xs text-[#8c8385]">Moves coins from your wallet ({fmtCoins(balance)} available) into this player’s balance.</p>
+          <p className="text-xs text-slate-400">Moves coins from your wallet ({fmtCoins(balance)} available) into this player’s balance.</p>
           <Field label="Amount" type="number" data-testid="grant-amount" value={form.amount || ""} onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))} placeholder="e.g. 500" />
           <Field label="Reason (optional)" data-testid="grant-reason" value={form.reason || ""} onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))} />
           <PrimaryButton data-testid="grant-submit" onClick={submitGrant} disabled={busy} className="w-full">
