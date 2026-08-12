@@ -1,0 +1,73 @@
+/* ROYAL11 Admin Console theme skins.
+   Applied via `data-theme` on the .console-root wrapper. "default" = no overrides
+   (the existing white + sky-blue banking look). Skins remap neutral surfaces,
+   text and the sky accent within the Console only — layout is untouched.
+   Status colors (emerald/amber/rose) are intentionally left mostly alone. */
+
+.console-root { transition: background-color 0.3s ease, color 0.3s ease; }
+
+/* ============================= DARK ============================= */
+.console-root[data-theme="dark"] { background: #0b1220 !important; }
+.console-root[data-theme="dark"] .bg-slate-50 { background-color: #0b1220 !important; }
+.console-root[data-theme="dark"] .bg-white,
+.console-root[data-theme="dark"] .bg-white\/90 { background-color: #111a2e !important; }
+.console-root[data-theme="dark"] .bg-slate-100 { background-color: #1e293b !important; }
+.console-root[data-theme="dark"] .bg-sky-50 { background-color: rgba(56,189,248,0.14) !important; }
+.console-root[data-theme="dark"] .bg-sky-100 { background-color: rgba(56,189,248,0.20) !important; }
+.console-root[data-theme="dark"] .text-slate-900,
+.console-root[data-theme="dark"] .text-slate-800 { color: #e5e7eb !important; }
+.console-root[data-theme="dark"] .text-slate-700,
+.console-root[data-theme="dark"] .text-slate-600 { color: #cbd5e1 !important; }
+.console-root[data-theme="dark"] .text-slate-500 { color: #94a3b8 !important; }
+.console-root[data-theme="dark"] .text-slate-400 { color: #64748b !important; }
+.console-root[data-theme="dark"] .text-slate-300 { color: #475569 !important; }
+.console-root[data-theme="dark"] .text-sky-700,
+.console-root[data-theme="dark"] .text-sky-600 { color: #7dd3fc !important; }
+.console-root[data-theme="dark"] .border-slate-200,
+.console-root[data-theme="dark"] .border-slate-100,
+.console-root[data-theme="dark"] .border-slate-200\/60 { border-color: #1e293b !important; }
+.console-root[data-theme="dark"] .border-sky-200 { border-color: rgba(56,189,248,0.35) !important; }
+.console-root[data-theme="dark"] .hover\:bg-slate-50:hover,
+.console-root[data-theme="dark"] .hover\:bg-sky-50:hover { background-color: rgba(148,163,184,0.10) !important; }
+.console-root[data-theme="dark"] .divide-slate-100 > * { border-color: #1e293b !important; }
+
+/* ========================= SKY BLUE & WHITE ========================= */
+.console-root[data-theme="sky"] { background: #eef4ff !important; }
+.console-root[data-theme="sky"] .bg-slate-50 { background-color: #eef4ff !important; }
+.console-root[data-theme="sky"] .bg-slate-100 { background-color: #dbe8ff !important; }
+.console-root[data-theme="sky"] .bg-sky-500 { background-color: #2563eb !important; }
+.console-root[data-theme="sky"] .hover\:bg-sky-600:hover { background-color: #1d4ed8 !important; }
+.console-root[data-theme="sky"] .bg-sky-50 { background-color: #dbeafe !important; }
+.console-root[data-theme="sky"] .text-sky-700 { color: #1d4ed8 !important; }
+.console-root[data-theme="sky"] .text-sky-600 { color: #2563eb !important; }
+.console-root[data-theme="sky"] .border-sky-200 { border-color: #bfdbfe !important; }
+.console-root[data-theme="sky"] .bg-gradient-to-br.from-orange-500 { background-image: linear-gradient(to bottom right, #3b82f6, #1d4ed8) !important; }
+
+/* ========================= NAVY + GOLD (premium) ========================= */
+.console-root[data-theme="navy"] { background: #081029 !important; }
+.console-root[data-theme="navy"] .bg-slate-50 { background-color: #081029 !important; }
+.console-root[data-theme="navy"] .bg-white,
+.console-root[data-theme="navy"] .bg-white\/90 { background-color: #0f1c3a !important; }
+.console-root[data-theme="navy"] .bg-slate-100 { background-color: #16264a !important; }
+.console-root[data-theme="navy"] .text-slate-900,
+.console-root[data-theme="navy"] .text-slate-800 { color: #f8fafc !important; }
+.console-root[data-theme="navy"] .text-slate-700,
+.console-root[data-theme="navy"] .text-slate-600 { color: #cbd5e1 !important; }
+.console-root[data-theme="navy"] .text-slate-500 { color: #94a3b8 !important; }
+.console-root[data-theme="navy"] .text-slate-400 { color: #6b7a99 !important; }
+.console-root[data-theme="navy"] .text-slate-300 { color: #475569 !important; }
+.console-root[data-theme="navy"] .border-slate-200,
+.console-root[data-theme="navy"] .border-slate-100,
+.console-root[data-theme="navy"] .border-slate-200\/60 { border-color: #1e3a5f !important; }
+.console-root[data-theme="navy"] .divide-slate-100 > * { border-color: #1e3a5f !important; }
+/* Gold accent */
+.console-root[data-theme="navy"] .bg-sky-500 { background-color: #d4af37 !important; color: #201603 !important; }
+.console-root[data-theme="navy"] .hover\:bg-sky-600:hover { background-color: #c19b2e !important; }
+.console-root[data-theme="navy"] .bg-sky-50 { background-color: rgba(212,175,55,0.14) !important; }
+.console-root[data-theme="navy"] .bg-sky-100 { background-color: rgba(212,175,55,0.20) !important; }
+.console-root[data-theme="navy"] .text-sky-700,
+.console-root[data-theme="navy"] .text-sky-600 { color: #e9c86a !important; }
+.console-root[data-theme="navy"] .border-sky-200 { border-color: rgba(212,175,55,0.4) !important; }
+.console-root[data-theme="navy"] .hover\:bg-slate-50:hover,
+.console-root[data-theme="navy"] .hover\:bg-sky-50:hover { background-color: rgba(212,175,55,0.08) !important; }
+.console-root[data-theme="navy"] .bg-gradient-to-br.from-orange-500 { background-image: linear-gradient(to bottom right, #d4af37, #a67c1a) !important; }

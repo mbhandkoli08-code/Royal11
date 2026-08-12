@@ -76,6 +76,7 @@ class UserPublic(BaseModel):
     created_at: datetime
     suspension_reason: Optional[str] = None
     referral_code: Optional[str] = None
+    console_theme: Optional[str] = None
 
 
 class TokenResponse(BaseModel):

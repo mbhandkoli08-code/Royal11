@@ -27,6 +27,8 @@ import { AdminRequestsPanel } from "@/console/AdminRequestsPanel";
 import { FantasyPanel } from "@/console/FantasyPanel";
 import { BrandingPanel } from "@/console/BrandingPanel";
 import { SecurityPanel } from "@/console/SecurityPanel";
+import { ThemeSwitcher } from "@/console/ThemeSwitcher";
+import "@/console/theme.css";
 
 const NAV = {
   SUPER_ADMIN: [
@@ -121,7 +123,9 @@ const NavList = ({ groups, active, onSelect }) => (
                 }`}
               >
                 {on && <motion.span layoutId="nav-active" className="absolute right-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-l-full bg-sky-500" />}
-                <Icon className={`h-[18px] w-[18px] ${on ? "text-sky-600" : ""}`} />
+                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full transition-colors ${on ? "bg-sky-500 text-white" : "bg-slate-100 text-slate-500"}`}>
+                  <Icon className="h-[16px] w-[16px]" />
+                </span>
                 {it.label}
               </button>
             );
@@ -139,6 +143,7 @@ export default function ConsolePage() {
   const [active, setActive] = useState(groups[0]?.items[0]?.id);
   const [query, setQuery] = useState("");
   const [mobileNav, setMobileNav] = useState(false);
+  const [theme, setTheme] = useState(user?.console_theme || "default");
 
   const activeTitle = useMemo(() => {
     for (const g of groups) for (const it of g.items) if (it.id === active) return it.label;
@@ -149,7 +154,7 @@ export default function ConsolePage() {
 
   const renderPanel = () => {
     switch (active) {
-      case "overview": return <OverviewPanel />;
+      case "overview": return <OverviewPanel onNavigate={select} />;
       case "zonal-managers": return <ZonalManagersPanel query={query} />;
       case "managers": return <ManagersPanel query={query} />;
       case "admins": return <AdminsPanel query={query} />;
@@ -173,7 +178,7 @@ export default function ConsolePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-console text-slate-900" data-testid="console-page">
+    <div className={`console-root min-h-screen bg-slate-50 font-console text-slate-900`} data-theme={theme} data-testid="console-page">
       {/* Sidebar (desktop) */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-60 flex-col border-r border-slate-200 bg-white px-4 py-6 lg:flex">
         <Brand />
@@ -224,6 +229,15 @@ export default function ConsolePage() {
             />
           </div>
           <div className="ml-auto flex items-center gap-3">
+            <a
+              href="https://stripe.com/global"
+              target="_blank"
+              rel="noreferrer"
+              data-testid="topbar-help-pill"
+              className="hidden rounded-full border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-50 sm:inline-flex"
+            >
+              Help
+            </a>
             <div className="hidden text-right sm:block">
               <p className="text-sm font-bold leading-tight text-slate-900" data-testid="console-user-name">{user?.display_name}</p>
               <p className="text-[11px] text-slate-400">{user?.email}</p>
@@ -231,6 +245,7 @@ export default function ConsolePage() {
             <span className="grid h-10 w-10 place-items-center rounded-xl bg-sky-100 font-display text-sm font-bold text-sky-700">
               {(user?.display_name || "?").slice(0, 1).toUpperCase()}
             </span>
+            <ThemeSwitcher theme={theme} onChange={setTheme} />
             <button
               data-testid="console-logout"
               onClick={() => { logout(); toast("Logged out"); }}

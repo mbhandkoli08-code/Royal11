@@ -185,6 +185,20 @@ async def me(user: dict = Depends(get_current_user)):
     return _to_public(user)
 
 
+CONSOLE_THEMES = {"default", "dark", "sky", "navy"}
+
+
+class ConsoleThemeRequest(BaseModel):
+    theme: str
+
+
+@router.put("/console-theme")
+async def set_console_theme(payload: ConsoleThemeRequest, user: dict = Depends(get_current_user)):
+    theme = payload.theme if payload.theme in CONSOLE_THEMES else "default"
+    await db.users.update_one({"id": user["id"]}, {"$set": {"console_theme": theme}})
+    return {"console_theme": theme}
+
+
 @router.post("/activity")
 async def activity(user: dict = Depends(get_current_user)):
     """Called when the app opens. Returns a one-time, non-punitive nudge if the

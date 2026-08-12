@@ -51,6 +51,20 @@ export const SplashScreen = ({ onFinish }) => {
     return () => clearTimeout(t);
   }, [failed]);
 
+  // Favorite-team hype: one shared royalty-free (CC0) crowd clip, played only
+  // when a favourite IPL team is set. Autoplay may be blocked by the browser on
+  // a cold open — that's fine, we fail silently (muted/skippable by default).
+  useEffect(() => {
+    if (!localStorage.getItem("royal11_fav_team")) return undefined;
+    const audio = new Audio(`${process.env.PUBLIC_URL}/royal11-hype.mp3`);
+    audio.volume = 0.55;
+    const p = audio.play();
+    if (p && typeof p.catch === "function") p.catch(() => {});
+    return () => {
+      try { audio.pause(); audio.currentTime = 0; } catch (e) { /* best-effort */ }
+    };
+  }, []);
+
   return (
     <div
       data-testid="splash-screen"
