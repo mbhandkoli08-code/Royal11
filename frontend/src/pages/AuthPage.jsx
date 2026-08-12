@@ -4,6 +4,7 @@ import { Mail, Lock, User as UserIcon, ArrowRight, Loader2, ShieldCheck, Gift, K
 import { toast } from "sonner";
 import { useAuth, formatApiErrorDetail } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
+import { LoginShowcase } from "@/components/LoginShowcase";
 
 const Field = ({ icon: Icon, ...props }) => (
   <div className="relative">
@@ -119,11 +120,17 @@ export default function AuthPage({ branding = null }) {
       <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-royal/20 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-flame/20 blur-3xl" />
 
+      <div className="relative z-10 mx-auto grid w-full max-w-5xl items-center gap-10 lg:grid-cols-2 lg:gap-16">
+        {/* Marketing column — left on desktop, below the form on mobile */}
+        <div className="order-2 flex justify-center lg:order-1 lg:justify-start">
+          <LoginShowcase />
+        </div>
+
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-10 w-full max-w-md"
+        className="relative z-10 order-1 mx-auto w-full max-w-md lg:order-2 lg:mx-0"
         data-testid="auth-page"
       >
         <div className="mb-8 flex flex-col items-center text-center">
@@ -294,6 +301,7 @@ export default function AuthPage({ branding = null }) {
           Virtual entertainment coins only — no real-money value.
         </p>
       </motion.div>
+      </div>
     </div>
   );
 }
