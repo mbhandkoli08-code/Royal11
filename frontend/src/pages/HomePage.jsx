@@ -12,6 +12,8 @@ import { TeamBuilder } from "@/components/TeamBuilder";
 import { Leaderboard } from "@/components/Leaderboard";
 import { MatchDetail } from "@/components/MatchDetail";
 import { USER, QUICK_ACTIONS, GAMES, FANTASY_PROMO_BG, STORE_ITEMS } from "@/lib/data";
+import { RewardsStore } from "@/components/RewardsStore";
+import { RewardWheel } from "@/components/RewardWheel";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const CRICKET_BG =
@@ -97,6 +99,15 @@ export default function HomePage() {
   const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const [lockedTeam, setLockedTeam] = useState(null);
   const [detailMatch, setDetailMatch] = useState(null);
+  const [storeOpen, setStoreOpen] = useState(false);
+  const [wheelOpen, setWheelOpen] = useState(false);
+
+  const onQuickAction = (key) => {
+    if (key === "rewards") setStoreOpen(true);
+    else if (key === "games") setWheelOpen(true);
+    else if (key === "fantasy") setBuilderOpen(true);
+    else if (key === "sports") navigate("/sports");
+  };
 
   const equippedAvatar = STORE_ITEMS.find((i) => i.id === equippedAvatarId);
   const ownedBadges = STORE_ITEMS.filter((i) => i.type === "badge" && ownedItems.includes(i.id));
@@ -290,7 +301,7 @@ export default function HomePage() {
                   <button
                     key={a.key}
                     data-testid={`quick-${a.key}`}
-                    onClick={() => toast(`${a.label}`, { description: "Opening soon" })}
+                    onClick={() => onQuickAction(a.key)}
                     className="group flex flex-col items-center gap-2"
                   >
                     <span className={`grid h-14 w-14 place-items-center rounded-2xl ${a.tint} transition-transform group-hover:-translate-y-1`}>
@@ -446,6 +457,8 @@ export default function HomePage() {
       />
       <Leaderboard open={leaderboardOpen} onClose={() => setLeaderboardOpen(false)} team={lockedTeam} />
       <MatchDetail open={!!detailMatch} onClose={() => setDetailMatch(null)} match={detailMatch} />
+      <RewardsStore open={storeOpen} onClose={() => setStoreOpen(false)} />
+      <RewardWheel open={wheelOpen} onClose={() => setWheelOpen(false)} />
     </div>
   );
 }

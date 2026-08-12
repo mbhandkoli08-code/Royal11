@@ -11,15 +11,25 @@ const COLORS = ["#4F46E5", "#F97316", "#6366F1", "#10B981", "#4F46E5", "#F97316"
 const SEG = 360 / PRIZES.length;
 
 export const RewardWheel = ({ open, onClose }) => {
-  const { balance, spend, credit } = useWallet();
+  const { spin: spinApi } = useWallet();
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState(null);
 
-  const spin = () => {
+  const doSpin = async () => {
     if (spinning) return;
-    // Disabled until a real ledger endpoint exists — surfaces a "Coming soon" notice.
-    spend(SPIN_COST, "Lucky Spin", "Reward wheel", "Sparkles");
+    setSpinning(true);
+    setResult(null);
+    const data = await spinApi();
+    if (!data) { setSpinning(false); return; }
+    const idx = Math.max(0, PRIZES.findIndex((p) => p === data.prize));
+    const targetMod = (360 - (idx * SEG + SEG / 2)) % 360;
+    setRotation((prev) => Math.ceil(prev / 360) * 360 + 5 * 360 + targetMod);
+    setTimeout(() => {
+      setResult({ won: data.won, prize: data.prize });
+      setSpinning(false);
+      if (data.won > 0) toast.success(`You won ${data.won} coins!`);
+    }, 4100);
   };
 
   return (
@@ -103,7 +113,7 @@ export const RewardWheel = ({ open, onClose }) => {
 
             <button
               data-testid="spin-btn"
-              onClick={spin}
+              onClick={doSpin}
               disabled={spinning}
               className={`mt-5 flex w-full items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold text-white transition-transform ${
                 spinning ? "cursor-not-allowed bg-slate-300" : "bg-royal hover:-translate-y-0.5"

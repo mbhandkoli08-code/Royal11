@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   LayoutGrid, Users, UserCheck, UsersRound, Receipt, KeyRound,
   Banknote, Landmark, Scale, Zap, Crown, LogOut, ExternalLink, Search, Menu, X,
-  Globe2, ClipboardList,
+  Globe2, ClipboardList, Trophy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -24,6 +24,7 @@ import { RechargeQueuePanel } from "@/console/RechargeQueuePanel";
 import { ZonalManagersPanel } from "@/console/ZonalManagersPanel";
 import { MyManagersPanel } from "@/console/MyManagersPanel";
 import { AdminRequestsPanel } from "@/console/AdminRequestsPanel";
+import { FantasyPanel } from "@/console/FantasyPanel";
 
 const NAV = {
   SUPER_ADMIN: [
@@ -39,6 +40,9 @@ const NAV = {
       { id: "settlements", label: "Settlements", icon: Scale },
       { id: "recharge-queue", label: "Recharge Requests", icon: Zap },
       { id: "transactions", label: "Transactions", icon: Receipt },
+    ] },
+    { section: "Games", items: [
+      { id: "fantasy", label: "Fantasy Contests", icon: Trophy },
     ] },
     { section: "System", items: [
       { id: "apikeys", label: "API Keys", icon: KeyRound },
@@ -71,6 +75,9 @@ const NAV = {
       { id: "recharge", label: "Recharge Quota", icon: Zap },
       { id: "bank-account", label: "Bank Account", icon: Landmark },
       { id: "my-transactions", label: "Transactions", icon: Receipt },
+    ] },
+    { section: "Games", items: [
+      { id: "fantasy", label: "Fantasy Contests", icon: Trophy },
     ] },
   ],
 };
@@ -141,6 +148,7 @@ export default function ConsolePage() {
       case "managers": return <ManagersPanel query={query} />;
       case "admins": return <AdminsPanel query={query} />;
       case "admin-requests": return <AdminRequestsPanel query={query} />;
+      case "fantasy": return <FantasyPanel />;
       case "my-managers": return <MyManagersPanel query={query} />;
       case "transactions": return <TransactionsPanel query={query} />;
       case "apikeys": return <ApiKeysPanel />;

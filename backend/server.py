@@ -16,6 +16,7 @@ from app.db import client, db
 from app.wallet_service import ensure_indexes
 from app.deposit_service import ensure_deposit_indexes
 from app.hierarchy_service import ensure_hierarchy_indexes
+from app.fantasy_service import ensure_fantasy_indexes, settle_due_contests
 from app import revenue_service, storage_service, payroll_service
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date, timedelta
@@ -23,6 +24,8 @@ from app.routers.auth import router as auth_router
 from app.routers.wallet import router as wallet_router
 from app.routers.admin import router as admin_router
 from app.routers.zonal import router as zonal_router
+from app.routers.games import router as games_router
+from app.routers.fantasy import router as fantasy_router, admin_router as fantasy_admin_router
 from app.routers.superadmin import router as superadmin_router
 from app.routers.api_keys import router as api_keys_router
 from app.routers.cricket import router as cricket_router
@@ -336,6 +339,9 @@ api_router.include_router(auth_router)
 api_router.include_router(wallet_router)
 api_router.include_router(admin_router)
 api_router.include_router(zonal_router)
+api_router.include_router(games_router)
+api_router.include_router(fantasy_router)
+api_router.include_router(fantasy_admin_router)
 api_router.include_router(superadmin_router)
 api_router.include_router(api_keys_router)
 api_router.include_router(cricket_router)
@@ -370,11 +376,21 @@ async def _daily_maintenance():
         logger.error(f"daily maintenance failed: {e}")
 
 
+async def _settle_fantasy():
+    try:
+        result = await settle_due_contests()
+        if result.get("settled") or result.get("needs_review"):
+            logger.info(f"fantasy settlement: {result}")
+    except Exception as e:
+        logger.error(f"fantasy settlement failed: {e}")
+
+
 @app.on_event("startup")
 async def ensure_db_indexes():
     await ensure_indexes()
     await ensure_deposit_indexes()
     await ensure_hierarchy_indexes()
+    await ensure_fantasy_indexes()
     try:
         await storage_service.init_storage()
         logger.info("Object storage initialized")
@@ -382,6 +398,7 @@ async def ensure_db_indexes():
         logger.error(f"Storage init failed (screenshots will retry lazily): {type(e).__name__}")
     # Runs every day at 00:10 UTC; lazy on-read generation covers the rest.
     scheduler.add_job(_daily_maintenance, "cron", hour=0, minute=10, id="daily_maintenance", replace_existing=True)
+    scheduler.add_job(_settle_fantasy, "interval", minutes=15, id="fantasy_settlement", replace_existing=True)
     scheduler.start()
 
 @app.on_event("shutdown")

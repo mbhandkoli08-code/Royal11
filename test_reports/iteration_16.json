@@ -1,0 +1,28 @@
+{
+  "summary": "Iteration 16 (ROYAL11 game-economy + payroll payslips + QR prefill) tested end-to-end. Backend: 11/11 pytest cases green covering Lucky Spin (debit/credit/insufficient), Store (buy/double-own/equip/boost repeatable/unknown/insufficient), Contest (join/double/unknown), Manager+ZM /my-payroll payslip arrays, run_recent_payroll idempotence (balance & SALARY txn count unchanged on 2nd run, unique request_ids), wallet history labels. Frontend: Wallet -> Rewards Store flow works (av1 buy 1000->700, boost bo1 -> 450, Lucky Spin wheel 450 -> 375 with +75 win toast), buttons transition buy -> Equip -> Equipped, txn list labels correct (Store Purchase / Lucky Spin / Spin Reward). buildUpiUri appends am= only when amount>0 and rounds fractional amounts (verified in-browser). Manager Console shows payslip-history table with 9 weekly payslip rows (data-testid payslip-{week}, salary+incentive+total). No blocking bugs.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "HomePage QuickActions", "issue": "The Home page 'Rewards' and 'Games' quick-action buttons still only show a 'Opening soon' toast and do NOT open the RewardsStore / RewardWheel modal. The store is only reachable via Wallet -> Redeem. Review request explicitly said 'Home or Wallet -> Rewards'.", "selector": "[data-testid='quick-rewards'], [data-testid='quick-games']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_games_payroll_iter16.py", "/app/test_reports/pytest/iter16.xml"],
+  "action_items": [
+    "Wire up Home 'quick-rewards' and 'quick-games' buttons to open the RewardsStore / RewardWheel modals instead of the placeholder toast — the acceptance criteria says the store should be openable from Home."
+  ],
+  "critical_code_review_comments": [
+    "game_service.STORE_ITEMS duplicates the price table shipped to the client (frontend lib/data.js). Prices are authoritative on the server (good), but keep both in sync or expose a /api/games/store/catalog endpoint the client can read from.",
+    "WalletContext.jsx has two entries for GAME_ENTRY and GAME_REWARD in TXN_META (the second pair shadows the first). Not a bug because the intended 'Lucky Spin'/'Spin Reward' labels are the later ones, but the earlier keys should be removed for clarity.",
+    "game_service.spin() uses random.choice for prizes — server RNG is fine for entertainment coins, but the number distribution isn't weighted (1000 is as likely as 0). Consider explicit weights if 'house edge' matters."
+  ],
+  "updated_files": ["/app/backend/tests/test_games_payroll_iter16.py"],
+  "success_rate": {"backend": "100%", "frontend": "95%"},
+  "test_credentials": "manager1@royal11.com / ChangeMe123!, zonal1@royal11.com / ChangeMe123!, ephemeral TEST_iter16_* players registered with password Password123!",
+  "seed_data_creation": "Registered ~10 disposable TEST_iter16_* players + a PW test player via the public /api/auth/register endpoint (welcome bonus 1000 each). No manual seeding needed for payroll/manager1 which was already seeded in earlier iterations.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 11 tests pass in ~30s under: REACT_APP_BACKEND_URL=<from frontend/.env> python -m pytest backend/tests/test_games_payroll_iter16.py -v -o addopts='' -p no:xdist. Payroll idempotence test invokes payroll_service.run_recent_payroll() directly against the live DB — it will pay any un-paid recent weeks the first time, then verify no drift on the second call.",
+  "rca of the issue": "N/A — Home QuickActions have never been wired to their modals in this codebase (onClick handler is just toast('Opening soon')). Fix is a small state lift on HomePage to open RewardsStore/RewardWheel similar to WalletPage."
+}

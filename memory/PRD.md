@@ -90,12 +90,39 @@ teams, play casual games, and manage virtual coins — no real-money gambling.
 
 - 2026-08: **WhatsApp contact + wa.me deep-link (DONE, verified iteration_15)**. Admin/Manager set `whatsapp_number` (with country code) via `PUT /admin/profile/whatsapp` (`GET /admin/profile`), edited in the Console Bank Account tab (`whatsapp-card`). Players get a "Chat on WhatsApp" button (`https://wa.me/<digits>?text=...`, `frontend/src/lib/whatsapp.js`) in two places: (1) player `AddCoins` near the bank/QR section (prefill "Hi, I need help with my payment"; `deposit-info`/`my-agent` expose `admin_whatsapp`), and (2) a one-time post-signup `WelcomeAgentModal` (flag `r11_welcome`) naming the assigned admin (prefill "Hi, I just signed up on ROYAL11"). Button hidden gracefully when no number is set. No Meta Business API — pure device deep-link.
 
+- 2026-08: **Real Coin Actions — game mechanics wired to the real ledger (DONE, verified iterations 16)**. `app/game_service.py` + `app/routers/games.py`. Replaces the old front-end-only/mocked Rewards Store, Lucky Spin, and Boosts with real coin debits/credits through `wallet_service.process_transaction` (idempotent via `request_id`, never client-authoritative).
+  - **Rewards Store**: `GET /api/games/store` (catalog of avatars/badges/boosts), `POST /api/games/buy` (debits coins, records owned item; idempotent `store_buy:{user}:{item}` / per-purchase id). Duplicate/insufficient-funds handled gracefully.
+  - **Lucky Spin**: `POST /api/games/spin` — server picks the reward server-side (weighted), debits the spin entry fee then credits the won reward, both idempotent (`spin:{...}`). No client-supplied outcomes.
+  - **Boosts**: `POST /api/games/buy` (boost items) activates a timed 2x/mega boost stored server-side; UI reflects owned/equipped state.
+  - Frontend: HomePage/Wallet/Games surfaces now call these endpoints (removed the "Coming soon" toasts for these actions) and refresh the real wallet balance after each action.
+
+- 2026-08: **QR Amount Prefill for deposits (DONE, verified iteration 16)**. Player `AddCoins` now prefills the UPI QR (`upi://pay?...&am=<amount>`) with the amount the player entered, so scanning opens the UPI app with the exact amount pre-populated (`frontend/src/lib/upi.js` extended with an optional `amount` param). Reduces wrong-amount deposits.
+
+- 2026-08: **Payroll Payslips + Missed-Week Catch-up (DONE, verified iteration 16)**. Extends the Salary + Incentive payroll (`app/payroll_service.py`).
+  - **Payslips**: each paid week produces a payslip record (salary, incentive, revenue basis, week range, paid-at). Managers & Zonal Managers view their history via `GET /admin/my-payslips` (Manager) / `GET /admin/zonal/my-payslips` (ZM); Console shows a payslip list on the payroll card.
+  - **Missed-Week Catch-up**: the APScheduler `_daily_maintenance` job now back-fills ANY unpaid completed weeks (not just the most recent), so a downtime window never skips a payroll. Idempotent per `(uid, week)` via existing `salary:{uid}:{ws}` / `incentive:{uid}:{ws}` request_ids.
+
+- 2026-08: **Dream11-style Fantasy Cricket Contest System — Phase 1 (DONE, agent-verified iteration_17; USER VERIFICATION PENDING)**. Server-authoritative fantasy on real Sportmonks fixtures. `app/fantasy_service.py` (app logic) + `app/cricket_service.py` (data fetching) + `app/routers/fantasy.py`; `tests/test_fantasy.py`.
+  - **Team-builder rules**: 11 players, 100-credit budget (default 8.5 cr/player, Super-Admin-editable per player), max 7 from one real team, role ranges WK 1-4 / BAT 3-6 / AR 1-4 / BOWL 3-6, one Captain (2x) + one Vice-Captain (1.5x).
+  - **Scoring** (Super-Admin editable via `PUT /admin/fantasy/scoring-config`): run=1, four_bonus=1, six_bonus=2, fifty_bonus=8, century_bonus=16, duck_penalty=-2, wicket=25, 3-wkt=4, 5-wkt=16, maiden=12, catch=8, stumping=12, run_out=8.
+  - **Player pool** built from the real Sportmonks fixture **lineup** (`get_fixture_lineup`); if the squad isn't published yet the pool is empty and contest creation returns a graceful **400** ("Squad/lineup isn't available for this fixture yet") — never a 500 (iteration_17 fix: `cricket_service._fetch_one` catches `httpx.HTTPError` → `{}`).
+  - **Contests**: Admin/Super Admin create on a real fixture ID (`POST /admin/fantasy/contests`; entry fee, max players, prize pool, default split 50/30/20). Players browse matches → contests → build XI → join (`POST /api/fantasy/contests/{id}/join`, entry fee debited idempotently, one team per user per contest). `GET /api/fantasy/{matches,contests,my-contests,fixtures/{id}/players}`.
+  - **Settlement**: server-side only, from real final Sportmonks batting/bowling stats. Auto-runs ~30 min after a match reaches a FINISHED status via APScheduler, retrying every 15 min for up to 6h if stats are incomplete (then flags `NEEDS_REVIEW`; never pays on partial data). Super Admin can also manually `POST /admin/fantasy/contests/{id}/settle` (409 if not ready) or `/cancel` (refunds all entries). Payouts idempotent (`contest_payout:{id}:{user}`).
+  - **RBAC**: create/list = SUPER_ADMIN + ADMIN; settle/cancel/scoring-config/player-credit = SUPER_ADMIN only. UI: Console `FantasyPanel.jsx` (create + list; settle/cancel visible to SA only), player `FantasyPage.jsx` (Matches/My Contests tabs + full-screen team builder), Fantasy entry in bottom nav.
+
+
 
 ## Backlog / Remaining
-- **P2 (NEXT): Connect mock frontend actions to real ledgers** — Rewards Store redemptions, Boost extensions, Contest entries, and the lucky spin should debit/credit real coins via the wallet ledger (currently front-end-only/mocked).
+- ✅ **Real Coin Actions** (Rewards Store, Lucky Spin, Boosts wired to real ledger) — DONE (2026-08, iteration_16).
+- ✅ **QR Amount Prefill** for deposits — DONE (2026-08, iteration_16).
+- ✅ **Payroll Payslips + Missed-Week Catch-up** — DONE (2026-08, iteration_16).
+- ✅ **Fantasy Cricket Phase 1** (contest system, team builder, auto-settlement) — DONE (2026-08, iteration_17). **USER VERIFICATION PENDING.**
   - ✅ Task 3 — Salary + Incentive payroll (Managers & Zonal Managers) — DONE (2026-08, iteration_15).
   - ✅ Zonal Manager tier + Admin-creation approval + per-Manager cap — DONE (2026-08, iteration_13).
   - ✅ Multi-bank accounts + UPI QR + nickname; WhatsApp contact — DONE (2026-08, iteration_14 & 15).
+- **P1 (NEXT): Fantasy Football Phase 2** — extend the Dream11-style system to Football, mirroring the Cricket pattern (Sportmonks football data → player pool → 11-man builder w/ 100 credits, C/VC → server-side settlement/payouts). NOTE: Sportmonks Football is a separate product/subscription; may need a new API key.
+- **P2: Multiple-teams-per-contest** — let a player submit multiple different teams (Team A, Team B) into the same contest (Phase 1 assumes 1 team per user per contest; `fantasy_teams` has a unique `(contest_id, user_id)` index that must be relaxed).
+- **P1: My Contests live rank** — show live rank/points in the "My Contests" tab during a match (currently only final rank/winnings after SETTLED).
 - P1: Admin Console — Phase 2 (Figma frames not yet built): Users/Players management, Rewards & Game admin, Reports, Notifications, Support, Settings. NOTE: Deposit Mgmt / Withdrawal Mgmt / Bank Accounts nav from Figma are on HOLD (non-withdrawable model) — do NOT build.
 - P1: Manager "Assign Players" UI (backend `POST /admin/players/assign` + `GET /admin/players` already exist).
 - P2 (refactor): `admin.py` is ~680 lines — split into feature routers (managers/admins/deposits/settlements/recharge); consider a shared DomainError for uniform 400/404 mapping.

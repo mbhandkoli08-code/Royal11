@@ -66,6 +66,34 @@ export const PayrollCard = ({ endpoint }) => {
           </div>
         </div>
       )}
+
+      {d.payslips?.length > 0 && (
+        <div className="mt-5 border-t border-slate-100 pt-4" data-testid="payslip-history">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Recent payslips</p>
+          <div className="overflow-hidden rounded-xl border border-slate-100">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50 text-slate-400">
+                <tr>
+                  <th className="px-3 py-2 font-semibold">Week of</th>
+                  <th className="px-3 py-2 text-right font-semibold">Salary</th>
+                  <th className="px-3 py-2 text-right font-semibold">Incentive</th>
+                  <th className="px-3 py-2 text-right font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {d.payslips.map((s) => (
+                  <tr key={s.week_start} data-testid={`payslip-${s.week_start}`}>
+                    <td className="px-3 py-2 text-slate-600">{s.week_start}</td>
+                    <td className="px-3 py-2 text-right text-slate-700">₹{fmtCoins(s.salary_inr)}</td>
+                    <td className="px-3 py-2 text-right text-emerald-600">₹{fmtCoins(s.incentive_inr)}</td>
+                    <td className="px-3 py-2 text-right font-bold text-slate-900">₹{fmtCoins(s.total_inr)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

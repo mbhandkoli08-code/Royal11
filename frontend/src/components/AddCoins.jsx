@@ -143,9 +143,9 @@ export const AddCoins = ({ open, onClose, onSubmitted }) => {
                       {bank.upi_id && (
                         <div className="mx-auto shrink-0 text-center sm:mx-0" data-testid="deposit-upi-qr">
                           <div className="rounded-2xl border border-slate-100 bg-white p-2.5 shadow-soft">
-                            <QRCodeSVG value={buildUpiUri(bank.upi_id, bank.account_holder_name)} size={132} level="M" />
+                            <QRCodeSVG value={buildUpiUri(bank.upi_id, bank.account_holder_name, Number(amount) || 0)} size={132} level="M" />
                           </div>
-                          <p className="mt-1.5 text-[11px] font-semibold text-slate-400">Scan to pay via UPI</p>
+                          <p className="mt-1.5 text-[11px] font-semibold text-slate-400">{Number(amount) > 0 ? `Scan to pay ₹${Number(amount)}` : "Scan to pay via UPI"}</p>
                         </div>
                       )}
                     </div>

@@ -97,11 +97,11 @@ export const TeamBuilder = ({ open, onClose, onLock }) => {
 
   const canLock = picked.length === MAX && captain && vice;
 
-  const lock = () => {
+  const lock = async () => {
     if (!canLock) return;
-    // Joining a contest debits coins; disabled until a real ledger endpoint
-    // exists. joinContest() surfaces a "Coming soon" notice.
-    joinContest(CONTEST.entryFee);
+    // Joining the contest debits the entry fee via the real wallet ledger.
+    const ok = await joinContest("ipl_grand_league");
+    if (ok) onClose?.();
   };
 
   return (

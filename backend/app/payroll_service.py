@@ -109,11 +109,45 @@ async def run_payroll_for_week(week_start: date, week_end: date) -> int:
     return paid
 
 
-async def run_recent_payroll() -> int:
-    """Pay out the most recently COMPLETED week (idempotent)."""
-    last_week_day = datetime.now(timezone.utc).date() - timedelta(days=7)
-    ws, we = week_bounds(last_week_day)
-    return await run_payroll_for_week(ws, we)
+async def run_recent_payroll(max_weeks: int = 8) -> int:
+    """Pay out recently COMPLETED weeks (idempotent). Loops back a few weeks so a
+    missed scheduler run auto-catches-up any skipped weeks (duplicate request_ids
+    are no-ops, so replaying is always safe)."""
+    today = datetime.now(timezone.utc).date()
+    total = 0
+    for i in range(1, max_weeks + 1):
+        ws, we = week_bounds(today - timedelta(days=7 * i))
+        total += await run_payroll_for_week(ws, we)
+    return total
+
+
+def _week_from_request_id(rid: str | None) -> str | None:
+    # request_id looks like "salary:{uid}:{YYYY-MM-DD}" / "incentive:{uid}:{ws}"
+    if not rid:
+        return None
+    parts = rid.split(":")
+    return parts[-1] if len(parts) >= 3 else None
+
+
+async def get_payslips(user_id: str, limit_weeks: int = 12) -> list[dict]:
+    """Weekly payslips (salary + incentive per week), newest first, rebuilt from
+    the ledger so it's always consistent with what was actually credited."""
+    by_week: dict[str, dict] = {}
+    async for t in db.ledger_transactions.find(
+        {"user_id": user_id, "type": {"$in": [TxnType.SALARY.value, TxnType.INCENTIVE.value]},
+         "status": "COMPLETED"},
+        {"_id": 0, "type": 1, "amount": 1, "created_at": 1, "request_id": 1},
+    ).sort("created_at", -1):
+        ws = _week_from_request_id(t.get("request_id")) or (t.get("created_at") or "")[:10]
+        slip = by_week.setdefault(ws, {"week_start": ws, "salary_inr": 0, "incentive_inr": 0, "paid_at": t.get("created_at")})
+        if t["type"] == TxnType.SALARY.value:
+            slip["salary_inr"] += t["amount"]
+        else:
+            slip["incentive_inr"] += t["amount"]
+    slips = sorted(by_week.values(), key=lambda s: s["week_start"], reverse=True)
+    for s in slips:
+        s["total_inr"] = s["salary_inr"] + s["incentive_inr"]
+    return slips[:limit_weeks]
 
 
 # ---------------------------------------------------------------------------
@@ -126,10 +160,7 @@ async def payroll_view(person_id: str, role: str, alloc: dict) -> dict:
     revenue = await _revenue(await _downline_admin_ids(person_id, role), start_iso, end_iso)
     salary, projected_incentive = _compute(alloc, revenue)
     target = int(alloc.get("incentive_target_inr") or 0)
-    history = [t async for t in db.ledger_transactions.find(
-        {"user_id": person_id, "type": {"$in": [TxnType.SALARY.value, TxnType.INCENTIVE.value]}},
-        {"_id": 0, "type": 1, "amount": 1, "reason": 1, "created_at": 1},
-    ).sort("created_at", -1).limit(12)]
+    payslips = await get_payslips(person_id)
     return {
         "week_start": ws.isoformat(),
         "week_end": we.isoformat(),
@@ -140,5 +171,5 @@ async def payroll_view(person_id: str, role: str, alloc: dict) -> dict:
         "target_met": bool(target > 0 and revenue >= target),
         "projected_incentive_inr": projected_incentive,
         "projected_total_inr": salary + projected_incentive,
-        "history": history,
+        "payslips": payslips,
     }

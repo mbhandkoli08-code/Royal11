@@ -112,3 +112,71 @@ async def get_live() -> dict:
 async def get_matches() -> dict:
     return await _payload("matches", "fixtures", {"sort": "-starting_at"},
                           limit=20, sort_recent=True)
+
+
+async def _fetch_one(path: str, extra: dict) -> dict:
+    """Fetch a single Sportmonks resource (returns the `data` object, not list)."""
+    token = _token()
+    if not token:
+        raise RuntimeError("SPORTMONKS_CRICKET_API_KEY not configured")
+    params = {"api_token": token, **extra}
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.get(f"{BASE}/{path}", params=params)
+            r.raise_for_status()
+            data = r.json().get("data", {})
+            return data if isinstance(data, dict) else {}
+    except (httpx.HTTPError, ValueError) as exc:
+        # Unknown fixture / Sportmonks hiccup → treat as "no data" so callers
+        # degrade gracefully (e.g. contest creation → clean 400, settlement → retry).
+        logger.warning(f"Sportmonks fetch {path} failed: {type(exc).__name__}")
+        return {}
+
+
+async def get_upcoming_fixtures(limit: int = 25) -> dict:
+    """Fixtures that haven't finished yet — candidates for fantasy contests."""
+    payload = await _payload("upcoming", "fixtures", {"sort": "starting_at",
+                             "filter[status]": "NS"}, limit=limit)
+    return payload
+
+
+async def get_fixture_lineup(fixture_id: str) -> dict:
+    """Squad/lineup for a fixture -> normalized selectable players with roles."""
+    fx = await _fetch_one(f"fixtures/{fixture_id}", {"include": "lineup,localteam,visitorteam"})
+    lt, vt = fx.get("localteam") or {}, fx.get("visitorteam") or {}
+    team_names = {lt.get("id"): lt.get("name"), vt.get("id"): vt.get("name")}
+    players = []
+    for p in (fx.get("lineup") or []):
+        pos = p.get("position")
+        pos_name = pos.get("name") if isinstance(pos, dict) else (pos or "")
+        players.append({
+            "player_id": str(p.get("player_id") or p.get("id")),
+            "name": p.get("fullname") or p.get("name") or "Unknown",
+            "team_id": str(p.get("lineup", {}).get("team_id") if isinstance(p.get("lineup"), dict) else p.get("team_id") or ""),
+            "position": pos_name or "",
+        })
+    return {
+        "fixture_id": str(fx.get("id")),
+        "starting_at": fx.get("starting_at"),
+        "status": fx.get("status"),
+        "match_label": f"{lt.get('name', 'TBD')} vs {vt.get('name', 'TBD')}",
+        "team_names": {str(k): v for k, v in team_names.items() if k},
+        "players": players,
+    }
+
+
+# Sportmonks statuses that mean the match is truly over (safe to settle).
+FINISHED_STATUSES = {"Finished", "Aban.", "Cancl.", "Postp.", "Awarded"}
+
+
+async def get_fixture_stats(fixture_id: str) -> dict:
+    """Final per-player batting/bowling stats for settlement."""
+    fx = await _fetch_one(f"fixtures/{fixture_id}",
+                          {"include": "batting,bowling,localteam,visitorteam"})
+    return {
+        "fixture_id": str(fx.get("id")),
+        "status": fx.get("status"),
+        "finished": fx.get("status") in FINISHED_STATUSES,
+        "batting": fx.get("batting") or [],
+        "bowling": fx.get("bowling") or [],
+    }

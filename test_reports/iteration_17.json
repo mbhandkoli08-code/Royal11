@@ -1,0 +1,50 @@
+{
+  "summary": "Fantasy Cricket Phase 1 tested. Backend pytest suite (test_fantasy.py) — 3/3 PASS (engine, captain-vice, join validation + settlement + idempotency). Live endpoint tests (test_fantasy_endpoints_iter17.py) — 13/14 PASS. RBAC enforced correctly on all /api/admin/fantasy/* (PLAYER=403, ADMIN=403 on settle/cancel/scoring-config, ADMIN=200 on list/create). Scoring config defaults verified (wicket=25, six_bonus=2, century_bonus=16, duck_penalty=-2, run=1); PUT persists and ignores invalid keys. Player-facing /fantasy/matches, /fantasy/contests, /fantasy/my-contests all return 200. Frontend Console: FantasyPanel renders for both SA and Admin; Create Contest modal opens with all fields (fc-fixture/fc-name/fc-entry/fc-max/fc-pool/fc-submit); Admin correctly does NOT see settle/cancel buttons. Player /fantasy page renders with lobby+mine tabs, loads 25 matches from Sportmonks, My Contests shows empty state gracefully. Bottom nav has Fantasy entry.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/admin/fantasy/contests",
+        "issue": "When fixture_id is invalid/unknown to Sportmonks (returns 422), the endpoint crashes with 500 instead of the expected graceful 400 'Squad/lineup isn't available…'. Root cause: fantasy_service.build_player_pool() -> cricket_service.get_fixture_lineup() calls r.raise_for_status() which raises httpx.HTTPStatusError; fantasy.py only catches ValueError. Fix: either (a) in cricket_service._fetch_one wrap 4xx into a domain exception/None and let build_player_pool raise ValueError('Squad/lineup isn't available for this fixture yet'), or (b) in routers/fantasy.create_contest also except httpx.HTTPStatusError and re-raise as 400. Verified via pytest test_bogus_fixture_returns_400 (got 500) and via UI (SA sees generic 'Couldn't create' toast because backend returned 500).",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Admin console → Create Contest with bogus fixture id",
+        "issue": "Toast description is empty because backend returned 500 ('Internal Server Error') instead of the expected graceful 400 JSON with detail. Frontend handles gracefully (no crash) but shows only 'Couldn't create' without helpful description. Fixed when backend 500 is fixed.",
+        "affected_selectors": ["fantasy-create-modal", "fc-submit"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_fantasy.py",
+    "/app/backend/tests/test_fantasy_endpoints_iter17.py",
+    "/app/test_reports/pytest/iter17_fantasy.xml"
+  ],
+  "action_items": [
+    "BACKEND: Make POST /api/admin/fantasy/contests catch Sportmonks httpx.HTTPStatusError (or non-2xx) in build_player_pool / cricket_service and return HTTP 400 with detail 'Squad/lineup isn't available for this fixture yet' instead of leaking a 500. Currently the app description says this must be a graceful 400."
+  ],
+  "critical_code_review_comments": [
+    "cricket_service._fetch_one uses r.raise_for_status() but callers only catch ValueError; any Sportmonks 4xx/5xx becomes an unhandled 500 in FastAPI. Add a small wrapper that maps HTTPStatusError→domain exceptions across cricket_service consumers.",
+    "fantasy_service.create_contest depends on build_player_pool which internally calls Sportmonks; recommend explicit try/except around the network call with an actionable ValueError('Squad/lineup isn\\'t available for this fixture yet').",
+    "FantasyPanel.create surfaces e.response?.data?.detail — will remain empty when backend returns generic 500. After the fix, description will be populated automatically."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_fantasy_endpoints_iter17.py (new)"
+  ],
+  "success_rate": {
+    "backend": "94% (16/17 assertions: 3/3 test_fantasy.py + 13/14 test_fantasy_endpoints_iter17.py)",
+    "frontend": "100% (SA panel, Admin panel with no Settle/Cancel, player /fantasy with tabs+matches+mine all verified)"
+  },
+  "test_credentials": "SUPER_ADMIN superadmin@royal11.com, ADMIN admin1@royal11.com, PLAYER player1@royal11.com — all ChangeMe123! (from /app/memory/test_credentials.md)",
+  "seed_data_creation": "None; used existing seed accounts. Scoring config test increments then restores 'wicket' value.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "test_fantasy_endpoints_iter17.py added — reusable RBAC + scoring config + player endpoint smoke tests. The only failing case is TestAdminCreate::test_bogus_fixture_returns_400 (backend 500 on bogus fixture id). Once main agent fixes cricket_service/fantasy_service to translate httpx.HTTPStatusError to a domain ValueError, the test will pass. Player /fantasy fully works with live Sportmonks (25 upcoming matches loaded).",
+  "rca of the issue": "Reproduction: as SUPER_ADMIN, POST /api/admin/fantasy/contests with fixture_id='bogus_zzz_9999' → 500. Stacktrace: fantasy_service.create_contest → build_player_pool → cricket_service.get_fixture_lineup → _fetch_one → httpx.raise_for_status() raises HTTPStatusError('422 Unprocessable Entity'). fantasy.py router only handles ValueError, so FastAPI returns 500. Mitigation: catch httpx.HTTPStatusError in build_player_pool (preferred) and raise ValueError('Squad/lineup isn't available for this fixture yet'); the router will then convert it to a 400 via _err()."
+}
