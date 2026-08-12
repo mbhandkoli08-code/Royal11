@@ -31,6 +31,8 @@ from app.routers.api_keys import router as api_keys_router
 from app.routers.cricket import router as cricket_router
 from app.routers.branding import router as branding_router, public_router as branding_public_router
 from app.routers.security import router as security_router
+from app.routers.casino import router as casino_router
+from app.games import engine as casino_engine
 
 
 ROOT_DIR = Path(__file__).parent
@@ -350,6 +352,7 @@ api_router.include_router(cricket_router)
 api_router.include_router(branding_router)
 api_router.include_router(branding_public_router)
 api_router.include_router(security_router)
+api_router.include_router(casino_router)
 app.include_router(api_router)
 
 app.add_middleware(
@@ -398,6 +401,7 @@ async def ensure_db_indexes():
     await ensure_fantasy_indexes()
     await login_security.ensure_indexes()
     await otp_service.ensure_indexes()
+    await casino_engine.ensure_indexes()
     try:
         await storage_service.init_storage()
         logger.info("Object storage initialized")

@@ -9,6 +9,7 @@ import { WalletProvider } from "@/context/WalletContext";
 import { BottomNav } from "@/components/BottomNav";
 import { WelcomeAgentModal } from "@/components/WelcomeAgentModal";
 import FantasyPage from "@/pages/FantasyPage";
+import CasinoPage from "@/pages/CasinoPage";
 import { SplashScreen } from "@/components/SplashScreen";
 import HomePage from "@/pages/HomePage";
 import WalletPage from "@/pages/WalletPage";
@@ -56,6 +57,7 @@ const ProtectedShell = () => {
         <Route path="/sports" element={<SportsPage />} />
         <Route path="/fantasy" element={<FantasyPage />} />
         <Route path="/games" element={<Placeholder title="Games" />} />
+        <Route path="/casino" element={<CasinoPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <BottomNav />

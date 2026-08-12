@@ -150,6 +150,15 @@ teams, play casual games, and manage virtual coins — no real-money gambling.
 - P1: Streak Calendar (7-day + day-7 milestone); Spin Cooldown (free daily spin).
 - P2: Boost timer on more surfaces; extend AI Coach with per-match context; refresh token flow.
 
+## Rummy + Casino card games (real-money, coin wallet) — approved 2026-08
+**Hard principle (locked):** server is the SOLE, genuinely-random source of truth for every outcome. Provably-fair **server-seed commit–reveal**: full deck/wheel is derived from a CSPRNG `server_seed`+`nonce`, its SHA-256 committed BEFORE any action, revealed after + independently verifiable via `/verify`. No admin control, no stake-size weighting. **Humans only, no bots.** Rake flows into the existing Admin/Super-Admin revenue split.
+
+- ✅ **Phase 0 — Foundation — DONE (2026-08; pytest test_casino.py 5/5 + curl e2e verified)**. `app/games/rng.py` (commit–reveal, HMAC-Fisher–Yates unbiased shuffle, verify), `app/games/cards.py`, `app/games/catalog.py` (game registry), `app/games/engine.py` (tables/rounds/seats, idempotent coin entry/payout via `wallet_service`, rake→`casino_rake_ledger` with Admin/SA split, provably-fair state + verify), `app/routers/casino.py` (`/api/casino/catalog|tables|tables/{id}/{state,join,leave,start}|rounds/{id}/verify|admin/rake`). Demo game **High Card** (instant showdown) exercises the whole flow. Frontend: `pages/CasinoPage.jsx` lobby+table shell with provably-fair Verify panel; "Cards" bottom-nav tab. Transport = REST + ~1.5s polling (WebSocket = later phase).
+- **Phase 1 (NEXT): Rummy** — Points → Pool (101/201) → Deals. Builds the turn/action engine (draw/discard, set/sequence/pure-sequence validation, declare/drop, scoring). Defaults: point value 1/2/5 coins, ~10% rake capped, 2–6 seats.
+- **Phase 2: Teen Patti + Andar Bahar** (betting-round engine, pot rake).
+- **Phase 3: Roulette + Blackjack** (house-banked; wheel RNG, dealer logic, bankroll guard).
+- ⚠️ **REQUIRED PRE-LAUNCH (deferred by user, do NOT skip before production):** (1) responsible-gaming guardrails — per-player daily loss/spend caps; (2) state-restriction gating toggle (AP/Telangana/TN/Assam for Rummy; broader for chance games — Goa/Sikkim/Daman only). (3) Re-surface the legal/compliance risk to the user before any production launch (chance games are high legal risk in most of India). (4) WebSocket + Mongo Change Streams upgrade for real-time (currently polling).
+
 ## Notes
 - Frontend now server-authoritative for Auth + Wallet (JWT Bearer in `localStorage['royal11_token']`).
 - Coin-spending UI actions are intentionally disabled ("Coming soon") until their ledger endpoints exist.

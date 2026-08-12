@@ -1,11 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { Home, Trophy, Users, Gamepad2, Wallet } from "lucide-react";
+import { Home, Trophy, Users, Gamepad2, Wallet, Spade } from "lucide-react";
 import { motion } from "framer-motion";
 
 const ITEMS = [
   { to: "/", label: "Home", icon: Home, id: "home" },
   { to: "/sports", label: "Sports", icon: Trophy, id: "sports" },
   { to: "/fantasy", label: "Fantasy", icon: Users, id: "fantasy" },
+  { to: "/casino", label: "Cards", icon: Spade, id: "casino" },
   { to: "/games", label: "Games", icon: Gamepad2, id: "games" },
   { to: "/wallet", label: "Wallet", icon: Wallet, id: "wallet" },
 ];
