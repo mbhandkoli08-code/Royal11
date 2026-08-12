@@ -87,17 +87,28 @@ export const AuthProvider = ({ children }) => {
   }, [pingActivity]);
 
   const register = useCallback(async (email, password, display_name, referral_code) => {
+    // Registration no longer logs the user in — it triggers an email OTP.
     const { data } = await axios.post(`${API}/auth/register`, {
       email,
       password,
       display_name,
       ...(referral_code ? { referral_code } : {}),
     });
+    return data; // { status:"otp_sent", email, requires_verification:true }
+  }, []);
+
+  const verifyOtp = useCallback(async (email, code) => {
+    const { data } = await axios.post(`${API}/auth/verify-otp`, { email, code });
     localStorage.setItem(TOKEN_KEY, data.access_token);
-    localStorage.setItem("r11_welcome", "1");  // trigger one-time agent welcome
+    localStorage.setItem("r11_welcome", "1"); // trigger one-time agent welcome
     setToken(data.access_token);
     setUser(data.user);
+    if (data.user.role === "PLAYER") pingActivity(data.access_token);
     return data.user;
+  }, [pingActivity]);
+
+  const resendOtp = useCallback(async (email) => {
+    await axios.post(`${API}/auth/resend-otp`, { email });
   }, []);
 
   const logout = useCallback(() => {
@@ -114,9 +125,11 @@ export const AuthProvider = ({ children }) => {
       isAuthenticated: !!token && !!user,
       login,
       register,
+      verifyOtp,
+      resendOtp,
       logout,
     }),
-    [token, user, loading, login, register, logout]
+    [token, user, loading, login, register, verifyOtp, resendOtp, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

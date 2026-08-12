@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, User as UserIcon, ArrowRight, Loader2, ShieldCheck, Gift } from "lucide-react";
+import { Mail, Lock, User as UserIcon, ArrowRight, Loader2, ShieldCheck, Gift, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, formatApiErrorDetail } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
@@ -15,8 +15,33 @@ const Field = ({ icon: Icon, ...props }) => (
   </div>
 );
 
-export default function AuthPage() {
-  const { login, register } = useAuth();
+// Branded header for a per-Admin login page. Shows the Admin's logo (if any)
+// and falls back gracefully to the ROYAL11 crest when no logo is set.
+const BrandedHeader = ({ branding }) => {
+  const logoUrl = branding.has_logo
+    ? `${process.env.REACT_APP_BACKEND_URL}/api/public/branding/${branding.brand_slug}/logo`
+    : null;
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+      className="flex flex-col items-center gap-3"
+      data-testid="branded-login-header"
+    >
+      {logoUrl ? (
+        <div className="h-16 w-16 overflow-hidden rounded-2xl ring-1 ring-slate-200 shadow-soft">
+          <img src={logoUrl} alt={branding.brand_name} className="h-full w-full object-cover" draggable={false} data-testid="branded-login-logo" />
+        </div>
+      ) : (
+        <Logo compact />
+      )}
+    </motion.div>
+  );
+};
+
+export default function AuthPage({ branding = null }) {
+  const { login, register, verifyOtp, resendOtp } = useAuth();
   const [mode, setMode] = useState("login"); // "login" | "signup"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,6 +49,9 @@ export default function AuthPage() {
   const [referralCode, setReferralCode] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [otpEmail, setOtpEmail] = useState(""); // when set, show the OTP step
+  const [otpCode, setOtpCode] = useState("");
+  const [resending, setResending] = useState(false);
 
   const isSignup = mode === "signup";
 
@@ -33,8 +61,12 @@ export default function AuthPage() {
     setBusy(true);
     try {
       if (isSignup) {
-        await register(email.trim(), password, displayName.trim(), referralCode.trim().toUpperCase());
-        toast.success("Welcome to ROYAL11!", { description: "1,000 bonus coins added to your wallet." });
+        const res = await register(email.trim(), password, displayName.trim(), referralCode.trim().toUpperCase());
+        if (res?.requires_verification) {
+          setOtpEmail(email.trim().toLowerCase());
+          setOtpCode("");
+          toast.success("Check your email", { description: "We sent a 6-digit code to verify your account." });
+        }
       } else {
         await login(email.trim(), password);
         toast.success("Welcome back!");
@@ -45,6 +77,36 @@ export default function AuthPage() {
       setBusy(false);
     }
   };
+
+  const submitOtp = async (e) => {
+    e.preventDefault();
+    setError("");
+    setBusy(true);
+    try {
+      await verifyOtp(otpEmail, otpCode.trim());
+      toast.success("Welcome to ROYAL11!", { description: "1,000 bonus coins added to your wallet." });
+      // isAuthenticated flips -> routes redirect to the app automatically.
+    } catch (err) {
+      setError(formatApiErrorDetail(err.response?.data?.detail) || err.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resend = async () => {
+    setResending(true);
+    setError("");
+    try {
+      await resendOtp(otpEmail);
+      toast.success("Code resent", { description: "Check your inbox for a fresh code." });
+    } catch (err) {
+      setError(formatApiErrorDetail(err.response?.data?.detail) || err.message);
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const backToSignup = () => { setOtpEmail(""); setOtpCode(""); setError(""); };
 
   const switchMode = (m) => {
     setMode(m);
@@ -65,15 +127,55 @@ export default function AuthPage() {
         data-testid="auth-page"
       >
         <div className="mb-8 flex flex-col items-center text-center">
-          <Logo />
+          {branding ? (
+            <BrandedHeader branding={branding} />
+          ) : (
+            <Logo />
+          )}
           <h1 className="mt-6 font-display text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            {isSignup ? "Create your account" : "Welcome back"}
+            {otpEmail ? "Verify your email" : isSignup ? "Create your account" : branding ? `Welcome to ${branding.brand_name}` : "Welcome back"}
           </h1>
           <p className="mt-2 text-sm font-medium text-slate-500">
-            {isSignup ? "Join the game — get 1,000 bonus coins." : "Log in to play, win & manage your coins."}
+            {otpEmail
+              ? <>Enter the 6-digit code we sent to <span className="font-semibold text-slate-700">{otpEmail}</span></>
+              : isSignup ? "Join the game — get 1,000 bonus coins." : "Log in to play, win & manage your coins."}
           </p>
         </div>
 
+        {otpEmail ? (
+          <form onSubmit={submitOtp} className="space-y-3.5" data-testid="otp-form">
+            <Field
+              icon={KeyRound}
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              maxLength={6}
+              placeholder="6-digit code"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              required
+              data-testid="otp-code-input"
+            />
+            {error && (
+              <p data-testid="otp-error" className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm font-semibold text-[#DC2626]">{error}</p>
+            )}
+            <button
+              type="submit"
+              disabled={busy || otpCode.length !== 6}
+              data-testid="otp-submit-btn"
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-royal py-4 text-sm font-bold text-white shadow-lift transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {busy ? <Loader2 className="h-4.5 w-4.5 animate-spin" /> : <>Verify &amp; continue <ArrowRight className="h-4 w-4" /></>}
+            </button>
+            <div className="flex items-center justify-between pt-1 text-xs font-semibold">
+              <button type="button" onClick={backToSignup} data-testid="otp-back-btn" className="text-slate-500 hover:text-slate-800">← Back</button>
+              <button type="button" onClick={resend} disabled={resending} data-testid="otp-resend-btn" className="text-royal hover:underline disabled:opacity-60">
+                {resending ? "Sending…" : "Resend code"}
+              </button>
+            </div>
+          </form>
+        ) : (
+        <>
         {/* Mode toggle */}
         <div className="mb-6 grid grid-cols-2 gap-1.5 rounded-2xl bg-white p-1.5 shadow-soft">
           {[
@@ -184,6 +286,8 @@ export default function AuthPage() {
             )}
           </button>
         </form>
+        </>
+        )}
 
         <p className="mt-6 flex items-center justify-center gap-2 text-center text-xs font-medium text-slate-400">
           <ShieldCheck className="h-4 w-4" />

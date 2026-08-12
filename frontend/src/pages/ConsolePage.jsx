@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import {
   LayoutGrid, Users, UserCheck, UsersRound, Receipt, KeyRound,
   Banknote, Landmark, Scale, Zap, Crown, LogOut, ExternalLink, Search, Menu, X,
-  Globe2, ClipboardList, Trophy,
+  Globe2, ClipboardList, Trophy, Palette, ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
@@ -25,6 +25,8 @@ import { ZonalManagersPanel } from "@/console/ZonalManagersPanel";
 import { MyManagersPanel } from "@/console/MyManagersPanel";
 import { AdminRequestsPanel } from "@/console/AdminRequestsPanel";
 import { FantasyPanel } from "@/console/FantasyPanel";
+import { BrandingPanel } from "@/console/BrandingPanel";
+import { SecurityPanel } from "@/console/SecurityPanel";
 
 const NAV = {
   SUPER_ADMIN: [
@@ -46,6 +48,7 @@ const NAV = {
     ] },
     { section: "System", items: [
       { id: "apikeys", label: "API Keys", icon: KeyRound },
+      { id: "security", label: "Login Security", icon: ShieldAlert },
     ] },
   ],
   ZONAL_MANAGER: [
@@ -78,6 +81,9 @@ const NAV = {
     ] },
     { section: "Games", items: [
       { id: "fantasy", label: "Fantasy Contests", icon: Trophy },
+    ] },
+    { section: "System", items: [
+      { id: "branding", label: "Login Branding", icon: Palette },
     ] },
   ],
 };
@@ -149,6 +155,8 @@ export default function ConsolePage() {
       case "admins": return <AdminsPanel query={query} />;
       case "admin-requests": return <AdminRequestsPanel query={query} />;
       case "fantasy": return <FantasyPanel />;
+      case "branding": return <BrandingPanel />;
+      case "security": return <SecurityPanel />;
       case "my-managers": return <MyManagersPanel query={query} />;
       case "transactions": return <TransactionsPanel query={query} />;
       case "apikeys": return <ApiKeysPanel />;

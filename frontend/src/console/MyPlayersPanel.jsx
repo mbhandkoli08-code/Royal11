@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { useConsoleApi, fmtCoins, fmtDate, shortId } from "./api";
 import {
   CARD, thCls, tdCls, PanelHeader, StatCard, GhostButton, PrimaryButton,
-  Modal, Field, Spinner, EmptyState,
+  Modal, Field, Spinner, EmptyState, AnimatedNumber,
 } from "./primitives";
 
 // Admin console: my players + grant coins to them.
@@ -64,8 +64,8 @@ export const MyPlayersPanel = ({ query = "" }) => {
       <PanelHeader title="My Players" subtitle="Grant coins from your wallet into a player’s balance." />
 
       <div className="mb-8 grid grid-cols-2 gap-4 sm:max-w-md">
-        <StatCard testid="admin-wallet" icon={Wallet2} label="Wallet Balance" value={fmtCoins(balance)} />
-        <StatCard testid="admin-player-count" icon={UsersRound} label="My Players" value={fmtCoins(rows.length)} accent="cherry" />
+        <StatCard testid="admin-wallet" icon={Wallet2} label="Wallet Balance" value={<AnimatedNumber value={balance} format={fmtCoins} testid="admin-wallet-num" />} />
+        <StatCard testid="admin-player-count" icon={UsersRound} label="My Players" value={<AnimatedNumber value={rows.length} format={fmtCoins} testid="admin-player-count-num" />} accent="cherry" />
       </div>
 
       {filtered.length === 0 ? (

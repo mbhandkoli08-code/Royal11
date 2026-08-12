@@ -17,7 +17,7 @@ from app.wallet_service import ensure_indexes
 from app.deposit_service import ensure_deposit_indexes
 from app.hierarchy_service import ensure_hierarchy_indexes
 from app.fantasy_service import ensure_fantasy_indexes, settle_due_contests
-from app import revenue_service, storage_service, payroll_service
+from app import revenue_service, storage_service, payroll_service, login_security, otp_service
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date, timedelta
 from app.routers.auth import router as auth_router
@@ -29,6 +29,8 @@ from app.routers.fantasy import router as fantasy_router, admin_router as fantas
 from app.routers.superadmin import router as superadmin_router
 from app.routers.api_keys import router as api_keys_router
 from app.routers.cricket import router as cricket_router
+from app.routers.branding import router as branding_router, public_router as branding_public_router
+from app.routers.security import router as security_router
 
 
 ROOT_DIR = Path(__file__).parent
@@ -345,6 +347,9 @@ api_router.include_router(fantasy_admin_router)
 api_router.include_router(superadmin_router)
 api_router.include_router(api_keys_router)
 api_router.include_router(cricket_router)
+api_router.include_router(branding_router)
+api_router.include_router(branding_public_router)
+api_router.include_router(security_router)
 app.include_router(api_router)
 
 app.add_middleware(
@@ -391,6 +396,8 @@ async def ensure_db_indexes():
     await ensure_deposit_indexes()
     await ensure_hierarchy_indexes()
     await ensure_fantasy_indexes()
+    await login_security.ensure_indexes()
+    await otp_service.ensure_indexes()
     try:
         await storage_service.init_storage()
         logger.info("Object storage initialized")

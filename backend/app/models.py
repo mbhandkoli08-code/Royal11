@@ -20,6 +20,7 @@ class UserStatus(str, Enum):
     ACTIVE = "ACTIVE"
     DISABLED = "DISABLED"
     SUSPENDED = "SUSPENDED"
+    PENDING_VERIFICATION = "PENDING_VERIFICATION"
 
 
 class TxnType(str, Enum):

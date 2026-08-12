@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Info, Percent, Loader2 } from "lucide-react";
+import { Info, Percent, Loader2, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { useConsoleApi, fmtCoins, shortId } from "./api";
 import {
   CARD, thCls, tdCls, PanelHeader, StatusBadge, UsageBar, UsageBadge,
   GhostButton, Modal, Field, PrimaryButton, Spinner, EmptyState,
 } from "./primitives";
+import { BrandingForm } from "./BrandingPanel";
 
 // Super Admin view of every Admin. Read-only for coin allocation (that flows
 // through the Manager), but Super Admin can set each Admin's revenue split.
@@ -14,6 +15,7 @@ export const AdminsPanel = ({ query = "" }) => {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [splitTarget, setSplitTarget] = useState(null);
+  const [brandTarget, setBrandTarget] = useState(null);
   const [pct, setPct] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -103,7 +105,8 @@ export const AdminsPanel = ({ query = "" }) => {
                     <td className={`${tdCls} font-bold text-slate-900`}>{r.revenue_split_super_admin_pct}%</td>
                     <td className={tdCls}><StatusBadge status={r.user.status} /></td>
                     <td className={tdCls}>
-                      <div className="flex justify-end">
+                      <div className="flex justify-end gap-2">
+                        <GhostButton data-testid={`brand-${r.user.id}`} onClick={() => setBrandTarget(r)} className="!px-3 !py-2 text-xs"><Palette className="h-3.5 w-3.5" /> Brand</GhostButton>
                         <GhostButton data-testid={`split-${r.user.id}`} onClick={() => openSplit(r)} className="!px-3 !py-2 text-xs"><Percent className="h-3.5 w-3.5" /> Split</GhostButton>
                       </div>
                     </td>
@@ -123,6 +126,10 @@ export const AdminsPanel = ({ query = "" }) => {
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Percent className="h-4 w-4" />} Save Split
           </PrimaryButton>
         </div>
+      </Modal>
+
+      <Modal open={!!brandTarget} onClose={() => setBrandTarget(null)} title={`Login branding — ${brandTarget?.user.display_name || ""}`} testid="brand-modal">
+        {brandTarget && <BrandingForm basePath={`/admin/admins/${brandTarget.user.id}/branding`} />}
       </Modal>
     </div>
   );

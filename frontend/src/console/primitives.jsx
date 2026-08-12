@@ -1,9 +1,40 @@
 import { motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 import { X, Loader2, Search, ChevronLeft, ChevronRight, Inbox } from "lucide-react";
 
 // Shared light-theme primitives for the ROYAL 11 Admin Console (banking style).
 // Palette: page slate-50 · cards white · accent sky-500 · text slate-900/500
 // status green/amber/red only.
+
+// Smoothly count-up/down to a numeric value whenever it changes (easeOutCubic).
+// Purely visual; triggers on the existing data-refresh cycle (no new polling).
+export const AnimatedNumber = ({ value = 0, format = (n) => n, duration = 900, testid }) => {
+  const [display, setDisplay] = useState(0);
+  const fromRef = useRef(0);
+  const rafRef = useRef();
+
+  useEffect(() => {
+    const from = fromRef.current;
+    const to = Number(value) || 0;
+    if (from === to) { setDisplay(to); return undefined; }
+    const start = performance.now();
+    const tick = (now) => {
+      const t = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - t, 3);
+      setDisplay(from + (to - from) * eased);
+      if (t < 1) {
+        rafRef.current = requestAnimationFrame(tick);
+      } else {
+        fromRef.current = to;
+        setDisplay(to);
+      }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value, duration]);
+
+  return <span data-testid={testid}>{format(Math.round(display))}</span>;
+};
 
 export const CARD =
   "rounded-2xl border border-slate-200/60 bg-white shadow-[0_2px_10px_-3px_rgba(6,81,237,0.08)]";

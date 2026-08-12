@@ -4,7 +4,7 @@ import { Users, UserCheck, UsersRound, Database, ArrowUpRight, ArrowDownLeft, Do
 import { toast } from "sonner";
 import { useConsoleApi, fmtCoins, shortId } from "./api";
 import {
-  CARD, thCls, tdCls, PanelHeader, StatCard, UsageBar, GhostButton, Spinner, EmptyState, ComingSoonCard,
+  CARD, thCls, tdCls, PanelHeader, StatCard, UsageBar, GhostButton, Spinner, EmptyState, ComingSoonCard, AnimatedNumber,
 } from "./primitives";
 
 // Super Admin landing dashboard. Every stat is computed server-side from real
@@ -74,12 +74,12 @@ export const OverviewPanel = () => {
       {view === "economy" && (
       <>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
-        <StatCard testid="stat-managers" icon={UserCheck} label="Total Managers" value={fmtCoins(t.managers)} />
-        <StatCard testid="stat-admins" icon={Users} label="Total Admins" value={fmtCoins(t.admins)} />
-        <StatCard testid="stat-players" icon={UsersRound} label="Total Players" value={fmtCoins(t.players)} />
-        <StatCard testid="stat-coins-in-circulation" icon={Database} label="Coins in Circulation" value={fmtCoins(t.coins_in_circulation)} sub="Sum of all wallet balances" />
-        <StatCard testid="stat-coins-allocated" icon={ArrowUpRight} label="Coins Allocated" value={fmtCoins(t.coins_allocated)} accent="cherry" sub="Pushed down to Admins" />
-        <StatCard testid="stat-coins-remaining" icon={ArrowDownLeft} label="Coins Remaining" value={fmtCoins(t.coins_remaining)} sub="Unused authorized quota" />
+        <StatCard testid="stat-managers" icon={UserCheck} label="Total Managers" value={<AnimatedNumber value={t.managers} format={fmtCoins} testid="stat-managers-num" />} />
+        <StatCard testid="stat-admins" icon={Users} label="Total Admins" value={<AnimatedNumber value={t.admins} format={fmtCoins} testid="stat-admins-num" />} />
+        <StatCard testid="stat-players" icon={UsersRound} label="Total Players" value={<AnimatedNumber value={t.players} format={fmtCoins} testid="stat-players-num" />} />
+        <StatCard testid="stat-coins-in-circulation" icon={Database} label="Coins in Circulation" value={<AnimatedNumber value={t.coins_in_circulation} format={fmtCoins} testid="stat-circulation-num" />} sub="Sum of all wallet balances" />
+        <StatCard testid="stat-coins-allocated" icon={ArrowUpRight} label="Coins Allocated" value={<AnimatedNumber value={t.coins_allocated} format={fmtCoins} testid="stat-allocated-num" />} accent="cherry" sub="Pushed down to Admins" />
+        <StatCard testid="stat-coins-remaining" icon={ArrowDownLeft} label="Coins Remaining" value={<AnimatedNumber value={t.coins_remaining} format={fmtCoins} testid="stat-remaining-num" />} sub="Unused authorized quota" />
       </div>
 
       {/* Manager Allocation & Performance — buildable from real data */}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Lenis from "lenis";
-import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
-import { AnimatePresence } from "framer-motion";
+import axios from "axios";
+import { BrowserRouter, Routes, Route, useLocation, useParams, Navigate } from "react-router-dom";
 import { Toaster } from "sonner";
 import { Construction, Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -73,6 +73,31 @@ const AuthRoute = () => {
   return <AuthPage />;
 };
 
+// Per-Admin branded login at /login/:slug. Display-only layer over AuthPage —
+// same auth underneath. Falls back to the default /auth on any invalid slug,
+// missing branding, or inactive Admin.
+const BrandedLoginRoute = () => {
+  const { slug } = useParams();
+  const { loading, isAuthenticated, user } = useAuth();
+  const [branding, setBranding] = useState(undefined); // undefined=loading, null=fallback
+
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get(`${process.env.REACT_APP_BACKEND_URL}/api/public/branding/${slug}`)
+      .then((res) => { if (!cancelled) setBranding(res.data); })
+      .catch(() => { if (!cancelled) setBranding(null); });
+    return () => { cancelled = true; };
+  }, [slug]);
+
+  if (loading || branding === undefined) return <FullScreenLoader />;
+  if (isAuthenticated) {
+    return <Navigate to={CONSOLE_ROLES.includes(user?.role) ? "/console" : "/"} replace />;
+  }
+  if (branding === null) return <Navigate to="/auth" replace />;
+  return <AuthPage branding={branding} />;
+};
+
 const ConsoleLoginRoute = () => {
   const { loading, isAuthenticated, user } = useAuth();
   if (loading) return <FullScreenLoader />;
@@ -93,6 +118,7 @@ const ConsoleRoute = () => {
 const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<AuthRoute />} />
+    <Route path="/login/:slug" element={<BrandedLoginRoute />} />
     <Route path="/console/login" element={<ConsoleLoginRoute />} />
     <Route path="/console" element={<ConsoleRoute />} />
     <Route path="/*" element={<ProtectedShell />} />
@@ -124,9 +150,7 @@ function App() {
           <Toaster position="top-center" richColors />
         </AuthProvider>
       </BrowserRouter>
-      <AnimatePresence>
-        {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
-      </AnimatePresence>
+      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
     </div>
   );
 }

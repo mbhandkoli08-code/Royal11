@@ -1,0 +1,24 @@
+{
+  "summary": "Iteration 19 (Brute-force login protection + Email OTP registration) tested end-to-end. Backend: 12/12 pytests pass (4 login_security + 8 new otp_and_security). Frontend: OTP e2e verified (signup -> otp-form -> wrong code shows otp-error -> correct code activates + credits 1000 welcome bonus + lands in app). SUPER_ADMIN Console SecurityPanel renders with empty state after alerts cleared; RBAC 403 for admin1 confirmed. Seeded logins (super/zonal/manager/admin/player) all return 200. No runtime errors on /auth or /console.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_otp_and_security.py",
+    "/app/backend/tests/test_login_security.py",
+    "/app/test_reports/pytest/iter19.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "login_security._raise_alert stores per-email lockouts on the shared pod IP (behind ingress) — per-IP counter is essentially global for this deployment; acceptable per current design but worth flagging (comment already notes it).",
+    "otp_service logs OTP_DEBUG codes to backend logs when OTP_DEBUG_LOG=true — ensure this flag is disabled in production before launch (currently on).",
+    "auth.login uses payload.email (raw case) for user lookup but lowercases 'email' for rate-limiting; if a user signs up in mixed case, lookup may miss while rate-limit fires — recommend normalizing lookup to lowercase everywhere."
+  ],
+  "updated_files": ["/app/backend/tests/test_otp_and_security.py"],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% of tested flows"},
+  "test_credentials": "Seeded credentials from /app/memory/test_credentials.md (ChangeMe123!). Throwaway emails bf_<uuid>@royal11.com and otp_<uuid>@example.com used for brute-force/OTP tests to avoid locking seeded accounts.",
+  "seed_data_creation": "None — used ephemeral throwaway users; login_attempts/security_alerts collections cleaned via module-scoped fixture in test_login_security.py.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "OTP debug codes readable via grep 'OTP_DEBUG <email> -> ' in /var/log/supervisor/backend.*.log. When testing SA console SecurityPanel with playwright, click nav-security WITHOUT force=True (the motion.span active indicator does not intercept clicks; force may miss the button). Wallet response shape is {wallet:{balance:int}, transactions:[]}, not flat 'balance'.",
+  "rca of the issue": "N/A — no bugs found in this iteration."
+}
