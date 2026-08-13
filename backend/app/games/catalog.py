@@ -29,4 +29,18 @@ GAMES: dict[str, dict] = {
         "default_config": {"stake": 10, "rake_pct": 70, "rake_cap": 100000},
         "settle": _high_card_settle,
     },
+    "rummy_points": {
+        "label": "Points Rummy",
+        "category": "rummy",
+        "min_players": 2,
+        "max_players": 6,
+        "cards_per_player": 13,
+        "has_turns": True,  # served by games.rummy_engine (NOT engine.start_round)
+        # point_value = coins per point; escrow = 80 (max points) x point_value.
+        # Default rake 70% of the settled pot (uniform, Super-Admin-configurable);
+        # does NOT touch the provably-fair shoe.
+        "default_config": {"point_value": 1, "rake_pct": 70, "rake_cap": 10_000_000,
+                            "turn_seconds": 30, "max_timeouts": 3},
+        "settle": None,
+    },
 }

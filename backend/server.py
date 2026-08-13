@@ -32,6 +32,7 @@ from app.routers.cricket import router as cricket_router
 from app.routers.branding import router as branding_router, public_router as branding_public_router
 from app.routers.security import router as security_router
 from app.routers.casino import router as casino_router
+from app.routers.rummy import router as rummy_router
 from app.games import engine as casino_engine
 from app.games import progression_service as casino_progression
 
@@ -354,6 +355,7 @@ api_router.include_router(branding_router)
 api_router.include_router(branding_public_router)
 api_router.include_router(security_router)
 api_router.include_router(casino_router)
+api_router.include_router(rummy_router)
 app.include_router(api_router)
 
 app.add_middleware(

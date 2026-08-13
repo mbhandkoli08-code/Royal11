@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { Spade, Users, Coins, Loader2, ShieldCheck, Plus, LogOut, Play, Check, X, Crown } from "lucide-react";
+import { Spade, Users, Coins, Loader2, ShieldCheck, Plus, LogOut, Play, Check, X, Crown, Layers, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
+import RummyTable from "@/pages/RummyTable";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SUIT = { s: "♠", h: "♥", d: "♦", c: "♣" };
+const GAMES = [
+  { id: "high_card", label: "High Card", icon: Spade },
+  { id: "rummy_points", label: "Rummy", icon: Layers },
+];
 
 const Card = ({ code }) => {
   if (!code) return <span className="grid h-14 w-10 place-items-center rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 text-slate-300">?</span>;
@@ -22,14 +27,22 @@ export default function CasinoPage() {
   const { user, token } = useAuth();
   const headers = { Authorization: `Bearer ${token}` };
   const [tables, setTables] = useState([]);
-  const [tableId, setTableId] = useState(null);
+  const [tableId, setTableId] = useState(() => localStorage.getItem("royal11_casino_table") || null);
   const [state, setState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [verify, setVerify] = useState(null);
   const [practice, setPractice] = useState(false);
+  const [game, setGame] = useState(() => localStorage.getItem("royal11_casino_game") || "high_card");
   const [meta, setMeta] = useState({ practiceBal: 0, prog: null });
   const pollRef = useRef(null);
+
+  // Persist the current table + game so a page reload rehydrates the same round
+  // (backend GET /state rebuilds it) instead of dumping the player to the lobby.
+  useEffect(() => {
+    if (tableId) { localStorage.setItem("royal11_casino_table", tableId); localStorage.setItem("royal11_casino_game", game); }
+    else { localStorage.removeItem("royal11_casino_table"); localStorage.removeItem("royal11_casino_game"); }
+  }, [tableId, game]);
 
   const loadMeta = useCallback(async () => {
     try {
@@ -42,11 +55,12 @@ export default function CasinoPage() {
   }, [token]);
 
   const loadLobby = useCallback(async () => {
+    setLoading(true);
     try {
-      const { data } = await axios.get(`${API}/casino/tables?game_type=high_card`, { headers });
+      const { data } = await axios.get(`${API}/casino/tables?game_type=${game}`, { headers });
       setTables(data);
     } catch { /* ignore */ } finally { setLoading(false); }
-  }, [token]);
+  }, [token, game]);
 
   const loadState = useCallback(async (id) => {
     try {
@@ -57,21 +71,28 @@ export default function CasinoPage() {
 
   useEffect(() => { loadLobby(); loadMeta(); }, [loadLobby, loadMeta]);
 
-  // Poll table state (~1.5s) while seated at a table.
+  // Poll table state (~1.5s) while seated at a HIGH CARD table. Rummy tables
+  // render <RummyTable/>, which does its own turn-aware polling.
   useEffect(() => {
-    if (!tableId) return undefined;
+    if (!tableId || game === "rummy_points") return undefined;
     loadState(tableId);
     pollRef.current = setInterval(() => loadState(tableId), 1500);
     return () => clearInterval(pollRef.current);
-  }, [tableId, loadState]);
+  }, [tableId, loadState, game]);
 
   const act = async (fn, ...args) => { setBusy(true); try { return await fn(...args); } finally { setBusy(false); } };
 
   const createTable = () => act(async () => {
-    const { data } = await axios.post(`${API}/casino/tables`, { game_type: "high_card", is_practice: practice }, { headers });
+    const cfg = game === "rummy_points" ? { point_value: 1 } : {};
+    const { data } = await axios.post(`${API}/casino/tables`, { game_type: game, is_practice: practice, config: cfg }, { headers });
     await axios.post(`${API}/casino/tables/${data.id}/join`, {}, { headers });
     setTableId(data.id); setVerify(null);
   }).catch((e) => toast.error(e.response?.data?.detail || "Couldn't create table"));
+
+  const quickPlay = () => act(async () => {
+    const { data } = await axios.post(`${API}/casino/rummy/quick-match`, { point_value: 1, is_practice: practice }, { headers });
+    setTableId(data.id); setVerify(null);
+  }).catch((e) => toast.error(e.response?.data?.detail || "Couldn't find a table"));
 
   const joinTable = (id) => act(async () => {
     await axios.post(`${API}/casino/tables/${id}/join`, {}, { headers });
@@ -97,6 +118,11 @@ export default function CasinoPage() {
   const round = state?.round;
   const seated = state?.seats?.some((s) => s.user_id === user?.id);
 
+  // Rummy tables get the full-screen turn-based table UI.
+  if (tableId && game === "rummy_points") {
+    return <RummyTable tableId={tableId} onLeave={() => { setTableId(null); setState(null); setVerify(null); loadLobby(); loadMeta(); }} />;
+  }
+
   return (
     <div className="mx-auto max-w-2xl px-4 pb-28 pt-6" data-testid="casino-page">
       <header className="mb-6 flex items-center gap-3">
@@ -121,6 +147,19 @@ export default function CasinoPage() {
       {!tableId ? (
         /* ---------------- Lobby ---------------- */
         <div data-testid="casino-lobby">
+          {/* Game selector */}
+          <div className="mb-4 grid grid-cols-2 gap-2" data-testid="casino-game-toggle">
+            {GAMES.map((g) => {
+              const Icon = g.icon;
+              const on = game === g.id;
+              return (
+                <button key={g.id} data-testid={`casino-game-${g.id}`} onClick={() => { setGame(g.id); setTables([]); }}
+                  className={`flex items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-bold transition-colors ${on ? "border-royal bg-royal-light text-royal" : "border-slate-200 bg-white text-slate-500"}`}>
+                  <Icon className="h-4 w-4" /> {g.label}
+                </button>
+              );
+            })}
+          </div>
           {/* Cash / Practice toggle */}
           <div className="mb-4 flex items-center justify-between">
             <div className="inline-flex rounded-full bg-slate-100 p-1" data-testid="casino-mode-toggle">
@@ -136,9 +175,15 @@ export default function CasinoPage() {
             )}
           </div>
           {practice && <p className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Practice mode — free chips, no real coins, no payouts. Learn risk-free.</p>}
+          {game === "rummy_points" && (
+            <button data-testid="rummy-quick-play" onClick={quickPlay} disabled={busy}
+              className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-600 py-4 text-sm font-black text-black shadow-lift transition-transform hover:-translate-y-0.5 disabled:opacity-70">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />} Quick Play
+            </button>
+          )}
           <button data-testid="casino-create-table" onClick={createTable} disabled={busy}
             className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-royal py-4 text-sm font-bold text-white shadow-lift transition-transform hover:-translate-y-0.5 disabled:opacity-70">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Create {practice ? "Practice" : "High Card"} Table
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Create {practice ? "Practice" : GAMES.find((g) => g.id === game).label} Table
           </button>
           {loading ? (
             <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-royal" /></div>
@@ -152,7 +197,7 @@ export default function CasinoPage() {
                     <p className="font-bold text-slate-900">{t.name}</p>
                     <p className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
                       <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {t.seat_count}/{t.max_players}</span>
-                      <span className="inline-flex items-center gap-1"><Coins className="h-3.5 w-3.5" /> {t.config.stake} entry</span>
+                      <span className="inline-flex items-center gap-1"><Coins className="h-3.5 w-3.5" /> {t.config.point_value != null ? `${t.config.point_value}/pt` : `${t.config.stake} entry`}</span>
                       <span>{t.config.rake_pct}% rake</span>
                     </p>
                   </div>

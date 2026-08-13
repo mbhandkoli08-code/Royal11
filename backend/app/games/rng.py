@@ -62,8 +62,27 @@ def shuffled_deck(server_seed: str, nonce: str) -> list[str]:
     return deck
 
 
+def shuffled_list(items: list[str], server_seed: str, nonce: str) -> list[str]:
+    """Generic unbiased shuffle of ANY list (multi-deck shoes, symbol strips, …)
+    using the same HMAC-Fisher–Yates stream. Reused by Rummy (106-card shoe) and
+    future house-banked games — same provably-fair commit–reveal guarantee."""
+    lst = list(items)
+    stream = _SeedStream(f"{server_seed}:{nonce}")
+    for i in range(len(lst) - 1, 0, -1):
+        j = stream.rand_below(i + 1)
+        lst[i], lst[j] = lst[j], lst[i]
+    return lst
+
+
 def commit_hash(server_seed: str, deck: list[str]) -> str:
     return hashlib.sha256((server_seed + "|" + ",".join(deck)).encode()).hexdigest()
+
+
+def verify_list(server_seed: str, nonce: str, base_items: list[str],
+                committed_hash: str) -> tuple[bool, list[str]]:
+    """Recompute a generic shoe from the revealed seed and check the commitment."""
+    shoe = shuffled_list(base_items, server_seed, nonce)
+    return commit_hash(server_seed, shoe) == committed_hash, shoe
 
 
 def verify(server_seed: str, nonce: str, committed_hash: str) -> tuple[bool, list[str]]:

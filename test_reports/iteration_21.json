@@ -1,0 +1,44 @@
+{
+  "summary": "Iteration 21 — Points Rummy Phase 1 backend + frontend testing. Backend: 16/16 pytest passing (11 baseline in tests/test_rummy.py + 5 new in tests/test_rummy_phase1_flow.py covering quick-match, off-turn 400 rejections, full draw/discard turn advance, invalid-declare handling, CASH escrow(80)/refund/rake-ledger/XP, and state rehydration). Frontend: two-session Playwright confirmed lobby game selector, practice mode toggle, Quick Play into rummy-table, 13-card hand tray, meld-assist checklist, group lanes, turn timer, drop-confirmation modal, post-round summary, and provably-fair verify UI all render and are wired to real backend endpoints. Two real defects were surfaced: (1) invalid HTML — <button data-testid=\"rummy-draw-open\"> wraps RCard which is itself a <button>, triggering a React hydration console error 'button cannot be a descendant of button'; (2) reload does NOT rehydrate the Rummy table (tableId lives only in CasinoPage React state, no URL param / localStorage / 'am-I-seated' lookup), so a reload mid-round dumps the user back to the /casino lobby — spec says reload must rehydrate the same round via GET /state.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/casino/rummy/tables/{id}/declare", "issue": "In a 2-player game, an INVALID declaration returns HTTP 200 with the round auto-SETTLED (declarer eliminated, opponent wins) rather than HTTP 400 with the failure reason. Review requirement explicitly asks for '400 with a reason like need at least one pure sequence'. Money invariant still holds (declarer's delta is -80, they are NOT paid out), but the HTTP contract diverges. In 3+ player games the 400 raise DOES fire. See engine.py lines 361-368 — the `_settle` returns 200 before the trailing `raise DomainError(check['reason'])`."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "RummyTable.jsx", "issue": "Invalid HTML / React hydration error: <button data-testid='rummy-draw-open'> at line 187 wraps <RCard/> which itself renders a <button data-testid='rcard-{id}'>. Browser console logs 'In HTML, <button> cannot be a descendant of <button>'. Same for the wild-card decorative wrapper. Fix: change the outer draw-open element to a <div role='button' tabIndex={0}> or make the inner RCard render a span when used as a pile indicator (add an `asButton={false}` prop).", "selector": "[data-testid='rummy-draw-open']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [
+      {"flow": "Reconnect / page reload while seated at a Rummy table", "issue": "Reloading the page mid-round dumps the user back to the /casino lobby — CasinoPage state {tableId, game} is not persisted. Screenshot after page.reload() confirms lobby view (High Card default) is shown, not the RummyTable. Spec: 'reload the table page mid-round should rehydrate the exact same round via GET /state'. Backend GET /state DOES work (verified in backend test). Fix options: (a) push tableId into the URL (/casino/table/:id), (b) persist tableId to localStorage and restore on mount, (c) call a lightweight 'my active table' endpoint on mount and auto-navigate.", "affected_selectors": ["[data-testid='rummy-table']", "[data-testid='casino-page']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_rummy_phase1_flow.py",
+    "/app/backend/tests/test_rummy.py",
+    "/app/test_reports/pytest/rummy_phase1.xml"
+  ],
+  "action_items": [
+    "Fix nested <button> in RummyTable (draw-open + wild card wrappers) — cause of React hydration console error.",
+    "Persist tableId across reloads (URL param or localStorage) so RummyTable rehydrates via GET /state, per spec.",
+    "OPTIONAL: change engine.declare so that an invalid declaration in a 2-player game returns 400 with reason BEFORE auto-settling (or document the current behaviour as intentional)."
+  ],
+  "critical_code_review_comments": [
+    "engine.py declare(): when invalid grouping + last_active<=1, _settle is invoked and get_state returned (200), silencing the DomainError. Consider surfacing the validation reason to the declarer via a settle-side field instead of the current HTTP 200 with a summary modal only.",
+    "RummyTable.jsx nests <button> inside <button> at draw-open (line 187 wraps RCard which is a <button>). Invalid HTML — will trigger hydration warnings and can break accessibility/keyboard nav.",
+    "CasinoPage.jsx keeps `tableId` in useState only — no URL sync. On refresh the user loses the game context. This violates the Phase-1 reconnect requirement.",
+    "quick-match /api/casino/rummy/quick-match happily joins a WAITING table whose previous round is still SETTLED (current_round_id set). The frontend then shows the settled summary — mild UX confusion. Consider clearing current_round_id when a round settles OR make Quick Play auto-click 'Deal Next Hand' after landing on such a table."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_rummy_phase1_flow.py (new)"
+  ],
+  "success_rate": {"backend": "100% (16/16 pytest)", "frontend": "~85% — all selectors render & most flows work; 2 defects noted"},
+  "test_credentials": "player1@royal11.com / ChangeMe123!, casino_p2@royal11.com / ChangeMe123!, superadmin@royal11.com / ChangeMe123! (all seeded).",
+  "seed_data_creation": "Each test dynamically seeds a throwaway funded player 'rummy_<hex>@royal11.com' via app.wallet_service.credit (5000 coins each). Test tables are left in DB but bounded to point_value=1 practice/cash — safe to prune manually if needed.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend regression: run `cd /app/backend && python -m pytest tests/test_rummy.py tests/test_rummy_phase1_flow.py -v -o addopts=''`. Frontend selectors verified: casino-game-rummy_points, casino-mode-practice/cash, rummy-quick-play, rummy-table, rummy-players, rummy-draw-closed, rummy-draw-open, rummy-hand-tray, rummy-checklist, rummy-new-group, rummy-group-{i}, rummy-turn-timer, rummy-discard, rummy-declare, rummy-drop, rummy-drop-modal, drop-confirm, rummy-summary, summary-close, rummy-verify-btn, rummy-verify-result, rummy-fairness. Multi-session testing needs a second browser context — Playwright browser.new_context() and login as casino_p2@royal11.com. Note: quick-match reuses WAITING tables — may need to click 'rummy-start' (Deal Next Hand) if the joined table has a leftover SETTLED round. In 2-player games, invalid declare returns 200 (not 400) because the engine auto-settles when only 1 active remains.",
+  "rca of the issue": "Nested <button> hydration warning: in /app/frontend/src/pages/RummyTable.jsx line 187, `<button data-testid='rummy-draw-open' ...><RCard card={round.open_top} /></button>` — RCard (lines 12-30) itself renders a <button>. React devtools reports 'button cannot be a descendant of button'. Reload-not-rehydrating: /app/frontend/src/pages/CasinoPage.jsx maintains `tableId` only in useState (line 30) — a page reload resets it to null; there is no URL segment, no localStorage restore, and no 'GET /api/casino/tables/mine' call on mount. Backend GET /api/casino/rummy/tables/{id}/state correctly returns the same round for the same user (verified by test_state_rehydrates_same_round_on_reconnect), so this is purely a frontend persistence gap."
+}
