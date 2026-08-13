@@ -16,7 +16,7 @@ from datetime import datetime, timezone, timedelta
 
 from ..db import db
 from ..models import TxnType
-from .. import wallet_service, revenue_service
+from .. import wallet_service, revenue_service, bonus_service
 from . import rng, rummy, practice_service, progression_service
 from .cards import fresh_deck
 from .engine import DomainError, _get, _table_public
@@ -99,7 +99,7 @@ async def start_round(table_id: str, actor_id: str) -> dict:
             if practice:
                 await practice_service.debit(s["user_id"], reserve)
             else:
-                await wallet_service.debit(
+                await bonus_service.debit_playable(
                     s["user_id"], TxnType.GAME_ENTRY, reserve, reason="Rummy table stake",
                     request_id=f"rummy_reserve:{round_id}:{s['user_id']}")
             funded.append(s)
@@ -418,10 +418,11 @@ async def _settle(r: dict, winner_id: str | None, reason: str) -> dict:
     if not practice:
         if rake > 0 and winner_id:
             await _record_rake(r, winner_id, collected, rake)
-        for p in r["players"]:  # loyalty XP on the amount each player risked
+        for p in r["players"]:  # loyalty XP + bonus playthrough on the amount risked
             await progression_service.add_wager_xp(
                 p["user_id"], reserve, source="rummy",
                 request_id=f"xp:rummy:{r['id']}:{p['user_id']}")
+            await bonus_service.record_wager(p["user_id"], reserve)
 
     r["phase"] = "SETTLED"
     r["rng"]["revealed"] = True

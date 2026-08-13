@@ -14,7 +14,7 @@ from pymongo.errors import DuplicateKeyError
 
 from ..db import db
 from ..models import TxnType
-from .. import wallet_service, revenue_service
+from .. import wallet_service, revenue_service, bonus_service
 from . import rng
 from .catalog import GAMES
 from . import practice_service, progression_service
@@ -160,7 +160,7 @@ async def start_round(table_id: str, actor_id: str) -> dict:
             if practice:
                 await practice_service.debit(s["user_id"], stake)
             else:
-                await wallet_service.debit(
+                await bonus_service.debit_playable(
                     s["user_id"], TxnType.GAME_ENTRY, stake, reason=f"{g['label']} entry",
                     request_id=f"casino_entry:{round_id}:{s['user_id']}")
             funded.append((idx, s))
@@ -196,10 +196,11 @@ async def start_round(table_id: str, actor_id: str) -> dict:
             winner["user_id"], TxnType.GAME_REWARD, payout, reason=f"{g['label']} winnings",
             request_id=f"casino_payout:{round_id}:{winner['user_id']}")
         await _record_rake(round_id, t, winner["user_id"], pot, rake)
-        # Loyalty XP for every real-money wager (idempotent per player+round).
+        # Loyalty XP + bonus playthrough for every real-money wager (idempotent).
         for _idx, s in funded:
             await progression_service.add_wager_xp(
                 s["user_id"], stake, source="casino", request_id=f"xp:casino:{round_id}:{s['user_id']}")
+            await bonus_service.record_wager(s["user_id"], stake)
 
     round_doc = {
         "id": round_id, "table_id": table_id, "game_type": t["game_type"], "round_no": round_no,

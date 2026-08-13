@@ -17,7 +17,7 @@ from app.wallet_service import ensure_indexes
 from app.deposit_service import ensure_deposit_indexes
 from app.hierarchy_service import ensure_hierarchy_indexes
 from app.fantasy_service import ensure_fantasy_indexes, settle_due_contests
-from app import revenue_service, storage_service, payroll_service, login_security, otp_service
+from app import revenue_service, storage_service, payroll_service, login_security, otp_service, bonus_service
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date, timedelta
 from app.routers.auth import router as auth_router
@@ -33,6 +33,7 @@ from app.routers.branding import router as branding_router, public_router as bra
 from app.routers.security import router as security_router
 from app.routers.casino import router as casino_router
 from app.routers.rummy import router as rummy_router
+from app.routers.bonus import router as bonus_router
 from app.games import engine as casino_engine
 from app.games import progression_service as casino_progression
 
@@ -356,6 +357,7 @@ api_router.include_router(branding_public_router)
 api_router.include_router(security_router)
 api_router.include_router(casino_router)
 api_router.include_router(rummy_router)
+api_router.include_router(bonus_router)
 app.include_router(api_router)
 
 app.add_middleware(
@@ -383,6 +385,7 @@ async def _daily_maintenance():
         await revenue_service.generate_daily_summary(date.today() - timedelta(days=1))
         await revenue_service.ensure_recent_settlements()
         await payroll_service.run_recent_payroll()
+        await bonus_service.expire_bonuses()
     except Exception as e:
         logger.error(f"daily maintenance failed: {e}")
 
@@ -406,6 +409,7 @@ async def ensure_db_indexes():
     await otp_service.ensure_indexes()
     await casino_engine.ensure_indexes()
     await casino_progression.ensure_indexes()
+    await bonus_service.ensure_indexes()
     try:
         await storage_service.init_storage()
         logger.info("Object storage initialized")

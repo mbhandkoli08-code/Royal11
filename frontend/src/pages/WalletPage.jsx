@@ -11,6 +11,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Reveal, MaskedLines } from "@/components/Reveal";
 import { RewardsStore } from "@/components/RewardsStore";
 import { AddCoins } from "@/components/AddCoins";
+import { BonusCard } from "@/components/BonusCard";
 
 const fmt = (n) => n.toLocaleString("en-IN");
 
@@ -96,6 +97,8 @@ export default function WalletPage() {
           </div>
         </div>
       </Reveal>
+
+      <BonusCard />
 
       {/* Stats */}
       <div className="mt-6 grid grid-cols-3 gap-3 sm:gap-4">
