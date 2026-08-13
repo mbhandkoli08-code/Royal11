@@ -27,6 +27,7 @@ import { AdminRequestsPanel } from "@/console/AdminRequestsPanel";
 import { FantasyPanel } from "@/console/FantasyPanel";
 import { BrandingPanel } from "@/console/BrandingPanel";
 import { SecurityPanel } from "@/console/SecurityPanel";
+import { CasinoCommissionPanel } from "@/console/CasinoCommissionPanel";
 import { ThemeSwitcher } from "@/console/ThemeSwitcher";
 import "@/console/theme.css";
 
@@ -47,6 +48,7 @@ const NAV = {
     ] },
     { section: "Games", items: [
       { id: "fantasy", label: "Fantasy Contests", icon: Trophy },
+      { id: "casino-commission", label: "Casino Commission", icon: Landmark },
     ] },
     { section: "System", items: [
       { id: "apikeys", label: "API Keys", icon: KeyRound },
@@ -160,6 +162,7 @@ export default function ConsolePage() {
       case "admins": return <AdminsPanel query={query} />;
       case "admin-requests": return <AdminRequestsPanel query={query} />;
       case "fantasy": return <FantasyPanel />;
+      case "casino-commission": return <CasinoCommissionPanel />;
       case "branding": return <BrandingPanel />;
       case "security": return <SecurityPanel />;
       case "my-managers": return <MyManagersPanel query={query} />;
