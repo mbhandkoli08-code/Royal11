@@ -63,6 +63,9 @@ const NAV = {
     { section: "Coins & Financials", items: [
       { id: "my-transactions", label: "Transactions", icon: Receipt },
     ] },
+    { section: "Reports", items: [
+      { id: "casino-commission", label: "Casino Commission", icon: Landmark },
+    ] },
   ],
   MANAGER: [
     { section: "Core", items: [
@@ -73,6 +76,9 @@ const NAV = {
       { id: "deposits", label: "Deposits", icon: Banknote },
       { id: "bank-account", label: "Bank Account", icon: Landmark },
       { id: "my-transactions", label: "Transactions", icon: Receipt },
+    ] },
+    { section: "Reports", items: [
+      { id: "casino-commission", label: "Casino Commission", icon: Landmark },
     ] },
   ],
   ADMIN: [
@@ -85,6 +91,9 @@ const NAV = {
     ] },
     { section: "Games", items: [
       { id: "fantasy", label: "Fantasy Contests", icon: Trophy },
+    ] },
+    { section: "Reports", items: [
+      { id: "casino-commission", label: "Casino Commission", icon: Landmark },
     ] },
     { section: "System", items: [
       { id: "branding", label: "Login Branding", icon: Palette },
