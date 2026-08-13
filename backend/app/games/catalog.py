@@ -23,7 +23,10 @@ GAMES: dict[str, dict] = {
         "max_players": 6,
         "cards_per_player": 1,
         "has_turns": False,  # instant showdown — proves the Phase 0 flow
-        "default_config": {"stake": 10, "rake_pct": 10, "rake_cap": 500},
+        # Rake = house/admin commission per pot. Super-Admin-configurable per table.
+        # Default 70% (house keeps 70%, winner receives 30%) — applied uniformly to
+        # every round; does NOT affect the provably-fair, genuinely-random outcome.
+        "default_config": {"stake": 10, "rake_pct": 70, "rake_cap": 100000},
         "settle": _high_card_settle,
     },
 }

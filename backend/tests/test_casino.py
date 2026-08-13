@@ -76,7 +76,7 @@ def test_high_card_full_round_and_rake_split():
 
     r = requests.post(f"{API}/casino/tables/{tid}/start", headers=h1, timeout=30).json()["round"]
     assert r["phase"] == "SETTLED"
-    assert r["pot"] == 20 and r["rake"] == 2 and r["payout"] == 18  # 2 x stake 10, 10% rake
+    assert r["pot"] == 20 and r["rake"] == 14 and r["payout"] == 6  # 2 x stake 10, 70% rake
     assert r["winner_user_id"] and len(r["seats"]) == 2
 
     v = requests.get(f"{API}/casino/rounds/{r['id']}/verify", headers=h2, timeout=30).json()
@@ -86,8 +86,8 @@ def test_high_card_full_round_and_rake_split():
     sa = _login("superadmin@royal11.com")
     rake = requests.get(f"{API}/casino/admin/rake", headers={"Authorization": f"Bearer {sa}"}, timeout=30).json()
     entry = next(e for e in rake["entries"] if e["round_id"] == r["id"])
-    assert entry["rake"] == 2
-    assert entry["super_admin_share"] + entry["admin_share"] == 2
+    assert entry["rake"] == 14
+    assert entry["super_admin_share"] + entry["admin_share"] == 14
 
 
 def test_min_players_enforced():
