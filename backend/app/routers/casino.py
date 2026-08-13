@@ -307,6 +307,7 @@ async def get_vip_config():
 class VipConfigRequest(BaseModel):
     coins_per_xp: int | None = None
     practice_multiplier: float | None = None
+    recharge_bonus_max_coins: int | None = None
     tiers: list[dict] | None = None
 
 

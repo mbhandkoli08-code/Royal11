@@ -13,6 +13,7 @@ export const useConsoleApi = () => {
     return {
       get: (p, cfg = {}) => axios.get(`${API}${p}`, { ...h, ...cfg }),
       post: (p, body, cfg = {}) => axios.post(`${API}${p}`, body, { ...h, ...cfg }),
+      put: (p, body, cfg = {}) => axios.put(`${API}${p}`, body, { ...h, ...cfg }),
       patch: (p, body, cfg = {}) => axios.patch(`${API}${p}`, body, { ...h, ...cfg }),
       del: (p, cfg = {}) => axios.delete(`${API}${p}`, { ...h, ...cfg }),
     };

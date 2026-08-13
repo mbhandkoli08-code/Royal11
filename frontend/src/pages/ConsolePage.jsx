@@ -6,6 +6,7 @@ import {
   Banknote, Landmark, Scale, Zap, Crown, LogOut, ExternalLink, Search, Menu, X,
   Globe2, ClipboardList, Trophy, Palette, ShieldAlert,
 } from "lucide-react";
+import { Gift } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { ApiKeysPanel } from "@/components/ApiKeysPanel";
@@ -28,6 +29,7 @@ import { FantasyPanel } from "@/console/FantasyPanel";
 import { BrandingPanel } from "@/console/BrandingPanel";
 import { SecurityPanel } from "@/console/SecurityPanel";
 import { CasinoCommissionPanel } from "@/console/CasinoCommissionPanel";
+import { RewardsConfigPanel } from "@/console/RewardsConfigPanel";
 import { ThemeSwitcher } from "@/console/ThemeSwitcher";
 import "@/console/theme.css";
 
@@ -49,6 +51,7 @@ const NAV = {
     { section: "Games", items: [
       { id: "fantasy", label: "Fantasy Contests", icon: Trophy },
       { id: "casino-commission", label: "Casino Commission", icon: Landmark },
+      { id: "rewards-config", label: "Rewards & Bonuses", icon: Gift },
     ] },
     { section: "System", items: [
       { id: "apikeys", label: "API Keys", icon: KeyRound },
@@ -172,6 +175,7 @@ export default function ConsolePage() {
       case "admin-requests": return <AdminRequestsPanel query={query} />;
       case "fantasy": return <FantasyPanel />;
       case "casino-commission": return <CasinoCommissionPanel />;
+      case "rewards-config": return <RewardsConfigPanel />;
       case "branding": return <BrandingPanel />;
       case "security": return <SecurityPanel />;
       case "my-managers": return <MyManagersPanel query={query} />;
