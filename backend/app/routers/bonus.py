@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from ..deps import get_current_user, require_roles
 from ..models import Role
-from .. import bonus_service
+from .. import bonus_service, surprise_box_service
 
 router = APIRouter(prefix="/bonus", tags=["bonus"])
 
@@ -50,3 +50,13 @@ async def grant(payload: GrantRequest):
         request_id=f"manual_grant:{uuid.uuid4()}",
         multiple=payload.multiple, expiry_days=payload.expiry_days)
     return {"granted": grant_doc, "status": await bonus_service.get_status(payload.user_id)}
+
+
+@router.get("/surprise-box-config", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def surprise_box_config():
+    return await surprise_box_service.get_config()
+
+
+@router.put("/surprise-box-config", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def update_surprise_box_config(patch: dict):
+    return await surprise_box_service.set_config(patch)

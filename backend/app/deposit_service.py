@@ -183,6 +183,23 @@ async def confirm_deposit(deposit_id: str, admin_id: str, note: Optional[str]) -
         "confirmed_at": datetime.now(timezone.utc).isoformat(),
         "confirm_note": note,
     }})
+
+    # Standing VIP recharge bonus — tier-based (never win-triggered). Granted as a
+    # separate, non-withdrawable bonus (playthrough applies), idempotent per deposit.
+    try:
+        from . import bonus_service
+        from .games import progression_service
+        offer = await progression_service.get_recharge_offer(dep["player_id"])
+        bonus_coins = progression_service.recharge_bonus_amount(dep["coins_to_credit"], offer)
+        if bonus_coins > 0:
+            await bonus_service.grant_bonus(
+                dep["player_id"], "vip_recharge", bonus_coins,
+                request_id=f"deposit_bonus:{deposit_id}", source_ref=deposit_id)
+            await db.deposits.update_one({"id": deposit_id}, {"$set": {
+                "vip_bonus_coins": bonus_coins, "vip_bonus_tier": offer["tier"]}})
+    except Exception:
+        pass  # bonus is best-effort; never blocks the core credit
+
     return await db.deposits.find_one({"id": deposit_id}, {"_id": 0})
 
 

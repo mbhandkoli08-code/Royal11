@@ -12,6 +12,7 @@ import { Reveal, MaskedLines } from "@/components/Reveal";
 import { RewardsStore } from "@/components/RewardsStore";
 import { AddCoins } from "@/components/AddCoins";
 import { BonusCard } from "@/components/BonusCard";
+import { SurpriseBox } from "@/components/SurpriseBox";
 
 const fmt = (n) => n.toLocaleString("en-IN");
 
@@ -98,6 +99,7 @@ export default function WalletPage() {
         </div>
       </Reveal>
 
+      <SurpriseBox />
       <BonusCard />
 
       {/* Stats */}

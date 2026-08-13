@@ -17,7 +17,7 @@ from app.wallet_service import ensure_indexes
 from app.deposit_service import ensure_deposit_indexes
 from app.hierarchy_service import ensure_hierarchy_indexes
 from app.fantasy_service import ensure_fantasy_indexes, settle_due_contests
-from app import revenue_service, storage_service, payroll_service, login_security, otp_service, bonus_service
+from app import revenue_service, storage_service, payroll_service, login_security, otp_service, bonus_service, surprise_box_service
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date, timedelta
 from app.routers.auth import router as auth_router
@@ -386,6 +386,7 @@ async def _daily_maintenance():
         await revenue_service.ensure_recent_settlements()
         await payroll_service.run_recent_payroll()
         await bonus_service.expire_bonuses()
+        await surprise_box_service.generate_boxes()
     except Exception as e:
         logger.error(f"daily maintenance failed: {e}")
 
@@ -410,6 +411,7 @@ async def ensure_db_indexes():
     await casino_engine.ensure_indexes()
     await casino_progression.ensure_indexes()
     await bonus_service.ensure_indexes()
+    await surprise_box_service.ensure_indexes()
     try:
         await storage_service.init_storage()
         logger.info("Object storage initialized")

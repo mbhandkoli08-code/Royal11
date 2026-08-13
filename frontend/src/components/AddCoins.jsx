@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Landmark, Copy, Loader2, Plus, Coins, Clock, CheckCircle2, XCircle, ImagePlus, Paperclip, MessageCircle } from "lucide-react";
+import { X, Landmark, Copy, Loader2, Plus, Coins, Clock, CheckCircle2, XCircle, ImagePlus, Paperclip, MessageCircle, Sparkles } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import axios from "axios";
 import { toast } from "sonner";
@@ -44,6 +44,7 @@ export const AddCoins = ({ open, onClose, onSubmitted }) => {
   const [busy, setBusy] = useState(false);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [offer, setOffer] = useState(null);
   const fileRef = useRef(null);
 
   const pickFile = (e) => {
@@ -63,12 +64,14 @@ export const AddCoins = ({ open, onClose, onSubmitted }) => {
 
   const load = useCallback(async () => {
     try {
-      const [i, d] = await Promise.all([
+      const [i, d, o] = await Promise.all([
         axios.get(`${API}/wallet/deposit-info`, authHeader),
         axios.get(`${API}/wallet/deposits`, authHeader),
+        axios.get(`${API}/wallet/recharge-offer`, authHeader),
       ]);
       setInfo(i.data);
       setDeposits(d.data);
+      setOffer(o.data);
     } catch {
       toast.error("Couldn't load top-up details");
     } finally {
@@ -211,8 +214,24 @@ export const AddCoins = ({ open, onClose, onSubmitted }) => {
                         </button>
                       )}
                       {amount > 0 && (
-                        <p className="text-xs font-semibold text-slate-500">You'll receive <span className="text-royal">{fmt(Number(amount) * (info.ratio || 1))} coins</span> after confirmation.</p>
+                        <p className="text-xs font-semibold text-slate-500">You&apos;ll receive <span className="text-royal">{fmt(Number(amount) * (info.ratio || 1))} coins</span> after confirmation.</p>
                       )}
+                      {offer && (offer.bonus_pct > 0 ? (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3" data-testid="vip-recharge-bonus">
+                          <p className="flex items-center gap-1.5 text-xs font-black text-amber-700">
+                            <Sparkles className="h-3.5 w-3.5" /> {offer.tier_label} member — +{offer.bonus_pct}% bonus on every recharge
+                          </p>
+                          {amount > 0 && (
+                            <p className="mt-1 text-[11px] font-semibold text-amber-600" data-testid="vip-bonus-preview">
+                              +{fmt(Math.min(Math.floor(Number(amount) * (info.ratio || 1) * offer.bonus_pct / 100), offer.cap || Infinity))} bonus coins (play to unlock)
+                            </p>
+                          )}
+                        </div>
+                      ) : offer.next_tier ? (
+                        <p className="rounded-2xl bg-slate-50 p-3 text-[11px] font-semibold text-slate-400" data-testid="vip-recharge-bonus">
+                          Reach {offer.next_tier} to earn +{offer.next_tier_bonus_pct}% bonus coins on every recharge.
+                        </p>
+                      ) : null)}
                       <button
                         data-testid="deposit-submit" onClick={submit} disabled={busy}
                         className="flex w-full items-center justify-center gap-2 rounded-2xl bg-royal px-5 py-3.5 text-sm font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-50"

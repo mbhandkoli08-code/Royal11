@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 
-from .. import deposit_service, wallet_service
+from .. import deposit_service, wallet_service, surprise_box_service
 from ..db import db
 from ..deps import get_current_user
 from ..models import TransactionOut, WalletOut, WalletWithHistory
@@ -24,6 +24,29 @@ async def my_wallet(user: dict = Depends(get_current_user), limit: int = Query(d
     )
     transactions = [TransactionOut(**t) async for t in cursor]
     return WalletWithHistory(wallet=WalletOut(**wallet), transactions=transactions)
+
+
+# ---------------------------------------------------------------------------
+# Weekly Surprise Box — amount stays hidden until opened.
+# ---------------------------------------------------------------------------
+@router.get("/surprise-box")
+async def surprise_box_status(user: dict = Depends(get_current_user)):
+    return await surprise_box_service.get_status(user["id"])
+
+
+@router.post("/surprise-box/open")
+async def surprise_box_open(user: dict = Depends(get_current_user)):
+    try:
+        return await surprise_box_service.open_box(user["id"])
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+
+
+@router.get("/recharge-offer")
+async def recharge_offer(user: dict = Depends(get_current_user)):
+    """The player's standing VIP recharge bonus (tier-based)."""
+    from ..games import progression_service
+    return await progression_service.get_recharge_offer(user["id"])
 
 
 # ---------------------------------------------------------------------------
