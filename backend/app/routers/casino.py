@@ -19,11 +19,24 @@ class CreateTableRequest(BaseModel):
     game_type: str
     name: str | None = Field(default=None, max_length=60)
     config: dict | None = None
+    is_practice: bool = False
 
 
 @router.get("/catalog")
 async def catalog(_user: dict = Depends(get_current_user)):
     return engine.list_catalog()
+
+
+@router.get("/practice/balance")
+async def practice_balance(user: dict = Depends(get_current_user)):
+    from ..games import practice_service
+    return {"balance": await practice_service.ensure_min(user["id"])}
+
+
+@router.get("/progression/me")
+async def my_progression(user: dict = Depends(get_current_user)):
+    from ..games import progression_service
+    return await progression_service.get_progression(user["id"])
 
 
 @router.get("/tables")
@@ -35,7 +48,8 @@ async def tables(game_type: str | None = None, _user: dict = Depends(get_current
 @router.post("/tables")
 async def create_table(payload: CreateTableRequest, user: dict = Depends(get_current_user)):
     try:
-        return await engine.create_table(payload.game_type, user["id"], payload.name, payload.config)
+        return await engine.create_table(payload.game_type, user["id"], payload.name,
+                                         payload.config, payload.is_practice)
     except engine.DomainError as e:
         raise _err(e)
 
@@ -89,3 +103,21 @@ async def rake_ledger():
     rows = await db.casino_rake_ledger.find({}, {"_id": 0}).sort("created_at", -1).to_list(200)
     total = sum(r["rake"] for r in rows)
     return {"total_rake": total, "entries": rows}
+
+
+@router.get("/admin/vip-config", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def get_vip_config():
+    from ..games import progression_service
+    return await progression_service.get_config()
+
+
+class VipConfigRequest(BaseModel):
+    coins_per_xp: int | None = None
+    practice_multiplier: float | None = None
+    tiers: list[dict] | None = None
+
+
+@router.put("/admin/vip-config", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def set_vip_config(payload: VipConfigRequest):
+    from ..games import progression_service
+    return await progression_service.set_config(payload.model_dump(exclude_none=True))

@@ -33,6 +33,7 @@ from app.routers.branding import router as branding_router, public_router as bra
 from app.routers.security import router as security_router
 from app.routers.casino import router as casino_router
 from app.games import engine as casino_engine
+from app.games import progression_service as casino_progression
 
 
 ROOT_DIR = Path(__file__).parent
@@ -402,6 +403,7 @@ async def ensure_db_indexes():
     await login_security.ensure_indexes()
     await otp_service.ensure_indexes()
     await casino_engine.ensure_indexes()
+    await casino_progression.ensure_indexes()
     try:
         await storage_service.init_storage()
         logger.info("Object storage initialized")

@@ -103,3 +103,41 @@ def test_rake_rbac_admin_forbidden():
     a = _login("admin1@royal11.com")
     r = requests.get(f"{API}/casino/admin/rake", headers={"Authorization": f"Bearer {a}"}, timeout=30)
     assert r.status_code == 403
+
+
+def _play_round(h1, h2, is_practice):
+    body = {"game_type": "high_card", "is_practice": is_practice}
+    tid = requests.post(f"{API}/casino/tables", json=body, headers=h1, timeout=30).json()["id"]
+    requests.post(f"{API}/casino/tables/{tid}/join", headers=h1, timeout=30)
+    requests.post(f"{API}/casino/tables/{tid}/join", headers=h2, timeout=30)
+    return requests.post(f"{API}/casino/tables/{tid}/start", headers=h1, timeout=30).json()["round"]
+
+
+def test_practice_round_uses_chips_not_real_wallet_and_no_rake():
+    p2_email = f"casino_test_{uuid.uuid4().hex[:8]}@royal11.com"
+    _seed_player(p2_email)
+    p1, p2 = _login("player1@royal11.com"), _login(p2_email)
+    h1, h2 = {"Authorization": f"Bearer {p1}"}, {"Authorization": f"Bearer {p2}"}
+
+    def real_bal(h):
+        return requests.get(f"{API}/wallet/me", headers=h, timeout=30).json()["wallet"]["balance"]
+    before = real_bal(h1)
+    r = _play_round(h1, h2, is_practice=True)
+    assert r["is_practice"] is True
+    assert real_bal(h1) == before  # real wallet untouched by practice
+
+    sa = _login("superadmin@royal11.com")
+    rake = requests.get(f"{API}/casino/admin/rake", headers={"Authorization": f"Bearer {sa}"}, timeout=30).json()
+    assert not any(e["round_id"] == r["id"] for e in rake["entries"])  # no rake on practice
+
+
+def test_cash_round_awards_progression_xp():
+    p2_email = f"casino_test_{uuid.uuid4().hex[:8]}@royal11.com"
+    _seed_player(p2_email)
+    p1, p2 = _login("player1@royal11.com"), _login(p2_email)
+    h1, h2 = {"Authorization": f"Bearer {p1}"}, {"Authorization": f"Bearer {p2}"}
+    before = requests.get(f"{API}/casino/progression/me", headers=h1, timeout=30).json()["xp"]
+    _play_round(h1, h2, is_practice=False)
+    after = requests.get(f"{API}/casino/progression/me", headers=h1, timeout=30).json()
+    assert after["xp"] == before + 1  # stake 10 @ 1xp/10coins
+    assert after["tier"] in {"bronze", "silver", "gold", "platinum", "royal"}

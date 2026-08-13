@@ -17,6 +17,7 @@ from ..models import TxnType
 from .. import wallet_service, revenue_service
 from . import rng
 from .catalog import GAMES
+from . import practice_service, progression_service
 
 
 class DomainError(Exception):
@@ -62,18 +63,20 @@ def _table_public(t: dict) -> dict:
         "name": t["name"], "config": t["config"], "status": t["status"],
         "seats": [{"user_id": s["user_id"], "display_name": s["display_name"]} for s in t["seats"]],
         "seat_count": len(t["seats"]),
+        "is_practice": t.get("is_practice", False),
         "min_players": g["min_players"], "max_players": g["max_players"],
         "round_no": t["round_no"], "current_round_id": t.get("current_round_id"),
     }
 
 
 async def create_table(game_type: str, creator_id: str, name: str | None = None,
-                       config: dict | None = None) -> dict:
+                       config: dict | None = None, is_practice: bool = False) -> dict:
     g = _game(game_type)
     cfg = {**g["default_config"], **(config or {})}
     doc = {
         "id": str(uuid.uuid4()), "game_type": game_type,
         "name": (name or f"{g['label']} Table").strip()[:60], "config": cfg,
+        "is_practice": bool(is_practice),
         "status": "WAITING", "seats": [], "round_no": 0, "current_round_id": None,
         "created_by": creator_id, "created_at": _now(),
     }
@@ -148,23 +151,30 @@ async def start_round(table_id: str, actor_id: str) -> dict:
     deck = rng.shuffled_deck(server_seed, nonce)  # LOCKED before any deal
     commit = rng.commit_hash(server_seed, deck)
     stake = int(t["config"]["stake"])
+    practice = t.get("is_practice", False)
 
     # Collect only the players who can actually fund the entry (idempotent debit).
     funded: list[tuple[int, dict]] = []
     for idx, s in enumerate(t["seats"]):
         try:
-            await wallet_service.debit(
-                s["user_id"], TxnType.GAME_ENTRY, stake, reason=f"{g['label']} entry",
-                request_id=f"casino_entry:{round_id}:{s['user_id']}")
+            if practice:
+                await practice_service.debit(s["user_id"], stake)
+            else:
+                await wallet_service.debit(
+                    s["user_id"], TxnType.GAME_ENTRY, stake, reason=f"{g['label']} entry",
+                    request_id=f"casino_entry:{round_id}:{s['user_id']}")
             funded.append((idx, s))
-        except wallet_service.InsufficientFunds:
+        except (wallet_service.InsufficientFunds, practice_service.InsufficientChips):
             continue
     if len(funded) < g["min_players"]:
         for idx, s in funded:  # refund and abort
-            await wallet_service.credit(
-                s["user_id"], TxnType.GAME_REWARD, stake, reason="Round cancelled — refund",
-                request_id=f"casino_refund:{round_id}:{s['user_id']}")
-        raise DomainError("Not enough players had coins to start the round")
+            if practice:
+                await practice_service.credit(s["user_id"], stake)
+            else:
+                await wallet_service.credit(
+                    s["user_id"], TxnType.GAME_REWARD, stake, reason="Round cancelled — refund",
+                    request_id=f"casino_refund:{round_id}:{s['user_id']}")
+        raise DomainError("Not enough players had funds to start the round")
 
     # Deal from the committed deck, then settle (instant showdown for Phase 0).
     hands: dict[int, list[str]] = {}
@@ -179,14 +189,21 @@ async def start_round(table_id: str, actor_id: str) -> dict:
     pot = stake * len(funded)
     rake = min(int(round(pot * t["config"]["rake_pct"] / 100)), int(t["config"]["rake_cap"]))
     payout = pot - rake
-    await wallet_service.credit(
-        winner["user_id"], TxnType.GAME_REWARD, payout, reason=f"{g['label']} winnings",
-        request_id=f"casino_payout:{round_id}:{winner['user_id']}")
-    await _record_rake(round_id, t, winner["user_id"], pot, rake)
+    if practice:
+        await practice_service.credit(winner["user_id"], payout)  # no rake/revenue in practice
+    else:
+        await wallet_service.credit(
+            winner["user_id"], TxnType.GAME_REWARD, payout, reason=f"{g['label']} winnings",
+            request_id=f"casino_payout:{round_id}:{winner['user_id']}")
+        await _record_rake(round_id, t, winner["user_id"], pot, rake)
+        # Loyalty XP for every real-money wager (idempotent per player+round).
+        for _idx, s in funded:
+            await progression_service.add_wager_xp(
+                s["user_id"], stake, source="casino", request_id=f"xp:casino:{round_id}:{s['user_id']}")
 
     round_doc = {
         "id": round_id, "table_id": table_id, "game_type": t["game_type"], "round_no": round_no,
-        "phase": "SETTLED",
+        "phase": "SETTLED", "is_practice": practice,
         "rng": {"commit_hash": commit, "nonce": nonce, "server_seed": server_seed,
                 "deck_order": deck, "revealed": True},
         "seats": [{"seat": idx, "user_id": s["user_id"], "display_name": s["display_name"],
@@ -211,6 +228,7 @@ def _round_view(r: dict, user_id: str) -> dict:
                       "display_name": s["display_name"],
                       "cards": s["cards"] if show else [None] * len(s["cards"])})
     view = {"id": r["id"], "phase": r["phase"], "round_no": r["round_no"], "pot": r["pot"],
+            "is_practice": r.get("is_practice", False),
             "seats": seats, "commit_hash": r["rng"]["commit_hash"]}
     if settled:
         view.update({

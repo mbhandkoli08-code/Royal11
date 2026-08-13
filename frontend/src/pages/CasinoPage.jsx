@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { Spade, Users, Coins, Loader2, ShieldCheck, Plus, LogOut, Play, Check, X } from "lucide-react";
+import { Spade, Users, Coins, Loader2, ShieldCheck, Plus, LogOut, Play, Check, X, Crown } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 
@@ -27,23 +27,35 @@ export default function CasinoPage() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [verify, setVerify] = useState(null);
+  const [practice, setPractice] = useState(false);
+  const [meta, setMeta] = useState({ practiceBal: 0, prog: null });
   const pollRef = useRef(null);
+
+  const loadMeta = useCallback(async () => {
+    try {
+      const [pb, pr] = await Promise.all([
+        axios.get(`${API}/casino/practice/balance`, { headers }),
+        axios.get(`${API}/casino/progression/me`, { headers }),
+      ]);
+      setMeta({ practiceBal: pb.data.balance, prog: pr.data });
+    } catch { /* ignore */ }
+  }, [token]);
 
   const loadLobby = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/casino/tables?game_type=high_card`, { headers });
       setTables(data);
     } catch { /* ignore */ } finally { setLoading(false); }
-  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const loadState = useCallback(async (id) => {
     try {
       const { data } = await axios.get(`${API}/casino/tables/${id}/state`, { headers });
       setState(data);
     } catch { /* ignore */ }
-  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [token]);
 
-  useEffect(() => { loadLobby(); }, [loadLobby]);
+  useEffect(() => { loadLobby(); loadMeta(); }, [loadLobby, loadMeta]);
 
   // Poll table state (~1.5s) while seated at a table.
   useEffect(() => {
@@ -56,7 +68,7 @@ export default function CasinoPage() {
   const act = async (fn, ...args) => { setBusy(true); try { return await fn(...args); } finally { setBusy(false); } };
 
   const createTable = () => act(async () => {
-    const { data } = await axios.post(`${API}/casino/tables`, { game_type: "high_card" }, { headers });
+    const { data } = await axios.post(`${API}/casino/tables`, { game_type: "high_card", is_practice: practice }, { headers });
     await axios.post(`${API}/casino/tables/${data.id}/join`, {}, { headers });
     setTableId(data.id); setVerify(null);
   }).catch((e) => toast.error(e.response?.data?.detail || "Couldn't create table"));
@@ -73,8 +85,8 @@ export default function CasinoPage() {
 
   const startRound = () => act(async () => {
     const { data } = await axios.post(`${API}/casino/tables/${tableId}/start`, {}, { headers });
-    setState(data); setVerify(null);
-    if (data.round?.winner_user_id === user?.id) toast.success(`You won ${data.round.payout} coins!`);
+    setState(data); setVerify(null); loadMeta();
+    if (data.round?.winner_user_id === user?.id) toast.success(`You won ${data.round.payout} ${data.round.is_practice ? "practice chips" : "coins"}!`);
   }).catch((e) => toast.error(e.response?.data?.detail || "Couldn't start round"));
 
   const runVerify = (rid) => act(async () => {
@@ -89,26 +101,52 @@ export default function CasinoPage() {
     <div className="mx-auto max-w-2xl px-4 pb-28 pt-6" data-testid="casino-page">
       <header className="mb-6 flex items-center gap-3">
         <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-flame to-royal text-white"><Spade className="h-6 w-6" /></span>
-        <div>
+        <div className="flex-1">
           <h1 className="font-display text-2xl font-extrabold tracking-tight text-slate-900">Card Games</h1>
           <p className="text-xs font-medium text-slate-500">Provably fair · virtual coins · High Card (beta)</p>
         </div>
+        {meta.prog && (
+          <div className="text-right" data-testid="vip-badge">
+            <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-yellow-600 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-white shadow-sm">
+              <Crown className="h-3.5 w-3.5" /> {meta.prog.tier_label}
+            </span>
+            <div className="mt-1.5 h-1.5 w-28 overflow-hidden rounded-full bg-slate-200">
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-yellow-600" style={{ width: `${meta.prog.progress_pct}%` }} data-testid="vip-xp-bar" />
+            </div>
+            <p className="mt-1 text-[10px] text-slate-400">{meta.prog.next_tier ? `${meta.prog.xp_to_next} XP to ${meta.prog.next_tier}` : "Max tier"}</p>
+          </div>
+        )}
       </header>
 
       {!tableId ? (
         /* ---------------- Lobby ---------------- */
         <div data-testid="casino-lobby">
+          {/* Cash / Practice toggle */}
+          <div className="mb-4 flex items-center justify-between">
+            <div className="inline-flex rounded-full bg-slate-100 p-1" data-testid="casino-mode-toggle">
+              {[{ id: false, label: "Cash" }, { id: true, label: "Practice" }].map((m) => (
+                <button key={String(m.id)} data-testid={`casino-mode-${m.label.toLowerCase()}`} onClick={() => setPractice(m.id)}
+                  className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${practice === m.id ? "bg-white text-royal shadow-sm" : "text-slate-500"}`}>{m.label}</button>
+              ))}
+            </div>
+            {practice && (
+              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700" data-testid="practice-balance">
+                {meta.practiceBal.toLocaleString()} practice chips
+              </span>
+            )}
+          </div>
+          {practice && <p className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Practice mode — free chips, no real coins, no payouts. Learn risk-free.</p>}
           <button data-testid="casino-create-table" onClick={createTable} disabled={busy}
             className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-royal py-4 text-sm font-bold text-white shadow-lift transition-transform hover:-translate-y-0.5 disabled:opacity-70">
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Create High Card Table
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Create {practice ? "Practice" : "High Card"} Table
           </button>
           {loading ? (
             <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-royal" /></div>
-          ) : tables.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-400" data-testid="casino-no-tables">No open tables yet — create one to get started.</p>
+          ) : tables.filter((t) => !!t.is_practice === practice).length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-400" data-testid="casino-no-tables">No open {practice ? "practice" : "cash"} tables yet — create one to get started.</p>
           ) : (
             <div className="space-y-3">
-              {tables.map((t) => (
+              {tables.filter((t) => !!t.is_practice === practice).map((t) => (
                 <div key={t.id} data-testid={`casino-table-${t.id}`} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                   <div>
                     <p className="font-bold text-slate-900">{t.name}</p>
@@ -129,7 +167,10 @@ export default function CasinoPage() {
         /* ---------------- Table ---------------- */
         <div data-testid="casino-table-view">
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-sm font-bold text-slate-900">{state?.name} · Round {state?.round_no}</p>
+            <p className="flex items-center gap-2 text-sm font-bold text-slate-900">
+              {state?.name} · Round {state?.round_no}
+              {(state?.is_practice || round?.is_practice) && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase text-amber-700" data-testid="practice-tag">Practice</span>}
+            </p>
             <button data-testid="casino-leave" onClick={leaveTable} disabled={busy} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50"><LogOut className="h-3.5 w-3.5" /> Leave</button>
           </div>
 
