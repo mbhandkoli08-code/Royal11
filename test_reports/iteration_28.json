@@ -1,0 +1,28 @@
+{
+  "summary": "Verified the stale-localStorage infinite-spinner fix on /casino for BOTH Rummy and High Card. Bug fix works as intended and regressions hold.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "tests_executed": [
+    "Login as player1@royal11.com, navigate /casino, seed localStorage royal11_casino_table=<invalid uuid> + royal11_casino_game=rummy_points, reload. PASS: within ~2s the RummyTable rendered its loadState catch → toast 'This table is no longer available' was visible, onLeave fired, page fell back to casino-lobby with the game tabs + rummy table list. localStorage keys royal11_casino_table and royal11_casino_game were both cleared (=null).",
+    "Repeat with royal11_casino_game=high_card + invalid table id, reload. PASS: CasinoPage.loadState caught 400, cleared tableId + both localStorage keys, and rendered the High Card lobby with 22 open tables. No infinite spinner (~2 400 responses in console then stops — no loop).",
+    "Regression lobby: casino-game-toggle visible, Cash/Practice toggle present, Create/Quick Play buttons present, 22 casino-table-* cards visible with correct casino-join-<id> or casino-table-status-<id> (In progress) labels."
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CasinoPage.loadState only catches 400/404 for HIGH CARD path (game !== rummy_points). Rummy path is handled inside RummyTable which calls onLeave. This is correct given the current architecture but worth documenting.",
+    "Minor: on 400/404 fallback the toast is only shown by RummyTable, not by CasinoPage.loadState for high_card — user gets a silent redirect to lobby. Consider adding a similar toast in CasinoPage for consistency (non-blocking)."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a", "frontend": "100%"},
+  "test_credentials": "player1@royal11.com / ChangeMe123! used; second seat not needed for this scope.",
+  "seed_data_creation": "None (invalid uuid injected via localStorage only).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Stale-localStorage fallback fix is verified for both Rummy and High Card on /casino. LocalStorage keys royal11_casino_table + royal11_casino_game are cleared on 400/404. Lobby regression (join-vs-in-progress labels) also holds. Screenshots at /tmp/rummy_fallback.png and /tmp/highcard_fallback.png.",
+  "rca of the issue": "Prior behavior: CasinoPage rehydrated tableId from localStorage on mount and either polled /api/casino/tables/{id}/state (high_card) or delegated to RummyTable which polled /api/casino/rummy/tables/{id}/state (rummy). Both endpoints return 400 for unknown ids, causing an infinite polling loop with the page stuck on loading. Fix (verified): both loadState catch handlers now branch on e.response?.status; on 400/404 they clear the poll interval, reset tableId/state, remove both localStorage keys, and (RummyTable) surface a toast + call onLeave to return to lobby."
+}

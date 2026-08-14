@@ -56,7 +56,16 @@ export default function CasinoPage() {
     try {
       const { data } = await axios.get(`${API}/casino/tables/${id}/state`, { headers });
       setState(data);
-    } catch { /* ignore */ }
+    } catch (e) {
+      const s = e.response?.status;
+      if (s === 400 || s === 404) {
+        // Persisted table no longer exists (deleted/expired) — drop back to the
+        // lobby instead of rendering a dead table (also clears localStorage).
+        setTableId(null); setState(null); setVerify(null);
+        localStorage.removeItem("royal11_casino_table");
+        localStorage.removeItem("royal11_casino_game");
+      }
+    }
   }, [token]);
 
   useEffect(() => { loadLobby(); loadMeta(); }, [loadLobby, loadMeta]);

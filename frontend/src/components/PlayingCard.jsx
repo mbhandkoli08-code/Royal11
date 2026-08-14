@@ -31,9 +31,10 @@ function parse(card) {
  * ROYAL11 card back for face-down cards, and a joker treatment. Original art
  * (no real-world card-brand logos). Used across Rummy + High Card.
  */
-export function PlayingCard({ card, code, faceDown, size = "sm", selected, onClick, plain }) {
+export function PlayingCard({ card, code, faceDown, size = "sm", selected, onClick, plain, rich }) {
   const [w, h, cf, pf] = SIZES[size] || SIZES.sm;
   const dim = { width: w, height: h };
+  const richCls = rich ? " pc-rich" : "";
 
   if (faceDown) {
     return (
@@ -59,7 +60,7 @@ export function PlayingCard({ card, code, faceDown, size = "sm", selected, onCli
     const colorCls = RED.has(c.suit) ? "pc-red" : "pc-black";
     const isFace = ["J", "Q", "K"].includes(c.rank);
     inner = (
-      <span className={`pc ${colorCls}`} style={dim} data-testid="playing-card">
+      <span className={`pc ${colorCls}${richCls}`} style={dim} data-testid="playing-card">
         <span className="pc-pip pc-pip-tl" style={{ fontSize: pf + "rem" }}>
           <span>{rankLabel(c.rank)}</span>
           <span style={{ fontSize: pf * 0.86 + "rem" }}>{SUIT[c.suit]}</span>

@@ -10,6 +10,7 @@ import { RummyMusic } from "@/components/RummyMusic";
 import { AddCoins } from "@/components/AddCoins";
 import { PlayingCard } from "@/components/PlayingCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { PALACE_BACKDROP, ROYAL_DEALER } from "@/lib/casinoAssets";
 
 // Full-count exposure escrowed by the server per seat each deal
 // (rummy_engine: MAX_POINTS * point_value). We mirror it client-side purely as
@@ -32,17 +33,24 @@ const THEMES = {
     panel: "linear-gradient(180deg, rgba(15,81,50,.5), rgba(9,48,30,.9))" },
 };
 
-const RCard = ({ card, selected, onClick, small, plain }) => {
-  const size = small ? "sm" : "md";
+const RCard = ({ card, selected, onClick, small, big, plain, rich }) => {
+  const size = big ? "lg" : small ? "sm" : "md";
   if (!card) return <span className="pc-empty" style={{ width: small ? 38 : 46, height: small ? 54 : 66 }} />;
-  if (plain) return <span data-testid={`rcard-${card.id}`}><PlayingCard card={card} size={size} plain /></span>;
+  if (plain) return <span data-testid={`rcard-${card.id}`}><PlayingCard card={card} size={size} plain rich={rich} /></span>;
   return (
     <button type="button" onClick={onClick} data-testid={`rcard-${card.id}`}
       className={`pc-btn ${selected ? "pc-sel rounded-[10px]" : ""}`}>
-      <PlayingCard card={card} size={size} plain />
+      <PlayingCard card={card} size={size} plain rich={rich} />
     </button>
   );
 };
+
+const SUIT_SORT = { s: 0, h: 1, c: 2, d: 3 };
+const RANK_SORT = "A23456789TJQK";
+// Spread the ungrouped hand by suit then rank — a tidy "fanned" reference-style row.
+const bySuit = (cards) => [...cards].sort((a, b) =>
+  a.joker || b.joker ? (a.joker ? 1 : -1)
+    : (SUIT_SORT[a.suit] - SUIT_SORT[b.suit]) || (RANK_SORT.indexOf(a.rank) - RANK_SORT.indexOf(b.rank)));
 
 const Timer = ({ deadline, active }) => {
   const [now, setNow] = useState(Date.now());
@@ -103,8 +111,19 @@ export default function RummyTable({ tableId, onLeave }) {
       const { data } = await axios.get(`${API}/casino/rummy/tables/${tableId}/state`, { headers });
       setState(data);
       setConn(true);
-    } catch { setConn(false); }
-  }, [tableId, headers]);
+    } catch (e) {
+      const s = e.response?.status;
+      if (s === 400 || s === 404) {
+        // The table was deleted / expired / is no longer valid — bail to the
+        // lobby instead of polling a dead table id forever (clears localStorage).
+        if (pollRef.current) clearInterval(pollRef.current);
+        toast.error("This table is no longer available");
+        onLeave();
+        return;
+      }
+      setConn(false); // transient network blip — keep retrying
+    }
+  }, [tableId, headers, onLeave]);
 
   useEffect(() => {
     loadState();
@@ -249,24 +268,33 @@ export default function RummyTable({ tableId, onLeave }) {
           </div>
         )}
 
-        {/* Opponents + wild */}
-        <div className="vegas-felt vegas-felt--red relative overflow-hidden p-4 shadow-2xl">
+        {/* Royal palace room + host + table */}
+        <div className="vegas-palace p-3 sm:p-5" style={{ backgroundImage: `url(${PALACE_BACKDROP})` }} data-testid="vegas-palace">
+          <div className="mb-2 flex items-center justify-center gap-2">
+            <div className="vegas-host" data-testid="vegas-host"><img src={ROYAL_DEALER} alt="Royal host" /></div>
+          </div>
+          <div className="vegas-felt vegas-felt--red relative overflow-hidden p-4 shadow-2xl">
           <div className="vegas-rail" />
           <div className="vegas-spotlight" />
-          <div className="relative z-10 mb-3 flex flex-wrap items-center gap-2" data-testid="rummy-players">
+          <div className="relative z-10 mb-3 flex flex-wrap items-start justify-center gap-4" data-testid="rummy-players">
             {players.map((p) => {
               const isTurn = round?.turn?.user_id === p.user_id && playing;
               return (
                 <div key={p.user_id} data-testid={`rummy-seat-${p.user_id}`}
-                  className={`vegas-seat flex items-center gap-2 rounded-full px-2.5 py-1.5 text-xs ${isTurn ? "vegas-seat--active bg-[var(--r-gold)]/15" : "bg-black/30 ring-1 ring-white/10"}`}>
-                  <span className="relative">
-                    <PlayerAvatar seed={p.user_id} name={p.display_name} size={26} />
-                    <span className={`absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-black/40 ${p.status === "active" || p.status === "seated" ? "bg-emerald-400" : p.status === "dropped" ? "bg-amber-400" : "bg-rose-400"}`} />
+                  className="flex flex-col items-center gap-1">
+                  <div className={`vegas-ring ${isTurn ? "vegas-ring--active" : ""}`}>
+                    <span className="relative block rounded-full ring-1 ring-black/30">
+                      <PlayerAvatar seed={p.user_id} name={p.display_name} size={40} />
+                      <span className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-black/50 ${p.status === "active" || p.status === "seated" ? "bg-emerald-400" : p.status === "dropped" ? "bg-amber-400" : "bg-rose-400"}`} />
+                    </span>
+                  </div>
+                  <span className="max-w-[92px] truncate text-[11px] font-bold text-white drop-shadow">{p.display_name}{p.is_you ? " (You)" : ""}</span>
+                  <span className="vegas-balance flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black">
+                    {settled && p.points != null
+                      ? <span className="text-[var(--r-gold)]">{p.points} pts</span>
+                      : <>{p.is_you ? balance.toLocaleString("en-IN") : (p.card_count != null ? `${p.card_count} cards` : "seated")}</>}
+                    {isTurn && <Timer deadline={round?.turn?.deadline} active />}
                   </span>
-                  <span className="font-bold text-white">{p.display_name}{p.is_you ? " (You)" : ""}</span>
-                  {p.card_count != null && <span className="text-white/45">{p.card_count} cards</span>}
-                  {settled && p.points != null && <span className="font-black text-[var(--r-gold)]">{p.points}pt</span>}
-                  {isTurn && <Timer deadline={round?.turn?.deadline} active />}
                 </div>
               );
             })}
@@ -296,6 +324,7 @@ export default function RummyTable({ tableId, onLeave }) {
               </div>
             </div>
           )}
+          </div>
         </div>
 
         {/* Start / waiting */}
@@ -338,11 +367,13 @@ export default function RummyTable({ tableId, onLeave }) {
                 className="w-full rounded-2xl border border-dashed border-white/15 py-2 text-xs font-bold text-white/50 hover:bg-white/5 disabled:opacity-30">+ New group from selected ({selected.length})</button>
             </div>
 
-            {/* Hand tray */}
-            <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-3" data-testid="rummy-hand-tray">
-              <p className="mb-2 text-[11px] font-bold text-white/40">Your hand · tap to select, then group</p>
-              <div className="flex flex-wrap gap-1.5">
-                {trayCards.length ? trayCards.map((c) => <RCard key={c.id} card={c} selected={selected.includes(c.id)} onClick={() => toggle(c.id)} />) : <span className="text-xs text-white/30">All cards grouped</span>}
+            {/* Hand tray — suit-sorted, glossy */}
+            <div className="mt-4 rounded-2xl border border-[var(--r-gold)]/20 bg-black/40 p-3 shadow-inner" data-testid="rummy-hand-tray">
+              <p className="mb-2 text-[11px] font-bold text-[var(--r-gold)]/70">Your hand · tap to select, then group</p>
+              <div className="flex flex-wrap items-end gap-1.5">
+                {trayCards.length ? bySuit(trayCards).map((c) => (
+                  <RCard key={c.id} card={c} rich selected={selected.includes(c.id)} onClick={() => toggle(c.id)} />
+                )) : <span className="text-xs text-white/30">All cards grouped</span>}
               </div>
             </div>
 

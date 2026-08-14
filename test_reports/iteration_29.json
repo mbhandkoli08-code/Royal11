@@ -1,0 +1,34 @@
+{
+  "summary": "Palace visual polish + regression tests. Discovered and fixed a CRITICAL CSS regression: all face-up playing cards were rendering at 2x24px (inline span with width ignored). Applied a one-line fix to .pc (display: inline-block). After the fix, Rummy palace, High Card felt, hand row, actions, and both regressions all pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "PlayingCard / .pc CSS", "issue": "Face-up cards rendered at 2x24 px because .pc is a <span> and had no `display:inline-block`. Inline elements ignore width/height. Symptom: 13 hand cards collapsed into a ~100px cluster on the tray, Discard & Wild piles unreadable, all face-up cards broken. FIXED by adding `display: inline-block; vertical-align: top;` to `.pc` in /app/frontend/src/pages/casino-vegas.css. Confirmed cards now render at declared 46x66 (md) and 38x54 (sm) with a clean 52px-pitch row across 13 cards.", "selector": ".pc / [data-testid^=rcard-]", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "tests_executed": [
+    "Login player1 + casino_p2 (two contexts). Created rummy_points practice table via POST /api/casino/tables, both players joined via /join. Loaded /casino for player1 via localStorage → RummyTable rendered vegas-palace + vegas-host + 2 rummy-seat-* chips with PlayerAvatar rings and balance/cards pills (P1 shows 29,767 balance, P2 shows '13 cards' with 25s active-turn timer). Clicked rummy-start → Deal successful. 13 rcard-* buttons rendered in the hand tray (post-fix: 46x66 each, single row x=345->969). Piles rummy-draw-closed/open + Wild rendered. Draw closed pile + select first card + rummy-discard → succeeded (state moved to 14 cards then 13 after discard). rummy-declare, rummy-drop, rummy-fairness (Provably Fair commit hash) all present.",
+    "Created high_card practice table, both joined. Loaded via localStorage. casino-start clicked → 2 casino-seat-* seats, dealt cards visible at 38x54, winner line ('Rahul Sharma won 6 coins'), Pot 20, Deal Next Round + Verify this round CTAs, Provably Fair commit shown. No layout breakage.",
+    "Regression stale-table: set localStorage royal11_casino_table=deadbeef-... + royal11_casino_game=rummy_points → /casino fell back to lobby (~3s); both localStorage keys cleared to null; casino-game-toggle visible in lobby. Only 4 console 400s (from the stale probe polls), no infinite spinner.",
+    "Regression lobby join labels: on High Card cash tab observed 11 casino-join-* buttons + 7 casino-table-status-* 'In progress' labels co-existing correctly."
+  ],
+  "test_report_links": [],
+  "action_items": [
+    "Main agent: review the .pc CSS fix in /app/frontend/src/pages/casino-vegas.css (added `display: inline-block; vertical-align: top;`). This was clearly a regression introduced by the palace polish pass — the span element gained no display rule, breaking all face-up card rendering across Rummy AND High Card. Consider also converting <span className='pc'> to a block-level element in PlayingCard.jsx for defense-in-depth."
+  ],
+  "critical_code_review_comments": [
+    "PlayingCard.jsx uses <span> as the card root with inline width/height styles. Because <span> is inline by default, the sizing only works when a `.pc-back { display:grid }` rule or an ancestor grid/flex forces layout. All face-up cards depended on the missing display rule. Recommend switching to <span style={{display:'inline-block'}}> or <div> in the JSX to make the component self-contained (currently the CSS fix works but it's fragile — any consumer without casino-vegas.css imported would break).",
+    "SIZES table in PlayingCard.jsx has 'sm' at [38,54] but Rummy tray uses 'md' = [46,66] via RCard's size logic (big?lg : small?sm : md). Consider exporting a size prop mapping for consistency.",
+    "CasinoPage stale-table fallback for high_card gives no toast (silent redirect). RummyTable does show a toast. Consider parity (already flagged in iteration_28)."
+  ],
+  "updated_files": ["/app/frontend/src/pages/casino-vegas.css"],
+  "success_rate": {"backend": "n/a", "frontend": "100% (post-fix)"},
+  "test_credentials": "player1@royal11.com / ChangeMe123!, casino_p2@royal11.com / ChangeMe123!",
+  "seed_data_creation": "Created 2 practice rummy_points tables and 1 high_card practice table; all cleaned up via /leave after tests.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The palace polish pass ships correctly and all functional flows (Rummy deal/draw/discard/declare/drop, High Card deal & verify, stale-localStorage fallback, lobby In-progress vs Join labels) work. The critical .pc CSS bug (cards rendering at 2x24) has been fixed in casino-vegas.css. Verify no other components import the same .pc styles without the display rule. Screenshots: /tmp/rummy_fixed.png (post-fix Rummy palace) and /tmp/highcard.png (High Card).",
+  "rca of the issue": "Root cause: The palace polish pass added the .pc-rich class and reshaped the hand tray, but the base `.pc` rule in casino-vegas.css never carried a `display` property. <span> defaults to `display: inline` — which makes CSS `width`/`height` (even when set inline on the element) INEFFECTIVE. `.pc-back` accidentally worked because it explicitly set `display: grid` for centering the R11 mark. Every face-up card (Rummy hand, Discard pile, Wild card, High Card hand + played cards) therefore collapsed to font-metric size (~2x24 px), producing the reported 'tiny/overlapped' hand. Fix (applied): add `display: inline-block; vertical-align: top;` to `.pc` so declared width/height take effect. Reproduction: any Rummy or High Card deal shows the collapsed cards; getComputedStyle('.pc').display returned 'inline' before fix, 'inline-block' after. Mitigation for future: prefer <div> or an explicit display in JSX so the component doesn't rely on a specific CSS rule being loaded."
+}
