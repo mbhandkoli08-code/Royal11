@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { WalletProvider } from "@/context/WalletContext";
 import { BottomNav } from "@/components/BottomNav";
 import { SideNav } from "@/components/SideNav";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { isIndependenceWindow } from "@/lib/festive";
 import { WelcomeAgentModal } from "@/components/WelcomeAgentModal";
 import FantasyPage from "@/pages/FantasyPage";
@@ -35,7 +36,7 @@ const Placeholder = ({ title }) => (
 
 const ScrollTop = () => {
   const { pathname } = useLocation();
-  useEffect(() => window.scrollTo(0, 0), [pathname]);
+  useEffect(() => { window.scrollTo(0, 0); }, [pathname]);
   return null;
 };
 
@@ -156,12 +157,14 @@ function App() {
 
   return (
     <div className="relative min-h-screen bg-background">
-      <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-          <Toaster position="top-center" richColors />
-        </AuthProvider>
-      </BrowserRouter>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <AuthProvider>
+            <AppRoutes />
+            <Toaster position="top-center" richColors />
+          </AuthProvider>
+        </BrowserRouter>
+      </ErrorBoundary>
       {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
     </div>
   );
