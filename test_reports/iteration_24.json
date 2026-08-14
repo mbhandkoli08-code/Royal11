@@ -1,0 +1,52 @@
+{
+  "summary": "Fantasy demo flow tested end-to-end. Backend: 4/4 unit + 7/8 e2e passed (1 xfail = known Free Practice zero-entry bug). Frontend: demo match renders first as 'Royal Strikers vs Coastal Kings', real Sportmonks fixtures show proper names (e.g. 'England vs Sri Lanka', 'India vs West Indies'), no 'TBD vs TBD'. Contests load with correct 25% commission prize pools (Mega 37,500; H2H 150; Free 500). Team builder opens, all 22 players group by role (WK/BAT/AR/BOWL), 11/11 selection with 93.5/100 credits works, Captain/Vice-Captain assignment works, join succeeds and contest appears in 'My Contests'. Super-Admin settlement pays rank-1 exactly 50% of prize pool.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/fantasy/contests/demo-contest-free/join", "issue": "Cannot join Free Practice contest — wallet_service.debit rejects zero-amount debits with 'debit amount must be positive'. Either skip debit when entry_fee=0 in join_contest, or give Free Practice a nominal fee.", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "ensure_demo_fantasy (startup seed)", "issue": "Demo contests seeded with $setOnInsert only, so lock_at gets stale (~6h) and existing demo contests become 'closed for entries' even after restart. Should also $set lock_at + status=OPEN so restarts refresh the demo state."},
+      {"endpoint": "POST /api/fantasy/contests/{id}/join", "issue": "Wallet debit uses request_id 'contest_join:{contest_id}:{user_id}' which is idempotent. If an admin resets the contest (deletes teams / reopens) and the same player re-joins, no entry fee is debited (silent revenue leakage on demo reruns). Consider including a nonce or reset epoch in request_id."},
+      {"endpoint": "SETTLED contest UX", "issue": "Once a demo contest is SETTLED there is no admin endpoint to reopen it; requires direct DB edit to demo again."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "FantasyPage team builder overlay", "issue": "The team-builder modal (fixed inset-0 z-50) shares z-index with the mobile BottomNav (z-50), so the 'Join for X coins' button (tb-join) is intercepted by <a data-testid='nav-casino'> on mobile viewports. Playwright required a JS click() to bypass. Real users on mobile will tap the bottom nav instead of Join. Fix: bump team builder to z-[60] OR hide BottomNav while builder is open.", "selector": "[data-testid='tb-join']", "priority": "HIGH"}
+    ],
+    "integration_issues": [
+      {"flow": "Initial Fantasy tab load right after login/splash", "issue": "First render after Skip+login sometimes shows 'No upcoming matches available right now.' because loadMatches fires before the AuthContext token is available (headers = Bearer undefined) — the axios error is silently swallowed by catch {}. Works after refresh once token is in localStorage. Suggest: gate the effect on `token`, or retry when token becomes truthy, and surface errors instead of swallowing them.", "affected_selectors": ["[data-testid='fantasy-matches']"]}
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_fantasy_demo.py",
+    "/app/backend/tests/test_fantasy_e2e_iter24.py",
+    "/app/backend/tests/_reset_demo_fantasy.py",
+    "/app/test_reports/pytest/iter24_fantasy.xml"
+  ],
+  "action_items": [
+    "FantasyPage: bump team-builder modal z-index above BottomNav (z-50) — HIGH, blocks join on mobile without workaround.",
+    "join_contest: skip wallet debit when entry_fee == 0 so Free Practice is joinable.",
+    "ensure_demo_fantasy: also refresh lock_at + status=OPEN on startup so stale seeds don't lock out the demo after 6h.",
+    "FantasyPage loadMatches: don't swallow axios errors — surface them or retry when token becomes ready to avoid 'No upcoming matches' false-empty state.",
+    "Wallet idempotency: include an epoch/nonce (or reset ID) in the join request_id so admin-reset + re-join actually debits again."
+  ],
+  "critical_code_review_comments": [
+    "FantasyPage.jsx loadMatches try/catch swallows errors silently — makes the 'empty' state indistinguishable from an auth/API failure.",
+    "fantasy_service.join_contest hard-fails on entry_fee=0 due to a downstream wallet_service invariant; either short-circuit or relax the wallet invariant for zero-value promotional entries.",
+    "ensure_demo_fantasy uses $setOnInsert exclusively, so demo state can never be repaired via restart. Given the demo is core to the product story this is fragile.",
+    "Duplicate z-50 between fixed team-builder and BottomNav is a classic Tailwind stacking bug — global rule: any full-screen modal must be ≥ z-[60]."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_fantasy_e2e_iter24.py (new)",
+    "/app/backend/tests/_reset_demo_fantasy.py (new helper to reset demo state between runs)"
+  ],
+  "success_rate": {"backend": "92% (11/12 tests pass, 1 xfail documents Free Practice bug)", "frontend": "85% (all critical flows work; blocked on join button z-index on mobile without workaround)"},
+  "test_credentials": "player1@royal11.com / ChangeMe123! (~11k coins base); superadmin@royal11.com / ChangeMe123!",
+  "seed_data_creation": "No new seed; used existing demo-t20-royal11 fixture + demo-contest-mega/h2h/free. Ran _reset_demo_fantasy.py twice to reset participant_count and lock_at.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "After main agent fixes: (a) team-builder z-index (b) join-with-zero-entry (c) ensure_demo_fantasy refresh, run `PYTHONPATH=/app/backend python /app/backend/tests/_reset_demo_fantasy.py` FIRST, then `pytest /app/backend/tests/test_fantasy_e2e_iter24.py -o addopts=''` and the Playwright flow. Note: Mega contest gets SETTLED by these tests — always reset before rerunning. Use the same 11 picks d1,d2,d3,d6,d8,d9,d10,d14,d17,d19,d20 with Captain d2 / VC d14 for a valid team.",
+  "rca of the issue": "1) Team builder unclickable Join on mobile: FantasyPage.jsx line 153 uses className 'fixed inset-0 z-50' while BottomNav (BottomNav.jsx) uses 'z-50', so pointer events fall through to the nav's <a data-testid='nav-casino'>. Reproduce: mobile viewport 390x844, open any contest, scroll to bottom — tapping 'Join for X coins' hits Games/Casino/Wallet buttons instead. Fix: change modal wrapper to z-[60]. 2) Free Practice unjoinable: entry_fee=0 → join_contest calls wallet_service.debit(user_id, TxnType.FANTASY_ENTRY, 0, ...) which asserts amount>0. Reproduce: POST /api/fantasy/contests/demo-contest-free/join. Fix: `if c['entry_fee']>0: debit(...) else: txn={'balance_after': current_balance}`. 3) Stale demo lock: after ~6h, demo contests silently move from OPEN to LOCKED via _lock_if_started because ensure_demo_fantasy set lock_at once via $setOnInsert. Fix: also $set lock_at (and status back to OPEN) on subsequent startups so restarting the backend recovers the demo."
+}

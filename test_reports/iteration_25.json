@@ -1,0 +1,38 @@
+{
+  "summary": "Iteration 25 covers the follow-up to iter24: (a) Free Practice zero-entry join, (b) Promo/coupon system, (c) Glass Premium redesign + generated avatars + team theme, (d) team-builder z-index fix. Backend: 13/13 pytest pass (8 fantasy e2e + 5 promo). Frontend (mobile 390x844): splash+login OK, Fantasy loads with loading skeleton then shows demo match 'Royal Strikers vs Coastal Kings' first (no false-empty, no 'TBD vs TBD'). Opening the demo match shows the red gradient Glass Premium screen with 'Your Team Theme' card (RS badge, 'default colors' label, team switch A<->B works), promo input + gold Apply, contest cards with TOP PICK rows and DiceBear-generated player avatars. Promo ROYAL50 -> green success toast '🎉 Coupon Applied! +50 bonus coins', input clears, wallet refreshed. Invalid NOPE123 -> red 'Invalid or expired' toast (no crash). Team builder join on Mega Contest: opened over BottomNav, picked 11 valid players (d1,d2,d3,d6,d8,d9,d10,d14,d17,d19,d20), assigned Captain d2 + VC d14, and tb-join was clickable WITHOUT force=True (z-index fix z-[60] confirmed on mobile viewport). 'Team locked in — good luck!' toast fired. Backend my-contests confirms the mega join persists.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/fantasy/matches", "issue": "Live Sportmonks fixtures did not appear during this run — only the seeded demo match was returned. The 4s cap is respected, but real users may see just the demo card if the upstream cache is cold. Not a regression from iter24; consider caching last-known live matches server-side."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_fantasy_e2e_iter24.py",
+    "/app/backend/tests/test_promo_iter25.py",
+    "/app/backend/tests/_reset_demo_fantasy.py",
+    "/app/test_reports/pytest/iter25_fantasy.xml",
+    "/app/test_reports/pytest/iter25_promo.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "promo_service.apply_code + bonus_service.grant_bonus are correctly double-guarded (promo_redemptions unique + bonus_grants request_id idempotent). Note: if an operator deletes only promo_redemptions to allow a re-apply, grant_bonus becomes a silent no-op because request_id 'promo:{code}:{user}' is unchanged — the API still returns bonus_coins from the code doc, giving a misleading success. Consider making request_id include a nonce, or return the persisted grant amount instead of the doc's face value.",
+    "FantasyPage.jsx loadMatches still swallows axios errors (setLoadErr toggle only). Now that loading skeleton covers first paint, the false-empty is gone in practice, but a token-late race can still hide auth failures. Low priority now.",
+    "FantasyPage.jsx line 236: team-builder now z-[60] over BottomNav (z-50). Confirmed by non-force click on mobile viewport 390x844. Good fix.",
+    "PromoCode component: state='err' path animates shake but keeps the invalid text in the input (by design). Consistent UX."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_promo_iter25.py (new — 5 tests, all pass)"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% for redesign+promo+avatars+join z-index (all requested flows verified)"},
+  "test_credentials": "player1@royal11.com / ChangeMe123! ; superadmin@royal11.com / ChangeMe123!",
+  "seed_data_creation": "Reset demo fantasy state (teams=2 deleted, 3 contests reset) and cleared player1 promo_redemptions + promo bonus_grants before frontend E2E so ROYAL50 / WELCOME100 / FANTASY25 were fresh. Mega contest may now have 1 team joined (player1) from this run.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "All iter24 blockers verified fixed. If re-running: (1) `PYTHONPATH=/app/backend python /app/backend/tests/_reset_demo_fantasy.py`, (2) clear promo state for player1 (see _reset_promo_redemptions helper inside test_promo_iter25.py — deletes promo_redemptions AND bonus_grants with request_id ^promo:), (3) `pytest /app/backend/tests/test_fantasy_e2e_iter24.py /app/backend/tests/test_promo_iter25.py -o addopts=''`. Use same 11 picks d1,d2,d3,d6,d8,d9,d10,d14,d17,d19,d20 with C=d2 VC=d14. The Mega contest gets SETTLED by the settle e2e — reset first.",
+  "rca of the issue": "N/A — all previously reported issues (free-practice zero-entry join, stale demo lock, false-empty matches state, team-builder z-50 collision with BottomNav) are verified fixed at both backend and frontend layers. Non-force Playwright click on tb-join confirms the modal is now above BottomNav (z-[60] wins). ROYAL50 grants +50 bonus into wallets.bonus_balance (verified by GET /api/bonus/me delta), duplicate returns 400 'already used', unknown code returns 400 'Invalid or expired'."
+}

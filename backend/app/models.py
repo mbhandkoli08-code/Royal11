@@ -48,6 +48,9 @@ class TxnType(str, Enum):
     BONUS_SPEND = "BONUS_SPEND"
     BONUS_FORFEIT = "BONUS_FORFEIT"
     REVERSAL = "REVERSAL"
+    ADMIN_FLOAT_DEBIT = "ADMIN_FLOAT_DEBIT"
+    ADMIN_CREDIT_TOPUP = "ADMIN_CREDIT_TOPUP"
+    ADMIN_CREDIT_REPAYMENT = "ADMIN_CREDIT_REPAYMENT"
 
 
 class TxnStatus(str, Enum):
@@ -369,3 +372,25 @@ class PlayerProfileUpdate(BaseModel):
     upi_id: Optional[str] = Field(default=None, max_length=100)
     bank: Optional[PlayerBankInput] = None
     consent: Optional[MarketingConsent] = None
+
+
+# ---------------------------------------------------------------------------
+# Admin Credit Line (overdraft-style float credit set by the upline Manager)
+# ---------------------------------------------------------------------------
+class SetCreditLimitRequest(BaseModel):
+    credit_limit: int = Field(ge=0)
+    note: Optional[str] = Field(default=None, max_length=200)
+
+
+class CreditRequestCreate(BaseModel):
+    amount: int = Field(gt=0)
+    reason: Optional[str] = Field(default=None, max_length=300)
+
+
+class CreditDecisionRequest(BaseModel):
+    reason: Optional[str] = Field(default=None, max_length=300)
+
+
+class RecordRepaymentRequest(BaseModel):
+    amount: int = Field(gt=0)
+    note: Optional[str] = Field(default=None, max_length=200)

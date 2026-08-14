@@ -18,6 +18,14 @@ from .models import Role, TxnType
 logger = logging.getLogger(__name__)
 
 
+class CreditLineExceededError(Exception):
+    """A recharge can't be serviced: Admin float + remaining credit fall short."""
+    def __init__(self, shortfall: int, remaining_credit: int):
+        self.shortfall = shortfall
+        self.remaining_credit = remaining_credit
+        super().__init__("Insufficient float and credit to complete this recharge")
+
+
 async def ensure_deposit_indexes() -> None:
     await db.deposits.create_index("player_id")
     await db.deposits.create_index("target_admin_id")
@@ -169,6 +177,20 @@ async def confirm_deposit(deposit_id: str, admin_id: str, note: Optional[str]) -
         raise PermissionError("This deposit is not addressed to you")
     if dep["status"] != "PENDING":
         raise ValueError(f"Deposit already {dep['status'].lower()}")
+
+    # Retailer model: servicing a player consumes the Admin's own float. If the
+    # float can't cover it, the Admin Credit Line auto-tops-up the shortfall (up
+    # to their approved limit). Over the limit -> block (Admin must request more).
+    from . import admin_credit_service
+    try:
+        await admin_credit_service.ensure_admin_float(admin_id, dep["coins_to_credit"], related_id=deposit_id)
+    except admin_credit_service.CreditLineExceeded as e:
+        raise CreditLineExceededError(e.shortfall, e.remaining_credit)
+    await wallet_service.debit(
+        admin_id, TxnType.ADMIN_FLOAT_DEBIT, dep["coins_to_credit"],
+        actor_id=admin_id, reason=f"Float used to service deposit {deposit_id}",
+        request_id=f"float_debit:{deposit_id}",
+    )
 
     # The single, explicit crediting step — idempotent on the deposit id so a
     # double-click / retry can never double-credit.

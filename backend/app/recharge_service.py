@@ -63,6 +63,12 @@ async def confirm_recharge(recharge_id: str, super_admin_id: str) -> dict:
     await db.admin_recharges.update_one({"id": recharge_id}, {"$set": {
         "status": "CONFIRMED", "confirmed_by": super_admin_id, "confirmed_at": _now_iso(),
     }})
+    # Settle outstanding credit-line debt FIRST from this self-recharge top-up.
+    try:
+        from . import admin_credit_service
+        await admin_credit_service.repay_from_topup(r["admin_id"], r["coins_credited"])
+    except Exception:
+        pass
     # Fresh quota may lift a coins-exhausted suspension.
     await revenue_service.sync_admin_usage_suspension(r["admin_id"])
     return await db.admin_recharges.find_one({"id": recharge_id}, {"_id": 0})

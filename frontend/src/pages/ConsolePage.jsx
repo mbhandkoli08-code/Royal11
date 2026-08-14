@@ -11,7 +11,9 @@ import { LifeBuoy, Headset } from "lucide-react";
 import { SupportPanel } from "@/console/SupportPanel";
 import { SupportTeamPanel } from "@/console/SupportTeamPanel";
 import { PlayerPayoutPanel } from "@/console/PlayerPayoutPanel";
-import { Landmark as LandmarkIcon } from "lucide-react";
+import { AdminCreditPanel } from "@/console/AdminCreditPanel";
+import { AdminMyCreditPanel } from "@/console/AdminMyCreditPanel";
+import { Landmark as LandmarkIcon, CreditCard as CreditCardIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { ApiKeysPanel } from "@/components/ApiKeysPanel";
@@ -65,6 +67,7 @@ const NAV = {
     ] },
     { section: "Support", items: [
       { id: "support", label: "Support Tickets", icon: LifeBuoy },
+      { id: "admin-credit", label: "Admin Credit Line", icon: CreditCardIcon },
     ] },
   ],
   SUPPORT_HELPER: [
@@ -85,6 +88,7 @@ const NAV = {
     ] },
     { section: "Support", items: [
       { id: "support", label: "Support Tickets", icon: LifeBuoy },
+      { id: "admin-credit", label: "Admin Credit Line", icon: CreditCardIcon },
     ] },
   ],
   MANAGER: [
@@ -102,6 +106,7 @@ const NAV = {
     ] },
     { section: "Support", items: [
       { id: "support", label: "Support Tickets", icon: LifeBuoy },
+      { id: "admin-credit", label: "Admin Credit Line", icon: CreditCardIcon },
     ] },
   ],
   ADMIN: [
@@ -124,6 +129,7 @@ const NAV = {
     { section: "Support", items: [
       { id: "support", label: "Support Tickets", icon: LifeBuoy },
       { id: "support-team", label: "Support Team", icon: Headset },
+      { id: "my-credit", label: "My Credit Line", icon: CreditCardIcon },
     ] },
   ],
 };
@@ -216,6 +222,8 @@ export default function ConsolePage() {
       case "support": return <SupportPanel />;
       case "support-team": return <SupportTeamPanel />;
       case "player-payout": return <PlayerPayoutPanel />;
+      case "admin-credit": return <AdminCreditPanel />;
+      case "my-credit": return <AdminMyCreditPanel />;
       default: return null;
     }
   };

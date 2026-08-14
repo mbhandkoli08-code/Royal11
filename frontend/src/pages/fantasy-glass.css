@@ -1,0 +1,147 @@
+/* Fantasy "Glass Premium" theme — bold team-driven gradient + frosted glass. */
+
+.fx-root {
+  position: relative;
+  min-height: calc(100vh - 1px);
+  background:
+    radial-gradient(120% 80% at 15% 0%, rgba(255, 255, 255, 0.10), transparent 60%),
+    linear-gradient(180deg, var(--fx-from, #ec1c24) 0%, var(--fx-to, #5e080e) 78%);
+  overflow: hidden;
+  transition: background 0.6s ease;
+  isolation: isolate;
+}
+
+/* Soft blurred colour glow behind the content (subtle, non-distracting). */
+.fx-glow {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+  transition: background 0.6s ease;
+}
+.fx-glow--a {
+  width: 380px; height: 380px; top: -120px; right: -80px;
+  background: rgba(var(--fx-accent-rgb, 255, 210, 90), 0.35);
+}
+.fx-glow--b {
+  width: 320px; height: 320px; bottom: -120px; left: -100px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.fx-content { position: relative; z-index: 1; }
+
+/* Frosted glass card — darker overlay so text stays readable on the red bg. */
+.fx-glass {
+  background: rgba(0, 0, 0, 0.38);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+.fx-glass-soft {
+  background: rgba(0, 0, 0, 0.22);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+}
+
+.fx-hover { transition: transform 0.18s ease, border-color 0.18s ease; }
+.fx-hover:hover { transform: translateY(-2px); border-color: rgba(var(--fx-accent-rgb), 0.55); }
+
+/* Tag pill — gold translucent fill so it never becomes red-on-red. */
+.fx-pill {
+  background: rgba(var(--fx-accent-rgb, 255, 210, 90), 0.16);
+  border: 1px solid rgba(var(--fx-accent-rgb, 255, 210, 90), 0.55);
+  color: var(--fx-accent, #ffd25a);
+}
+.fx-pill-neutral {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* Gold accent (primary) button. */
+.fx-btn-gold {
+  background: linear-gradient(180deg, var(--fx-accent, #ffd25a), rgba(var(--fx-accent-rgb, 255, 210, 90), 0.82));
+  color: #201203;
+  font-weight: 800;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+  box-shadow: 0 6px 18px rgba(var(--fx-accent-rgb, 255, 210, 90), 0.28);
+}
+.fx-btn-gold:hover { filter: brightness(1.05); }
+.fx-btn-gold:active { transform: scale(0.98); }
+
+/* Glass input. */
+.fx-input {
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #fff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.fx-input::placeholder { color: rgba(255, 255, 255, 0.45); }
+.fx-input:focus { outline: none; border-color: rgba(var(--fx-accent-rgb), 0.7); box-shadow: 0 0 0 3px rgba(var(--fx-accent-rgb), 0.18); }
+
+/* Tab (segmented). */
+.fx-tab { color: rgba(255, 255, 255, 0.7); background: rgba(255, 255, 255, 0.08); transition: all 0.18s ease; }
+.fx-tab-active { color: #201203; background: var(--fx-accent, #ffd25a); box-shadow: 0 6px 16px rgba(var(--fx-accent-rgb), 0.3); }
+
+/* Player pick row (builder). */
+.fx-pick { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.10); transition: all 0.16s ease; }
+.fx-pick-on { background: rgba(var(--fx-accent-rgb), 0.14); border-color: rgba(var(--fx-accent-rgb), 0.7); }
+
+/* "Top Pick" suggested-player row inside a contest card. */
+.fx-toppick {
+  background: rgba(var(--fx-accent-rgb, 255, 210, 90), 0.10);
+  border: 1px solid rgba(var(--fx-accent-rgb, 255, 210, 90), 0.28);
+  border-radius: 12px;
+}
+.fx-avatar {
+  background: linear-gradient(135deg, rgba(var(--fx-accent-rgb), 0.9), rgba(var(--fx-accent-rgb), 0.55));
+  color: #201203;
+}
+
+/* --- Promo code micro-interactions --- */
+@keyframes fx-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-7px); }
+  40% { transform: translateX(7px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+.fx-shake { animation: fx-shake 0.45s ease; }
+.fx-invalid { border-color: #ff5a5a !important; box-shadow: 0 0 0 3px rgba(255, 90, 90, 0.25) !important; }
+
+@keyframes fx-pulse-green {
+  0% { border-color: rgba(255,255,255,0.16); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  35% { border-color: #22c55e; box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.35); }
+  100% { border-color: rgba(255,255,255,0.16); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+}
+.fx-pulse-green { animation: fx-pulse-green 0.9s ease; }
+
+@keyframes fx-bounce {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.12); }
+  70% { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+.fx-bounce { animation: fx-bounce 0.5s ease; }
+
+/* Sparkle burst near the Apply button. */
+.fx-sparks { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.fx-spark {
+  position: absolute; top: 50%; left: 50%; width: 8px; height: 8px; border-radius: 9999px;
+  background: var(--fx-accent, #ffd25a);
+  animation: fx-spark-fly 0.7s ease-out forwards;
+}
+@keyframes fx-spark-fly {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0.2); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-shake, .fx-pulse-green, .fx-bounce, .fx-spark { animation: none !important; }
+}

@@ -16,8 +16,8 @@ from app.db import client, db
 from app.wallet_service import ensure_indexes
 from app.deposit_service import ensure_deposit_indexes
 from app.hierarchy_service import ensure_hierarchy_indexes
-from app.fantasy_service import ensure_fantasy_indexes, settle_due_contests
-from app import revenue_service, storage_service, payroll_service, login_security, otp_service, bonus_service, surprise_box_service, support_service, referral_service
+from app.fantasy_service import ensure_fantasy_indexes, settle_due_contests, ensure_demo_fantasy
+from app import revenue_service, storage_service, payroll_service, login_security, otp_service, bonus_service, surprise_box_service, support_service, referral_service, admin_credit_service, promo_service
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date, timedelta
 from app.routers.auth import router as auth_router
@@ -37,6 +37,8 @@ from app.routers.bonus import router as bonus_router
 from app.routers.support import router as support_router
 from app.routers.referrals import router as referrals_router
 from app.routers.profile import router as profile_router
+from app.routers.admin_credit import router as admin_credit_router
+from app.routers.promo import router as promo_router
 from app.games import engine as casino_engine
 from app.games import progression_service as casino_progression
 
@@ -364,6 +366,8 @@ api_router.include_router(bonus_router)
 api_router.include_router(support_router)
 api_router.include_router(referrals_router)
 api_router.include_router(profile_router)
+api_router.include_router(admin_credit_router)
+api_router.include_router(promo_router)
 app.include_router(api_router)
 
 app.add_middleware(
@@ -412,6 +416,10 @@ async def ensure_db_indexes():
     await ensure_deposit_indexes()
     await ensure_hierarchy_indexes()
     await ensure_fantasy_indexes()
+    try:
+        await ensure_demo_fantasy()
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Demo fantasy seed failed: {type(e).__name__}")
     await login_security.ensure_indexes()
     await otp_service.ensure_indexes()
     await casino_engine.ensure_indexes()
@@ -420,6 +428,12 @@ async def ensure_db_indexes():
     await surprise_box_service.ensure_indexes()
     await support_service.ensure_support_indexes()
     await referral_service.ensure_indexes()
+    await admin_credit_service.ensure_indexes()
+    await promo_service.ensure_indexes()
+    try:
+        await promo_service.seed_demo_codes()
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Promo seed failed: {type(e).__name__}")
     try:
         await storage_service.init_storage()
         logger.info("Object storage initialized")

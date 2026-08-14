@@ -5,10 +5,11 @@ never submitted by the client. Contest entry fees and winner payouts go through
 the wallet ledger idempotently.
 """
 import logging
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from . import cricket_service, wallet_service
+from . import cricket_service, demo_data, wallet_service
 from .db import db
 from .models import TxnType
 from .wallet_service import InsufficientFunds
@@ -25,6 +26,9 @@ VICE_MULT = 1.5
 ROLE_RANGES = {"WK": (1, 4), "BAT": (3, 6), "AR": (1, 4), "BOWL": (3, 6)}
 SETTLE_RETRY_HOURS = 6
 
+# House commission on Fantasy contests: prize pool = total entry fees * (1 - pct/100).
+COMMISSION_PCT = 25
+
 DEFAULT_SCORING = {
     "run": 1, "four_bonus": 1, "six_bonus": 2, "fifty_bonus": 8, "century_bonus": 16,
     "duck_penalty": -2, "wicket": 25, "three_wkt_bonus": 4, "five_wkt_bonus": 16,
@@ -39,6 +43,11 @@ class SettlementNotReady(Exception):
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def default_prize_pool(entry_fee: int, max_participants: int) -> int:
+    """Prize pool after the house commission (used when none is supplied)."""
+    return round(entry_fee * max_participants * (100 - COMMISSION_PCT) / 100)
 
 
 def map_role(position: str) -> str:
@@ -104,6 +113,24 @@ async def get_player_pool(fixture_id: str) -> list[dict]:
     return [p async for p in db.fantasy_player_pool.find({"fixture_id": fixture_id}, {"_id": 0}).sort("role", 1)]
 
 
+# player→team affiliation must always reflect the CURRENT squad (players change
+# teams between seasons/auctions), so we rebuild the pool from the live lineup
+# on read — TTL-guarded to avoid hammering Sportmonks on every poll/view.
+_POOL_REFRESH_TTL = 60  # seconds
+_pool_refreshed_at: dict[str, float] = {}
+
+
+async def refresh_player_pool(fixture_id: str) -> None:
+    now = time.monotonic()
+    if now - _pool_refreshed_at.get(fixture_id, 0) < _POOL_REFRESH_TTL:
+        return
+    _pool_refreshed_at[fixture_id] = now
+    try:
+        await build_player_pool(fixture_id)  # $sets fresh team_id/team_name/role
+    except Exception:  # noqa: BLE001 — lineup not published yet; keep stored pool
+        pass
+
+
 async def set_player_credit(fixture_id: str, player_id: str, credit_value: float) -> dict:
     res = await db.fantasy_player_pool.update_one(
         {"fixture_id": fixture_id, "player_id": player_id},
@@ -120,6 +147,9 @@ async def create_contest(creator_id: str, fixture_id: str, entry_fee: int, max_p
                          prize_pool: int, prize_distribution=None, name: str = "") -> dict:
     pool = await build_player_pool(fixture_id)  # ensures a real fixture + squad
     lineup = await cricket_service.get_fixture_lineup(fixture_id)
+    # Default the prize pool to entry fees minus the house commission.
+    if not prize_pool:
+        prize_pool = default_prize_pool(entry_fee, max_participants)
     doc = {
         "id": str(uuid.uuid4()),
         "fixture_id": fixture_id,
@@ -129,6 +159,7 @@ async def create_contest(creator_id: str, fixture_id: str, entry_fee: int, max_p
         "entry_fee": entry_fee,
         "max_participants": max_participants,
         "prize_pool": prize_pool,
+        "commission_pct": COMMISSION_PCT,
         "prize_distribution": prize_distribution or DEFAULT_PRIZE_DISTRIBUTION,
         "status": "OPEN",
         "lock_at": lineup.get("starting_at"),
@@ -226,12 +257,15 @@ async def join_contest(user_id: str, contest_id: str, selections: list[str],
         raise ValueError("This contest is full")
     v = await _validate_team(c["fixture_id"], selections, captain_id, vice_captain_id)
 
-    try:
-        txn = await wallet_service.debit(
-            user_id, TxnType.FANTASY_ENTRY, c["entry_fee"], actor_id=user_id,
-            reason=f"Fantasy entry: {c.get('name')}", request_id=f"contest_join:{contest_id}:{user_id}")
-    except InsufficientFunds:
-        raise ValueError("Not enough coins for the entry fee")
+    balance_after = None
+    if c["entry_fee"] > 0:
+        try:
+            txn = await wallet_service.debit(
+                user_id, TxnType.FANTASY_ENTRY, c["entry_fee"], actor_id=user_id,
+                reason=f"Fantasy entry: {c.get('name')}", request_id=f"contest_join:{contest_id}:{user_id}")
+            balance_after = txn["balance_after"]
+        except InsufficientFunds:
+            raise ValueError("Not enough coins for the entry fee")
 
     team = {
         "id": str(uuid.uuid4()), "contest_id": contest_id, "fixture_id": c["fixture_id"],
@@ -242,7 +276,10 @@ async def join_contest(user_id: str, contest_id: str, selections: list[str],
     await db.fantasy_teams.insert_one(team)
     await db.fantasy_contests.update_one({"id": contest_id}, {"$inc": {"participant_count": 1}})
     team.pop("_id", None)
-    return {"team": team, "balance": txn["balance_after"]}
+    if balance_after is None:
+        wallet = await wallet_service.get_or_create_wallet(user_id)
+        balance_after = wallet["balance"]
+    return {"team": team, "balance": balance_after}
 
 
 async def my_contests(user_id: str) -> list[dict]:
@@ -396,3 +433,57 @@ async def settle_due_contests() -> dict:
         except Exception as e:  # noqa: BLE001
             logger.error(f"settle_contest {c['id']} error: {type(e).__name__}")
     return {"settled": settled, "needs_review": review}
+
+
+# ---------------------------------------------------------------------------
+# Demo seeding — makes the whole Fantasy flow testable without live fixtures
+# ---------------------------------------------------------------------------
+_DEMO_CONTESTS = [
+    {"id": "demo-contest-mega", "name": "Mega Contest", "entry_fee": 50, "max_participants": 1000},
+    {"id": "demo-contest-h2h", "name": "Head to Head", "entry_fee": 100, "max_participants": 2},
+    {"id": "demo-contest-free", "name": "Free Practice", "entry_fee": 0, "max_participants": 100,
+     "prize_pool": 500},
+]
+
+
+async def ensure_demo_fantasy() -> None:
+    """Idempotently seed the demo fixture's player pool + a few contests so the
+    Fantasy lobby is never empty on the Sportmonks free tier."""
+    fid = demo_data.DEMO_FIXTURE_ID
+    try:
+        await build_player_pool(fid)  # uses the demo lineup fallback
+    except ValueError:
+        return
+    lineup = await cricket_service.get_fixture_lineup(fid)
+    for spec in _DEMO_CONTESTS:
+        prize = spec.get("prize_pool")
+        if prize is None:
+            prize = default_prize_pool(spec["entry_fee"], spec["max_participants"])
+        await db.fantasy_contests.update_one(
+            {"id": spec["id"]},
+            {"$setOnInsert": {
+                "id": spec["id"],
+                "fixture_id": fid,
+                "match_label": demo_data.MATCH_LABEL,
+                "name": spec["name"],
+                "created_by": "system",
+                "entry_fee": spec["entry_fee"],
+                "max_participants": spec["max_participants"],
+                "prize_pool": prize,
+                "commission_pct": COMMISSION_PCT,
+                "prize_distribution": DEFAULT_PRIZE_DISTRIBUTION,
+                "status": "OPEN",
+                "lock_at": lineup.get("starting_at"),
+                "participant_count": 0,
+                "created_at": _now().isoformat(),
+                "demo": True,
+            }},
+            upsert=True,
+        )
+    # Repair stale demo state on restart: refresh the (far-future) lock time and
+    # reopen any contest that auto-locked, so the demo is always joinable.
+    await db.fantasy_contests.update_many(
+        {"fixture_id": fid}, {"$set": {"lock_at": lineup.get("starting_at")}})
+    await db.fantasy_contests.update_many(
+        {"fixture_id": fid, "status": "LOCKED"}, {"$set": {"status": "OPEN"}})
+    logger.info("Demo fantasy fixture + contests ensured")

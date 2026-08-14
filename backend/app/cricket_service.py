@@ -8,12 +8,15 @@ short TTL to avoid hitting rate limits when many players load the app at once.
 Security: httpx error strings can contain the request URL (which includes the
 api_token), so we NEVER log exception messages — only the exception type.
 """
+import asyncio
 import logging
 import os
 import time
 from datetime import datetime, timezone
 
 import httpx
+
+from . import demo_data
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +50,13 @@ def normalize(fx: dict) -> dict:
     runs = fx.get("runs") or []
     a = _team_score(runs, fx.get("localteam_id"))
     b = _team_score(runs, fx.get("visitorteam_id"))
+    lt_name = lt.get("name") or lt.get("code") or "TBD"
+    vt_name = vt.get("name") or vt.get("code") or "TBD"
     return {
         "id": str(fx.get("id")),
         "sport": f"Cricket · {fx.get('type') or 'Match'}",
         "league": fx.get("round") or fx.get("type") or "Cricket",
+        "name": f"{lt_name} vs {vt_name}",
         "teamA": {"name": lt.get("code") or lt.get("name") or "TBD",
                   "full": lt.get("name"), "image": lt.get("image_path"), **a},
         "teamB": {"name": vt.get("code") or vt.get("name") or "TBD",
@@ -134,14 +140,38 @@ async def _fetch_one(path: str, extra: dict) -> dict:
 
 
 async def get_upcoming_fixtures(limit: int = 25) -> dict:
-    """Fixtures that haven't finished yet — candidates for fantasy contests."""
-    payload = await _payload("upcoming", "fixtures", {"sort": "starting_at",
-                             "filter[status]": "NS"}, limit=limit)
-    return payload
+    """Fixtures that haven't finished yet — candidates for fantasy contests.
+
+    The seeded demo fixture is ALWAYS prepended so there is at least one
+    fully-playable match (with a published squad) — the Sportmonks free tier
+    returns fixtures without lineups, which can't be used to build a team.
+
+    The live fetch is capped at a few seconds so the demo (and any cached real
+    fixtures) render fast; a slow/cold Sportmonks call never blocks the lobby.
+    """
+    try:
+        task = asyncio.ensure_future(
+            _payload("upcoming", "fixtures",
+                     {"sort": "starting_at", "filter[status]": "NS"}, limit=limit))
+        done, _pending = await asyncio.wait({task}, timeout=4.0)
+        if task in done and not task.exception():
+            real = task.result().get("matches") or []
+        else:
+            # Let the slow fetch finish in the background to warm the 45s cache
+            # (so the next lobby load shows real fixtures) — never blocks now.
+            task.add_done_callback(lambda t: t.exception())
+            real = []
+    except Exception:  # noqa: BLE001
+        real = []
+    matches = [demo_data.demo_match(), *real]
+    return {"status": "ok", "matches": matches, "count": len(matches),
+            "demo": True, "cached_at": datetime.now(timezone.utc).isoformat()}
 
 
 async def get_fixture_lineup(fixture_id: str) -> dict:
     """Squad/lineup for a fixture -> normalized selectable players with roles."""
+    if demo_data.is_demo_fixture(fixture_id):
+        return demo_data.demo_lineup()
     fx = await _fetch_one(f"fixtures/{fixture_id}", {"include": "lineup,localteam,visitorteam"})
     lt, vt = fx.get("localteam") or {}, fx.get("visitorteam") or {}
     team_names = {lt.get("id"): lt.get("name"), vt.get("id"): vt.get("name")}
@@ -171,6 +201,8 @@ FINISHED_STATUSES = {"Finished", "Aban.", "Cancl.", "Postp.", "Awarded"}
 
 async def get_fixture_stats(fixture_id: str) -> dict:
     """Final per-player batting/bowling stats for settlement."""
+    if demo_data.is_demo_fixture(fixture_id):
+        return demo_data.demo_stats()
     fx = await _fetch_one(f"fixtures/{fixture_id}",
                           {"include": "batting,bowling,localteam,visitorteam"})
     return {

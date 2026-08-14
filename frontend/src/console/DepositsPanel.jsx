@@ -94,6 +94,7 @@ export const DepositsPanel = ({ query = "" }) => {
   const [action, setAction] = useState(null); // {type:"confirm"|"reject", dep}
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [creditWarn, setCreditWarn] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -129,7 +130,13 @@ export const DepositsPanel = ({ query = "" }) => {
       setAction(null); setText("");
       await load();
     } catch (e) {
-      toast.error("Action failed", { description: e.response?.data?.detail || "" });
+      const detail = e.response?.data?.detail;
+      if (detail && typeof detail === "object" && detail.code === "CREDIT_LINE_EXCEEDED") {
+        setAction(null); setText("");
+        setCreditWarn(detail);
+      } else {
+        toast.error("Action failed", { description: typeof detail === "string" ? detail : "" });
+      }
     } finally { setBusy(false); }
   };
 
@@ -234,6 +241,25 @@ export const DepositsPanel = ({ query = "" }) => {
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : action?.type === "confirm" ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
             {action?.type === "confirm" ? "Confirm & Credit" : "Reject Request"}
           </PrimaryButton>
+        </div>
+      </Modal>
+
+      {/* Unmissable credit-line warning when float + credit can't cover a recharge */}
+      <Modal open={!!creditWarn} onClose={() => setCreditWarn(null)} title="Insufficient balance" testid="credit-warn-modal">
+        <div className="space-y-4">
+          <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+            <AlertTriangle className="mt-0.5 h-6 w-6 shrink-0 text-rose-600" />
+            <div>
+              <p className="text-sm font-bold text-rose-800">Your balance is insufficient to complete this recharge.</p>
+              <p className="mt-1 text-xs text-rose-700">{creditWarn?.message}</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-center">
+            <div className="rounded-xl bg-slate-50 p-3"><p className="text-lg font-black text-slate-900">{fmtCoins(creditWarn?.shortfall)}</p><p className="text-[11px] text-slate-500">Shortfall</p></div>
+            <div className="rounded-xl bg-slate-50 p-3"><p className="text-lg font-black text-slate-900">{fmtCoins(creditWarn?.remaining_credit)}</p><p className="text-[11px] text-slate-500">Credit left</p></div>
+          </div>
+          <p className="text-xs text-slate-400">Refill your float, or request more credit from your Manager under "My Credit Line", then try again.</p>
+          <PrimaryButton data-testid="credit-warn-close" onClick={() => setCreditWarn(null)} className="w-full">Got it</PrimaryButton>
         </div>
       </Modal>
     </div>

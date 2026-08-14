@@ -23,6 +23,7 @@ async def matches(_: dict = Depends(get_current_user)):
 
 @router.get("/fixtures/{fixture_id}/players")
 async def fixture_players(fixture_id: str, _: dict = Depends(get_current_user)):
+    await fantasy_service.refresh_player_pool(fixture_id)  # keep team affiliation current
     return {"players": await fantasy_service.get_player_pool(fixture_id),
             "budget": fantasy_service.BUDGET, "role_ranges": fantasy_service.ROLE_RANGES,
             "max_per_team": fantasy_service.MAX_PER_TEAM}

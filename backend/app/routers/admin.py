@@ -209,6 +209,12 @@ async def allocate_to_admin(payload: AllocateToAdminRequest, caller: dict = Depe
 
     await log_action(caller["id"], "COIN_ALLOCATED", target_type="user", target_id=payload.admin_id,
                      metadata={"amount": payload.amount})
+    # Settle any outstanding credit-line debt FIRST from this top-up.
+    try:
+        from .. import admin_credit_service
+        await admin_credit_service.repay_from_topup(payload.admin_id, payload.amount)
+    except Exception:
+        pass
     # Fresh coins may lift a coins-exhausted suspension on the target Admin.
     await revenue_service.sync_admin_usage_suspension(payload.admin_id)
     return {"debit": TransactionOut(**debit_txn), "credit": TransactionOut(**credit_txn)}
@@ -589,6 +595,13 @@ async def confirm_deposit(deposit_id: str, payload: ConfirmDepositRequest,
                           caller: dict = Depends(get_current_user)):
     try:
         dep = await deposit_service.confirm_deposit(deposit_id, caller["id"], payload.note)
+    except deposit_service.CreditLineExceededError as e:
+        raise HTTPException(status.HTTP_402_PAYMENT_REQUIRED, detail={
+            "code": "CREDIT_LINE_EXCEEDED",
+            "message": "Your balance is insufficient to complete this recharge, and it exceeds your available credit limit. Request more credit from your Manager or refill your float.",
+            "shortfall": e.shortfall,
+            "remaining_credit": e.remaining_credit,
+        })
     except PermissionError as e:
         raise HTTPException(status.HTTP_403_FORBIDDEN, str(e))
     except ValueError as e:
