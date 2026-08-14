@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { buildUpiUri } from "@/lib/upi";
 import { buildWaLink } from "@/lib/whatsapp";
+import "../pages/casino-vegas.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const fmt = (n) => (n ?? 0).toLocaleString("en-IN");
@@ -33,7 +34,7 @@ const Row = ({ label, value }) => (
   </div>
 );
 
-export const AddCoins = ({ open, onClose, onSubmitted }) => {
+export const AddCoins = ({ open, onClose, onSubmitted, palace = false }) => {
   const { token } = useAuth();
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
   const [info, setInfo] = useState(null);
@@ -110,18 +111,18 @@ export const AddCoins = ({ open, onClose, onSubmitted }) => {
       {open && (
         <div className="fixed inset-0 z-[110] flex items-end justify-center sm:items-center" data-testid="add-coins-modal">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+            className={`absolute inset-0 backdrop-blur-sm ${palace ? "bg-[#0a0202]/75" : "bg-slate-900/50"}`} onClick={onClose} />
           <motion.div
             initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 40 }}
             transition={{ type: "spring", stiffness: 320, damping: 32 }}
-            className="relative max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-background p-6 shadow-lift sm:rounded-3xl"
+            className={`relative max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-3xl p-6 shadow-lift sm:rounded-3xl ${palace ? "add-coins-palace text-white" : "bg-background"}`}
           >
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="grid h-9 w-9 place-items-center rounded-xl bg-royal-light text-royal"><Coins className="h-5 w-5" /></span>
-                <h2 className="font-display text-xl font-extrabold tracking-tight text-slate-900">Add Coins</h2>
+                <span className={`grid h-9 w-9 place-items-center rounded-xl ${palace ? "bg-gradient-to-br from-amber-300 to-yellow-600 text-[#2a1503]" : "bg-royal-light text-royal"}`}><Coins className="h-5 w-5" /></span>
+                <h2 className={`font-display text-xl font-extrabold tracking-tight ${palace ? "text-amber-200" : "text-slate-900"}`}>{palace ? "Royal Coin Store" : "Add Coins"}</h2>
               </div>
-              <button data-testid="add-coins-close" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-xl bg-white text-slate-500 shadow-soft"><X className="h-4 w-4" /></button>
+              <button data-testid="add-coins-close" onClick={onClose} className={`grid h-9 w-9 place-items-center rounded-xl shadow-soft ${palace ? "bg-black/30 text-amber-200/90 hover:bg-black/50" : "bg-white text-slate-500"}`}><X className="h-4 w-4" /></button>
             </div>
 
             {loading ? (

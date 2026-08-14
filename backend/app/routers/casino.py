@@ -96,6 +96,85 @@ async def verify(round_id: str, _user: dict = Depends(get_current_user)):
         raise _err(e)
 
 
+# ---------------- 777 Slots (single-player, house-banked) ----------------
+from ..games import slots_service  # noqa: E402
+
+
+def _slots_err(e: slots_service.DomainError) -> HTTPException:
+    return HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+
+
+class SlotsSpinRequest(BaseModel):
+    stake: int = Field(gt=0)
+    is_practice: bool = False
+
+
+class ClientSeedRequest(BaseModel):
+    client_seed: str = Field(default="", max_length=64)
+
+
+@router.get("/slots/config")
+async def slots_config(_user: dict = Depends(get_current_user)):
+    return await slots_service.get_config()
+
+
+@router.get("/slots/seed")
+async def slots_seed(user: dict = Depends(get_current_user)):
+    return await slots_service.get_seed(user["id"])
+
+
+@router.post("/slots/seed/client")
+async def slots_set_client_seed(payload: ClientSeedRequest, user: dict = Depends(get_current_user)):
+    return await slots_service.set_client_seed(user["id"], payload.client_seed)
+
+
+@router.post("/slots/seed/rotate")
+async def slots_rotate_seed(user: dict = Depends(get_current_user)):
+    return await slots_service.rotate_seed(user["id"])
+
+
+@router.post("/slots/spin")
+async def slots_spin(payload: SlotsSpinRequest, user: dict = Depends(get_current_user)):
+    try:
+        return await slots_service.spin(user["id"], user.get("display_name", "Player"),
+                                        payload.stake, payload.is_practice)
+    except slots_service.DomainError as e:
+        raise _slots_err(e)
+
+
+@router.get("/slots/history")
+async def slots_history(user: dict = Depends(get_current_user)):
+    return await slots_service.history(user["id"])
+
+
+@router.get("/slots/verify/{spin_id}")
+async def slots_verify(spin_id: str, user: dict = Depends(get_current_user)):
+    try:
+        return await slots_service.verify(user["id"], spin_id)
+    except slots_service.DomainError as e:
+        raise _slots_err(e)
+
+
+@router.get("/admin/slots-config", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def get_slots_config_admin():
+    return await slots_service.get_config()
+
+
+class SlotsConfigRequest(BaseModel):
+    symbols: list[dict] | None = None
+    min_stake: int | None = None
+    max_stake: int | None = None
+    max_payout_cap: int | None = None
+    rake_pct: int | None = None
+
+
+@router.put("/admin/slots-config", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def set_slots_config_admin(payload: SlotsConfigRequest):
+    patch = {k: v for k, v in payload.model_dump().items() if v is not None}
+    return await slots_service.set_config(patch)
+
+
+
 async def _downline_admin_ids(user: dict):
     """Resolve which Admins' commission a caller may see. None = platform-wide
     (Super Admin). A list = that role's own team; [] = nothing in scope."""

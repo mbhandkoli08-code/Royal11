@@ -6,7 +6,7 @@ import {
   Banknote, Landmark, Scale, Zap, Crown, LogOut, ExternalLink, Search, Menu, X,
   Globe2, ClipboardList, Trophy, Palette, ShieldAlert,
 } from "lucide-react";
-import { Gift } from "lucide-react";
+import { Gift, Sparkles } from "lucide-react";
 import { LifeBuoy, Headset } from "lucide-react";
 import { SupportPanel } from "@/console/SupportPanel";
 import { SupportTeamPanel } from "@/console/SupportTeamPanel";
@@ -37,6 +37,7 @@ import { BrandingPanel } from "@/console/BrandingPanel";
 import { SecurityPanel } from "@/console/SecurityPanel";
 import { CasinoCommissionPanel } from "@/console/CasinoCommissionPanel";
 import { RewardsConfigPanel } from "@/console/RewardsConfigPanel";
+import { CoinSupplyPanel } from "@/console/CoinSupplyPanel";
 import { ThemeSwitcher } from "@/console/ThemeSwitcher";
 import "@/console/theme.css";
 
@@ -50,6 +51,7 @@ const NAV = {
       { id: "admin-requests", label: "Admin Requests", icon: ClipboardList },
     ] },
     { section: "Coins & Financials", items: [
+      { id: "coin-supply", label: "Generate Coins", icon: Sparkles },
       { id: "deposits", label: "Deposits", icon: Banknote },
       { id: "settlements", label: "Settlements", icon: Scale },
       { id: "recharge-queue", label: "Recharge Requests", icon: Zap },
@@ -199,6 +201,7 @@ export default function ConsolePage() {
   const renderPanel = () => {
     switch (active) {
       case "overview": return <OverviewPanel onNavigate={select} />;
+      case "coin-supply": return <CoinSupplyPanel />;
       case "zonal-managers": return <ZonalManagersPanel query={query} />;
       case "managers": return <ManagersPanel query={query} />;
       case "admins": return <AdminsPanel query={query} />;

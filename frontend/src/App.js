@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { WalletProvider } from "@/context/WalletContext";
 import { BottomNav } from "@/components/BottomNav";
 import { SideNav } from "@/components/SideNav";
+import { SupportChatbot } from "@/components/SupportChatbot";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { isIndependenceWindow } from "@/lib/festive";
 import { WelcomeAgentModal } from "@/components/WelcomeAgentModal";
@@ -72,6 +73,7 @@ const ProtectedShell = () => {
         </Routes>
       </div>
       <BottomNav />
+      <SupportChatbot />
     </WalletProvider>
   );
 };

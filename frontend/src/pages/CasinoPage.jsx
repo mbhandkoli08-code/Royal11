@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { Spade, Users, Coins, Loader2, ShieldCheck, Plus, LogOut, Play, Check, X, Crown, Layers, Zap } from "lucide-react";
+import { Spade, Users, Coins, Loader2, ShieldCheck, Plus, LogOut, Play, Check, X, Crown, Layers, Zap, Cherry } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import RummyTable from "@/pages/RummyTable";
+import SlotsPage from "@/pages/SlotsPage";
 import { PlayingCard } from "@/components/PlayingCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
+import { PALACE_BACKDROP } from "@/lib/casinoAssets";
+import "./casino-vegas.css";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const GAMES = [
   { id: "high_card", label: "High Card", icon: Spade },
   { id: "rummy_points", label: "Rummy", icon: Layers },
+  { id: "slots_777", label: "777 Slots", icon: Cherry },
 ];
 
 export default function CasinoPage() {
@@ -132,13 +136,18 @@ export default function CasinoPage() {
     return <RummyTable tableId={tableId} onLeave={() => { setTableId(null); setState(null); setVerify(null); loadLobby(); loadMeta(); }} />;
   }
 
+  // 777 Slots is a single-player, house-banked game (no tables).
+  if (game === "slots_777") {
+    return <SlotsPage practice={practice} onLeave={() => { setGame("high_card"); loadLobby(); loadMeta(); }} />;
+  }
+
   return (
     <div className="mx-auto max-w-2xl px-4 pb-28 pt-6" data-testid="casino-page">
       <header className="mb-6 flex items-center gap-3">
-        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-flame to-royal text-white"><Spade className="h-6 w-6" /></span>
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-br from-amber-300 to-yellow-600 text-[#2a1503] shadow-lg"><Crown className="h-6 w-6" /></span>
         <div className="flex-1">
-          <h1 className="font-display text-2xl font-extrabold tracking-tight text-slate-900">Card Games</h1>
-          <p className="text-xs font-medium text-slate-500">Provably fair · virtual coins · High Card (beta)</p>
+          <h1 className="font-display text-2xl font-extrabold tracking-tight text-slate-900">Royal Card Room</h1>
+          <p className="text-xs font-medium text-slate-500">Provably fair · virtual coins · palace tables</p>
         </div>
         {meta.prog && (
           <div className="text-right" data-testid="vip-badge">
@@ -155,15 +164,15 @@ export default function CasinoPage() {
 
       {!tableId ? (
         /* ---------------- Lobby ---------------- */
-        <div data-testid="casino-lobby">
+        <div data-testid="casino-lobby" className="palace-lobby p-4 sm:p-5" style={{ backgroundImage: `url(${PALACE_BACKDROP})` }}>
           {/* Game selector */}
-          <div className="mb-4 grid grid-cols-2 gap-2" data-testid="casino-game-toggle">
+          <div className="mb-4 grid grid-cols-3 gap-2" data-testid="casino-game-toggle">
             {GAMES.map((g) => {
               const Icon = g.icon;
               const on = game === g.id;
               return (
                 <button key={g.id} data-testid={`casino-game-${g.id}`} onClick={() => { setGame(g.id); setTables([]); }}
-                  className={`flex items-center justify-center gap-2 rounded-2xl border py-3 text-sm font-bold transition-colors ${on ? "border-royal bg-royal-light text-royal" : "border-slate-200 bg-white text-slate-500"}`}>
+                  className={`palace-tile flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-bold ${on ? "palace-tile--on text-amber-100" : "text-white/70"}`}>
                   <Icon className="h-4 w-4" /> {g.label}
                 </button>
               );
@@ -171,19 +180,19 @@ export default function CasinoPage() {
           </div>
           {/* Cash / Practice toggle */}
           <div className="mb-4 flex items-center justify-between">
-            <div className="inline-flex rounded-full bg-slate-100 p-1" data-testid="casino-mode-toggle">
+            <div className="inline-flex rounded-full bg-black/30 p-1 ring-1 ring-amber-300/20" data-testid="casino-mode-toggle">
               {[{ id: false, label: "Cash" }, { id: true, label: "Practice" }].map((m) => (
                 <button key={String(m.id)} data-testid={`casino-mode-${m.label.toLowerCase()}`} onClick={() => setPractice(m.id)}
-                  className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${practice === m.id ? "bg-white text-royal shadow-sm" : "text-slate-500"}`}>{m.label}</button>
+                  className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${practice === m.id ? "bg-gradient-to-r from-amber-300 to-yellow-600 text-[#2a1503]" : "text-amber-100/60"}`}>{m.label}</button>
               ))}
             </div>
             {practice && (
-              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700" data-testid="practice-balance">
+              <span className="rounded-full bg-emerald-500/20 px-3 py-1.5 text-xs font-bold text-emerald-200 ring-1 ring-emerald-400/30" data-testid="practice-balance">
                 {meta.practiceBal.toLocaleString()} practice chips
               </span>
             )}
           </div>
-          {practice && <p className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">Practice mode — free chips, no real coins, no payouts. Learn risk-free.</p>}
+          {practice && <p className="mb-4 rounded-xl bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-200 ring-1 ring-amber-300/20">Practice mode — free chips, no real coins, no payouts. Learn risk-free.</p>}
           {game === "rummy_points" && (
             <button data-testid="rummy-quick-play" onClick={quickPlay} disabled={busy}
               className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-600 py-4 text-sm font-black text-black shadow-lift transition-transform hover:-translate-y-0.5 disabled:opacity-70">
@@ -191,33 +200,33 @@ export default function CasinoPage() {
             </button>
           )}
           <button data-testid="casino-create-table" onClick={createTable} disabled={busy}
-            className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-royal py-4 text-sm font-bold text-white shadow-lift transition-transform hover:-translate-y-0.5 disabled:opacity-70">
+            className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/40 bg-black/40 py-4 text-sm font-bold text-amber-100 shadow-lift transition-transform hover:-translate-y-0.5 disabled:opacity-70">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Create {practice ? "Practice" : GAMES.find((g) => g.id === game).label} Table
           </button>
           {loading ? (
-            <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-royal" /></div>
+            <div className="flex justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-amber-300" /></div>
           ) : tables.filter((t) => !!t.is_practice === practice).length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-400" data-testid="casino-no-tables">No open {practice ? "practice" : "cash"} tables yet — create one to get started.</p>
+            <p className="rounded-2xl border border-dashed border-amber-300/25 bg-black/25 p-8 text-center text-sm text-amber-100/60" data-testid="casino-no-tables">No open {practice ? "practice" : "cash"} tables yet — create one to get started.</p>
           ) : (
             <div className="space-y-3">
               {tables.filter((t) => !!t.is_practice === practice).map((t) => {
                 const joinable = t.status === "WAITING" && t.seat_count < t.max_players;
                 return (
-                <div key={t.id} data-testid={`casino-table-${t.id}`} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                <div key={t.id} data-testid={`casino-table-${t.id}`} className="palace-tile flex items-center justify-between rounded-2xl p-4">
                   <div>
-                    <p className="font-bold text-slate-900">{t.name}</p>
-                    <p className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
+                    <p className="font-bold text-amber-100">{t.name}</p>
+                    <p className="mt-0.5 flex items-center gap-3 text-xs text-amber-100/60">
                       <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {t.seat_count}/{t.max_players}</span>
                       <span className="inline-flex items-center gap-1"><Coins className="h-3.5 w-3.5" /> {t.config.point_value != null ? `${t.config.point_value}/pt` : `${t.config.stake} entry`}</span>
-                      {t.status === "RUNNING" && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">In progress</span>}
+                      {t.status === "RUNNING" && <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-200">In progress</span>}
                     </p>
                   </div>
                   {joinable ? (
                     <button data-testid={`casino-join-${t.id}`} onClick={() => joinTable(t.id)} disabled={busy}
-                      className="rounded-full bg-royal px-5 py-2.5 text-xs font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-70">Join</button>
+                      className="rounded-full bg-gradient-to-r from-amber-300 to-yellow-600 px-5 py-2.5 text-xs font-black text-[#2a1503] transition-transform hover:-translate-y-0.5 disabled:opacity-70">Join</button>
                   ) : (
                     <span data-testid={`casino-table-status-${t.id}`}
-                      className="rounded-full bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-400">
+                      className="rounded-full bg-black/30 px-4 py-2.5 text-xs font-bold text-amber-100/40 ring-1 ring-amber-300/15">
                       {t.status === "RUNNING" ? "In progress" : "Full"}
                     </span>
                   )}

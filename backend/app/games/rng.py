@@ -74,6 +74,20 @@ def shuffled_list(items: list[str], server_seed: str, nonce: str) -> list[str]:
     return lst
 
 
+def seed_commit(server_seed: str) -> str:
+    """Seed-pair commitment for instant single-player games (Slots): the player
+    is shown SHA256(server_seed) BEFORE any spin; the seed is revealed on
+    rotation so every past spin can be recomputed."""
+    return hashlib.sha256(server_seed.encode()).hexdigest()
+
+
+def spin_indices(server_seed: str, client_seed: str, nonce: int, count: int, n: int) -> list[int]:
+    """Derive `count` unbiased integers in [0, n) from the seed-pair + nonce via
+    the HMAC-SHA256 stream (rejection sampling). Deterministic + verifiable."""
+    stream = _SeedStream(f"{server_seed}:{client_seed}:{nonce}")
+    return [stream.rand_below(n) for _ in range(count)]
+
+
 def commit_hash(server_seed: str, deck: list[str]) -> str:
     return hashlib.sha256((server_seed + "|" + ",".join(deck)).encode()).hexdigest()
 

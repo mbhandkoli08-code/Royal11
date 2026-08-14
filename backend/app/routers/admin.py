@@ -443,6 +443,48 @@ async def overview():
     }
 
 
+@router.get("/coin-supply", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def coin_supply():
+    """Root coin-supply view for the Super Admin. Coins ENTER the platform ONLY
+    here: the Super Admin *mints* new spendable coins into a Zonal Manager's or
+    Manager's wallet (a pure credit with no source wallet). They then flow down
+    ZM -> Manager -> Admin -> Player. Player recharges do NOT mint new supply;
+    they draw on an Admin's already-funded float / credit line."""
+    minted_agg = await db.ledger_transactions.aggregate([
+        {"$match": {"type": {"$in": [TxnType.SUPER_ADMIN_TO_MANAGER.value,
+                                     TxnType.SUPER_ADMIN_TO_ZONAL.value]},
+                    "status": "COMPLETED"}},
+        {"$group": {"_id": "$type", "total": {"$sum": "$amount"}}},
+    ]).to_list(10)
+    minted_by_type = {r["_id"]: r["total"] for r in minted_agg}
+    total_minted = sum(minted_by_type.values())
+
+    coins_in_circulation = 0
+    async for w in db.wallets.find({}, {"_id": 0, "balance": 1}):
+        coins_in_circulation += w.get("balance", 0)
+
+    # Recipients the Super Admin can mint into (Zonal Managers + Managers).
+    recipients = []
+    async for u in db.users.find(
+            {"role": {"$in": [Role.ZONAL_MANAGER.value, Role.MANAGER.value]}},
+            {"_id": 0, "id": 1, "display_name": 1, "role": 1, "status": 1}):
+        recipients.append({
+            "id": u["id"], "name": u.get("display_name", "—"), "role": u["role"],
+            "status": u.get("status", UserStatus.ACTIVE.value),
+            "wallet_balance": await _wallet_balance(u["id"]),
+        })
+    recipients.sort(key=lambda r: (r["role"] != Role.ZONAL_MANAGER.value, r["name"].lower()))
+
+    return {
+        "total_minted": total_minted,
+        "minted_to_zonal": minted_by_type.get(TxnType.SUPER_ADMIN_TO_ZONAL.value, 0),
+        "minted_to_manager": minted_by_type.get(TxnType.SUPER_ADMIN_TO_MANAGER.value, 0),
+        "coins_in_circulation": coins_in_circulation,
+        "recipients": recipients,
+    }
+
+
+
 @router.get("/transactions", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
 async def list_transactions(limit: int = 50, skip: int = 0, type: Optional[str] = None):
     """Paginated ledger feed with the player -> admin -> manager chain resolved

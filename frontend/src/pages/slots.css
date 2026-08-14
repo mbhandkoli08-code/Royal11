@@ -1,0 +1,141 @@
+/* 777 Slots — classic Las Vegas cabinet (bold red/gold/black, marquee bulbs). */
+.slots-stage {
+  --gold: #f2c94c;
+  --gold-deep: #b8860b;
+  position: relative;
+  border-radius: 26px;
+  background:
+    radial-gradient(90% 70% at 50% -10%, rgba(242,201,76,0.16), transparent 60%),
+    linear-gradient(180deg, #2a0406 0%, #17060a 60%, #0d0406 100%);
+  border: 2px solid rgba(242,201,76,0.5);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.6), inset 0 0 80px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+
+/* Marquee bulb border */
+.slots-marquee {
+  position: absolute; inset: 8px; border-radius: 20px;
+  border: 2px solid rgba(242,201,76,0.35);
+  pointer-events: none;
+  background-image: radial-gradient(circle, rgba(255,236,170,0.95) 0 2px, transparent 3px);
+  background-size: 26px 26px;
+  background-position: 0 0;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  padding: 0;
+  opacity: 0.0;
+}
+.slots-bulbs { position: absolute; inset: 0; border-radius: 24px; pointer-events: none; }
+.slots-bulbs::before, .slots-bulbs::after {
+  content: ""; position: absolute; left: 14px; right: 14px; height: 8px;
+  background-image: radial-gradient(circle, #fff6d0 0 2.4px, rgba(242,201,76,0.25) 3px 4px, transparent 4.2px);
+  background-size: 22px 8px;
+  filter: drop-shadow(0 0 4px rgba(255,220,120,0.8));
+  animation: bulb-chase 0.8s steps(2) infinite;
+}
+.slots-bulbs::before { top: 12px; }
+.slots-bulbs::after { bottom: 12px; }
+@keyframes bulb-chase { 0% { background-position: 0 0; } 100% { background-position: 22px 0; } }
+
+.slots-title {
+  font-weight: 900; letter-spacing: 0.12em;
+  background: linear-gradient(180deg, #fff2c0, #f2c94c 45%, #b8860b);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 2px 10px rgba(242,201,76,0.35);
+}
+
+/* Reel window */
+.slots-reels {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  background: linear-gradient(180deg, #0a0304, #140507);
+  border: 2px solid rgba(242,201,76,0.55);
+  border-radius: 18px; padding: 12px;
+  box-shadow: inset 0 8px 24px rgba(0,0,0,0.7), 0 0 0 4px rgba(0,0,0,0.4);
+}
+.slots-payline {
+  position: absolute; left: 6%; right: 6%; top: 50%; height: 3px;
+  transform: translateY(-1.5px);
+  background: linear-gradient(90deg, transparent, rgba(255,60,80,0.9), transparent);
+  box-shadow: 0 0 14px rgba(255,60,80,0.8); pointer-events: none; z-index: 4;
+}
+.slots-reel {
+  position: relative; overflow: hidden;
+  aspect-ratio: 1/1;
+  border-radius: 14px;
+  background: radial-gradient(120% 120% at 50% 30%, #241014, #0b0406);
+  border: 1px solid rgba(242,201,76,0.3);
+  display: grid; place-items: center;
+}
+.slots-reel img { width: 74%; height: 74%; object-fit: contain; filter: drop-shadow(0 6px 10px rgba(0,0,0,0.6)); }
+.slots-reel--spin img { animation: reel-blur 0.14s linear infinite; }
+@keyframes reel-blur {
+  0% { transform: translateY(-16%) scale(0.94); filter: blur(2px); }
+  50% { transform: translateY(0) scale(1); filter: blur(3px); }
+  100% { transform: translateY(16%) scale(0.94); filter: blur(2px); }
+}
+.slots-reel--win {
+  border-color: var(--gold);
+  box-shadow: 0 0 24px rgba(242,201,76,0.7), inset 0 0 18px rgba(242,201,76,0.35);
+  animation: reel-pop 0.5s ease;
+}
+.slots-reel--near { box-shadow: 0 0 20px rgba(255,120,60,0.6); border-color: rgba(255,140,60,0.8); }
+@keyframes reel-pop { 0% { transform: scale(0.9); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+
+/* Spin lever button */
+.slots-spin-btn {
+  background: linear-gradient(180deg, #ff5a5f, #c41230 60%, #8a0a1e);
+  color: #fff; font-weight: 900; letter-spacing: 0.06em;
+  border: 2px solid rgba(242,201,76,0.7);
+  box-shadow: 0 10px 24px rgba(196,18,48,0.45), inset 0 1px 0 rgba(255,255,255,0.3);
+  transition: transform 0.12s ease, box-shadow 0.12s ease, opacity 0.12s ease;
+}
+.slots-spin-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(196,18,48,0.6); }
+.slots-spin-btn:active:not(:disabled) { transform: translateY(1px) scale(0.98); }
+.slots-spin-btn:disabled { opacity: 0.55; }
+
+.slots-chip {
+  background: linear-gradient(180deg, rgba(242,201,76,0.18), rgba(196,18,48,0.2));
+  border: 1px solid rgba(242,201,76,0.4); color: #ffe9a8;
+}
+
+/* Win overlay */
+.slots-win-overlay {
+  position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 20px;
+  background: rgba(8,2,3,0.6); backdrop-filter: blur(3px);
+  animation: ornate-fade 0.2s ease;
+}
+.slots-win-card {
+  position: relative; width: 100%; max-width: 380px; text-align: center;
+  border-radius: 22px; padding: 28px 22px;
+  background: radial-gradient(120% 90% at 50% -10%, rgba(242,201,76,0.22), transparent 60%), linear-gradient(180deg,#2a0a0c,#160406);
+  border: 2px solid rgba(242,201,76,0.6);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.6);
+  animation: ornate-pop 0.35s cubic-bezier(0.2,1.2,0.4,1);
+}
+.slots-win-card--jackpot { animation: ornate-pop 0.35s cubic-bezier(0.2,1.2,0.4,1), jp-shake 0.5s ease 0.35s 2; }
+@keyframes jp-shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
+
+.slots-amount {
+  font-weight: 900;
+  background: linear-gradient(180deg,#fff2c0,#f2c94c 50%,#b8860b);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+/* Coin/confetti burst */
+.slots-burst { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.slots-burst i {
+  position: absolute; top: 42%; left: 50%; width: 12px; height: 12px; border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, #fff2c0, #f2c94c 55%, #b8860b);
+  box-shadow: 0 0 8px rgba(242,201,76,0.8);
+  animation: slot-fly 0.9s ease-out forwards;
+}
+@keyframes slot-fly {
+  0% { transform: translate(-50%,-50%) scale(0.4); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--x)), calc(-50% + var(--y))) scale(1); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slots-reel--spin img, .slots-bulbs::before, .slots-bulbs::after,
+  .slots-burst i, .slots-win-card { animation: none !important; }
+}

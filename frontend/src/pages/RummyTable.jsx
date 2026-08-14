@@ -11,6 +11,7 @@ import { AddCoins } from "@/components/AddCoins";
 import { PlayingCard } from "@/components/PlayingCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PALACE_BACKDROP, ROYAL_DEALER } from "@/lib/casinoAssets";
+import { WinCelebration, Scoreboard, LowChipsPopup } from "@/components/casino/OrnatePopups";
 
 // Full-count exposure escrowed by the server per seat each deal
 // (rummy_engine: MAX_POINTS * point_value). We mirror it client-side purely as
@@ -79,6 +80,8 @@ export default function RummyTable({ tableId, onLeave }) {
   const [verify, setVerify] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [showAddCoins, setShowAddCoins] = useState(false);
+  const [celebOpen, setCelebOpen] = useState(true);
+  const [showLowChips, setShowLowChips] = useState(false);
   const [theme, setTheme] = useState(() => user?.rummy_theme || localStorage.getItem("royal11_rummy_theme") || "luxury");
   const th = THEMES[theme] || THEMES.luxury;
   const changeTheme = (key) => {
@@ -161,11 +164,11 @@ export default function RummyTable({ tableId, onLeave }) {
   // to avoid stacking two modals.
   useEffect(() => {
     const summaryPending = round?.phase === "SETTLED" && !!round?.result;
-    if (lowBalance && betweenRounds && !summaryPending && !showSummary && !showAddCoins && !rechargePromptedRef.current) {
+    if (lowBalance && betweenRounds && !summaryPending && !showSummary && !showAddCoins && !showLowChips && !rechargePromptedRef.current) {
       rechargePromptedRef.current = true;
-      setShowAddCoins(true);
+      setShowLowChips(true);
     }
-  }, [lowBalance, betweenRounds, round?.phase, round?.result, showSummary, showAddCoins]);
+  }, [lowBalance, betweenRounds, round?.phase, round?.result, showSummary, showAddCoins, showLowChips]);
 
   const groupedIds = useMemo(() => new Set(groups.flat()), [groups]);
   const trayCards = hand.filter((c) => !groupedIds.has(c.id));
@@ -416,42 +419,26 @@ export default function RummyTable({ tableId, onLeave }) {
         </div>
       )}
 
-      {/* Post-round summary */}
-      {showSummary && round?.result && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/75 p-6" data-testid="rummy-summary">
-          <div className="w-full max-w-md rounded-3xl border border-[var(--r-gold)]/30 bg-[#1a1614] p-6">
-            <div className="text-center">
-              <Trophy className="mx-auto h-9 w-9 text-[var(--r-gold)]" />
-              <p className="mt-2 font-display text-xl font-extrabold">{round.result.winner_display_name || "No"} wins</p>
-              <p className="text-xs text-white/50">{round.result.reason} · pot {round.result.pot} · rake {round.result.rake}</p>
-            </div>
-            <div className="mt-4 space-y-1.5">
-              {round.result.players.map((p) => (
-                <div key={p.user_id} className="flex items-center justify-between rounded-xl bg-white/5 px-3 py-2 text-sm" data-testid={`summary-row-${p.user_id}`}>
-                  <span className="font-bold">{p.display_name}{p.user_id === user?.id ? " (You)" : ""}</span>
-                  <span className="flex items-center gap-3">
-                    <span className="text-white/50">{p.points} pts</span>
-                    <span className={`font-black ${p.delta >= 0 ? "text-emerald-300" : "text-rose-300"}`}>{p.delta >= 0 ? "+" : ""}{p.delta}</span>
-                  </span>
-                </div>
-              ))}
-            </div>
-            {round.result.players.find((p) => p.user_id === user?.id && p.error) && (
-              <p className="mt-3 rounded-xl bg-rose-500/15 px-3 py-2 text-xs text-rose-300">Your declaration was invalid: {round.result.players.find((p) => p.user_id === user?.id).error}</p>
-            )}
-            {lowBalance && (
-              <button data-testid="summary-recharge-btn" onClick={() => { setShowSummary(false); setShowAddCoins(true); }}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-400/50 bg-amber-500/10 py-3 text-sm font-black text-amber-300">
-                <Coins className="h-4 w-4" /> Low balance — Recharge to keep playing
-              </button>
-            )}
-            <button data-testid="summary-close" onClick={() => setShowSummary(false)} className="mt-5 w-full rounded-2xl bg-[var(--r-gold)] py-3 text-sm font-black text-black">Continue</button>
-          </div>
-        </div>
+      {/* Post-round summary — ornate Win celebration then Scoreboard */}
+      {showSummary && round?.result && (() => {
+        const items = round.result.players.map((p) => ({ ...p, is_you: p.user_id === user?.id }));
+        const mine = items.find((p) => p.is_you);
+        const closeAll = () => { setShowSummary(false); setCelebOpen(true); };
+        if (celebOpen && mine && (mine.delta ?? 0) > 0) {
+          return <WinCelebration amount={mine.delta} subtitle={`${round.result.winner_display_name || ""} wins · pot ${round.result.pot}`} onClose={() => setCelebOpen(false)} />;
+        }
+        return <Scoreboard players={items} onClose={closeAll} />;
+      })()}
+
+      {/* Low-balance nudge (ornate) */}
+      {showLowChips && (
+        <LowChipsPopup needed={reserveNeeded} have={balance}
+          onGetChips={() => { setShowLowChips(false); setShowAddCoins(true); }}
+          onClose={() => setShowLowChips(false)} />
       )}
 
       {/* Recharge sheet — top up without leaving the table */}
-      <AddCoins open={showAddCoins} onClose={() => { setShowAddCoins(false); refreshWallet(); }} onSubmitted={refreshWallet} />
+      <AddCoins palace open={showAddCoins} onClose={() => { setShowAddCoins(false); refreshWallet(); }} onSubmitted={refreshWallet} />
     </div>
   );
 }
