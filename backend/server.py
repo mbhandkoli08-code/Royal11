@@ -17,7 +17,7 @@ from app.wallet_service import ensure_indexes
 from app.deposit_service import ensure_deposit_indexes
 from app.hierarchy_service import ensure_hierarchy_indexes
 from app.fantasy_service import ensure_fantasy_indexes, settle_due_contests
-from app import revenue_service, storage_service, payroll_service, login_security, otp_service, bonus_service, surprise_box_service
+from app import revenue_service, storage_service, payroll_service, login_security, otp_service, bonus_service, surprise_box_service, support_service, referral_service
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date, timedelta
 from app.routers.auth import router as auth_router
@@ -34,6 +34,9 @@ from app.routers.security import router as security_router
 from app.routers.casino import router as casino_router
 from app.routers.rummy import router as rummy_router
 from app.routers.bonus import router as bonus_router
+from app.routers.support import router as support_router
+from app.routers.referrals import router as referrals_router
+from app.routers.profile import router as profile_router
 from app.games import engine as casino_engine
 from app.games import progression_service as casino_progression
 
@@ -358,6 +361,9 @@ api_router.include_router(security_router)
 api_router.include_router(casino_router)
 api_router.include_router(rummy_router)
 api_router.include_router(bonus_router)
+api_router.include_router(support_router)
+api_router.include_router(referrals_router)
+api_router.include_router(profile_router)
 app.include_router(api_router)
 
 app.add_middleware(
@@ -412,6 +418,8 @@ async def ensure_db_indexes():
     await casino_progression.ensure_indexes()
     await bonus_service.ensure_indexes()
     await surprise_box_service.ensure_indexes()
+    await support_service.ensure_support_indexes()
+    await referral_service.ensure_indexes()
     try:
         await storage_service.init_storage()
         logger.info("Object storage initialized")

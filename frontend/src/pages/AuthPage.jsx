@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock, User as UserIcon, ArrowRight, Loader2, ShieldCheck, Gift, KeyRound } from "lucide-react";
 import { toast } from "sonner";
@@ -55,6 +55,15 @@ export default function AuthPage({ branding = null }) {
   const [resending, setResending] = useState(false);
 
   const isSignup = mode === "signup";
+
+  // Prefill an incoming referral code from the share link (?ref=CODE) and jump
+  // straight to the Sign Up tab so the invite lands cleanly.
+  useEffect(() => {
+    try {
+      const ref = new URLSearchParams(window.location.search).get("ref");
+      if (ref) { setReferralCode(ref.trim().toUpperCase()); setMode("signup"); }
+    } catch { /* noop */ }
+  }, []);
 
   const submit = async (e) => {
     e.preventDefault();

@@ -1,0 +1,29 @@
+{
+  "summary": "End-to-end validation of iter-23 features: Support Tickets (player + staff + Helper 403 matrix), Referral (link + bonus + SA config + SIGNUP-vs-FIRST_RECHARGE reset), Player Profile self-service, and CRITICAL SUPER_ADMIN-only sensitive/lookup access matrix. 35/35 backend pytest cases pass. Frontend: AuthPage ?ref= prefill works, Wallet drawers (Refer/Support/Profile) fully wired, console Player Payout Details panel visible ONLY to Super Admin, reveal modal shows full details with audit-log confirmation.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_royal11_iter23_support_referral_profile.py",
+    "/app/test_reports/pytest/iter23.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "support_service._scope_admin_ids returns []] for SUPPORT_HELPER with no created_by (edge case) — behaves as expected (empty scope = no tickets), no fix needed but worth a comment.",
+    "auth submit button uses type=\"submit\" (auth-submit-btn) on player app but console login button is not type=submit — click via role name works but keeping consistency (or Enter-to-submit) would help.",
+    "WalletPage renders three drawer components (SupportPlayer, ReferAndEarn, ProfilePayout) always mounted; they short-circuit via `if (!open) return null;` — OK, but consider AnimatePresence for consistent enter/exit animations."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_royal11_iter23_support_referral_profile.py (new)"
+  ],
+  "success_rate": {"backend": "100% (35/35)", "frontend": "100% (all critical drawers + SA-only nav verified)"},
+  "test_credentials": "SUPER_ADMIN superadmin@royal11.com / ChangeMe123!; ADMIN admin1@royal11.com; MANAGER manager1@royal11.com; PLAYER player1@royal11.com. Helper accounts created at runtime (test_helper_*@royal11.com / HelperPass123!). Referral SA config left at qualify_event=FIRST_RECHARGE (reset in finally block).",
+  "seed_data_creation": "Test-created data: multiple TEST_it23 support tickets under player1, one Support Helper user per test run (test_helper_<uuid>@royal11.com), a couple of throwaway referee accounts (test_ref_<uuid>@royal11.com) linked to player1's referral code. Bonus rail credited to referees + rewarded referrer. Player1 profile updated with mobile 9876543210, HDFC bank + test_it23@upi and consent opt-in on.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend features are solid. Full role matrix verified: SUPER_ADMIN 200 / ADMIN,MANAGER,PLAYER 403 on both /api/admin/players/lookup and /api/admin/players/{id}/sensitive. SUPPORT_HELPER 403 on /api/admin/overview, /my-players, /transactions, /grant and /support/admin/helpers POST. Support ticket flow OPEN->IN_PROGRESS on staff reply verified; internal note visible to admin but hidden from player verified via DB & API. Escalation increments level and sets escalated_to. Referral SIGNUP path also verified end-to-end (config toggled and reset). PLAYER_SENSITIVE_VIEWED audit log confirmed in Mongo after SA reveal. On the frontend, click open drawers via JS `.click()` if native Playwright click intermittently misses (works reliably). Console login button lacks type=submit — use get_by_role('button', name='Sign in').",
+  "rca of the issue": "N/A — no regressions or blocking issues. Two initial test failures during authoring were self-inflicted (invalid TicketCategory 'OTHER' vs actual 'GENERAL' and wrong endpoint /wallet/me instead of /bonus/me for bonus balance) — fixed in the test file, all 35 tests now green."
+}

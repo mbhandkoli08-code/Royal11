@@ -129,6 +129,13 @@ async def record_wager(user_id: str, amount: int) -> None:
     Call once per settled real-money wager. Never counts practice play."""
     if amount <= 0:
         return
+    # Referral qualification — a referred player's FIRST real-money wager can
+    # release the referrer's held bonus (best-effort; no-ops unless config matches).
+    try:
+        from . import referral_service
+        await referral_service.try_qualify(user_id, "FIRST_WAGER", amount)
+    except Exception:
+        pass
     cfg = await get_config()
     remaining = amount
     while remaining > 0:

@@ -7,6 +7,11 @@ import {
   Globe2, ClipboardList, Trophy, Palette, ShieldAlert,
 } from "lucide-react";
 import { Gift } from "lucide-react";
+import { LifeBuoy, Headset } from "lucide-react";
+import { SupportPanel } from "@/console/SupportPanel";
+import { SupportTeamPanel } from "@/console/SupportTeamPanel";
+import { PlayerPayoutPanel } from "@/console/PlayerPayoutPanel";
+import { Landmark as LandmarkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { ApiKeysPanel } from "@/components/ApiKeysPanel";
@@ -56,6 +61,15 @@ const NAV = {
     { section: "System", items: [
       { id: "apikeys", label: "API Keys", icon: KeyRound },
       { id: "security", label: "Login Security", icon: ShieldAlert },
+      { id: "player-payout", label: "Player Payout Details", icon: LandmarkIcon },
+    ] },
+    { section: "Support", items: [
+      { id: "support", label: "Support Tickets", icon: LifeBuoy },
+    ] },
+  ],
+  SUPPORT_HELPER: [
+    { section: "Support", items: [
+      { id: "support", label: "Support Tickets", icon: LifeBuoy },
     ] },
   ],
   ZONAL_MANAGER: [
@@ -68,6 +82,9 @@ const NAV = {
     ] },
     { section: "Reports", items: [
       { id: "casino-commission", label: "Casino Commission", icon: Landmark },
+    ] },
+    { section: "Support", items: [
+      { id: "support", label: "Support Tickets", icon: LifeBuoy },
     ] },
   ],
   MANAGER: [
@@ -82,6 +99,9 @@ const NAV = {
     ] },
     { section: "Reports", items: [
       { id: "casino-commission", label: "Casino Commission", icon: Landmark },
+    ] },
+    { section: "Support", items: [
+      { id: "support", label: "Support Tickets", icon: LifeBuoy },
     ] },
   ],
   ADMIN: [
@@ -101,10 +121,14 @@ const NAV = {
     { section: "System", items: [
       { id: "branding", label: "Login Branding", icon: Palette },
     ] },
+    { section: "Support", items: [
+      { id: "support", label: "Support Tickets", icon: LifeBuoy },
+      { id: "support-team", label: "Support Team", icon: Headset },
+    ] },
   ],
 };
 
-const ROLE_BADGE = { SUPER_ADMIN: "SUPER", ZONAL_MANAGER: "ZONAL", MANAGER: "MANAGER", ADMIN: "ADMIN" };
+const ROLE_BADGE = { SUPER_ADMIN: "SUPER", ZONAL_MANAGER: "ZONAL", MANAGER: "MANAGER", ADMIN: "ADMIN", SUPPORT_HELPER: "SUPPORT" };
 
 const Brand = () => (
   <div className="flex items-center gap-2.5" data-testid="console-brand">
@@ -189,6 +213,9 @@ export default function ConsolePage() {
       case "my-admins": return <MyAdminsPanel query={query} />;
       case "my-players": return <MyPlayersPanel query={query} />;
       case "my-transactions": return <MyTransactionsPanel />;
+      case "support": return <SupportPanel />;
+      case "support-team": return <SupportTeamPanel />;
+      case "player-payout": return <PlayerPayoutPanel />;
       default: return null;
     }
   };

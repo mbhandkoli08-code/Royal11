@@ -13,6 +13,7 @@ class Role(str, Enum):
     ZONAL_MANAGER = "ZONAL_MANAGER"
     MANAGER = "MANAGER"
     ADMIN = "ADMIN"
+    SUPPORT_HELPER = "SUPPORT_HELPER"
     PLAYER = "PLAYER"
 
 
@@ -293,3 +294,78 @@ class RevenueSplitRequest(BaseModel):
 
 class SettleRequest(BaseModel):
     note: Optional[str] = Field(default=None, max_length=200)
+
+
+# ---------------------------------------------------------------------------
+# Support / Complaints tickets (+ Support Helper staff role)
+# ---------------------------------------------------------------------------
+class TicketCategory(str, Enum):
+    DEPOSIT = "DEPOSIT"
+    WITHDRAWAL = "WITHDRAWAL"
+    GAME = "GAME"
+    ACCOUNT = "ACCOUNT"
+    GENERAL = "GENERAL"
+
+
+class TicketStatus(str, Enum):
+    OPEN = "OPEN"
+    IN_PROGRESS = "IN_PROGRESS"
+    RESOLVED = "RESOLVED"
+    CLOSED = "CLOSED"
+
+
+class TicketPriority(str, Enum):
+    LOW = "LOW"
+    NORMAL = "NORMAL"
+    HIGH = "HIGH"
+
+
+class SupportTicketCreate(BaseModel):
+    category: TicketCategory = TicketCategory.GENERAL
+    subject: str = Field(min_length=3, max_length=140)
+    description: str = Field(min_length=3, max_length=2000)
+    related_ref: Optional[str] = Field(default=None, max_length=80)
+
+
+class SupportMessageCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=2000)
+    internal: bool = False  # staff-only note; ignored/forced False for players
+
+
+class TicketStatusUpdate(BaseModel):
+    status: TicketStatus
+
+
+class CreateSupportHelperRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(min_length=8)
+    display_name: str = Field(min_length=1, max_length=80)
+
+
+class SetHelperStatusRequest(BaseModel):
+    status: UserStatus
+
+
+# ---------------------------------------------------------------------------
+# Player-owned profile: contact + payout details + marketing consent.
+# Read of these sensitive fields is restricted to SUPER_ADMIN only.
+# ---------------------------------------------------------------------------
+class PlayerBankInput(BaseModel):
+    account_holder_name: Optional[str] = Field(default=None, max_length=120)
+    account_number: Optional[str] = Field(default=None, max_length=34)
+    ifsc: Optional[str] = Field(default=None, max_length=15)
+    bank_name: Optional[str] = Field(default=None, max_length=120)
+
+
+class MarketingConsent(BaseModel):
+    marketing_opt_in: bool = False
+    sms: bool = False
+    whatsapp: bool = False
+    push: bool = False
+
+
+class PlayerProfileUpdate(BaseModel):
+    mobile: Optional[str] = Field(default=None, max_length=20)
+    upi_id: Optional[str] = Field(default=None, max_length=100)
+    bank: Optional[PlayerBankInput] = None
+    consent: Optional[MarketingConsent] = None

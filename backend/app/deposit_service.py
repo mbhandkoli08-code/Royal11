@@ -200,6 +200,14 @@ async def confirm_deposit(deposit_id: str, admin_id: str, note: Optional[str]) -
     except Exception:
         pass  # bonus is best-effort; never blocks the core credit
 
+    # Referral qualification — a referred player's FIRST recharge can release the
+    # referrer's held bonus (best-effort; no-ops unless config matches).
+    try:
+        from . import referral_service
+        await referral_service.try_qualify(dep["player_id"], "FIRST_RECHARGE", dep["coins_to_credit"])
+    except Exception:
+        pass
+
     return await db.deposits.find_one({"id": deposit_id}, {"_id": 0})
 
 

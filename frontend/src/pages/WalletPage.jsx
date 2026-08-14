@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  ChevronLeft, TrendingUp, TrendingDown, Award, HelpCircle, Gift,
-  Users, Dice5, Sparkles, Trophy, Flame, ShieldCheck, Zap, Coins,
+  ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Award, HelpCircle, Gift,
+  Users, Dice5, Sparkles, Trophy, Flame, ShieldCheck, Zap, Coins, LifeBuoy, Landmark,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useWallet } from "@/context/WalletContext";
@@ -13,6 +13,9 @@ import { RewardsStore } from "@/components/RewardsStore";
 import { AddCoins } from "@/components/AddCoins";
 import { BonusCard } from "@/components/BonusCard";
 import { SurpriseBox } from "@/components/SurpriseBox";
+import { SupportPlayer } from "@/components/SupportPlayer";
+import { ReferAndEarn } from "@/components/ReferAndEarn";
+import { ProfilePayout } from "@/components/ProfilePayout";
 
 const fmt = (n) => n.toLocaleString("en-IN");
 
@@ -24,6 +27,9 @@ export default function WalletPage() {
   const { user } = useAuth();
   const [storeOpen, setStoreOpen] = useState(false);
   const [addCoinsOpen, setAddCoinsOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [referOpen, setReferOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   const [now, setNow] = useState(Date.now());
   const boostActive = boostUntil && now < boostUntil;
@@ -206,8 +212,51 @@ export default function WalletPage() {
         </div>
       </section>
 
+      {/* Help & Support */}
+      <section className="mt-8 space-y-3">
+        <button
+          data-testid="wallet-refer-btn"
+          onClick={() => setReferOpen(true)}
+          className="flex w-full items-center gap-4 rounded-3xl bg-gradient-to-br from-royal to-flame p-5 text-left text-white shadow-soft transition-transform hover:-translate-y-0.5"
+        >
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/20"><Gift className="h-6 w-6" /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold">Refer &amp; Earn</p>
+            <p className="text-xs text-white/80">Invite friends — you both get bonus coins.</p>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-white/70" />
+        </button>
+        <button
+          data-testid="wallet-support-btn"
+          onClick={() => setSupportOpen(true)}
+          className="flex w-full items-center gap-4 rounded-3xl bg-white p-5 text-left shadow-soft transition-transform hover:-translate-y-0.5"
+        >
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-royal-light text-royal"><LifeBuoy className="h-6 w-6" /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-slate-900">Help &amp; Support</p>
+            <p className="text-xs text-slate-500">Deposit not credited? Game issue? Raise a ticket and track it here.</p>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
+        </button>
+        <button
+          data-testid="wallet-profile-btn"
+          onClick={() => setProfileOpen(true)}
+          className="flex w-full items-center gap-4 rounded-3xl bg-white p-5 text-left shadow-soft transition-transform hover:-translate-y-0.5"
+        >
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-100 text-slate-700"><Landmark className="h-6 w-6" /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-slate-900">Profile &amp; Payout</p>
+            <p className="text-xs text-slate-500">Add your mobile, bank/UPI and message preferences — private to you.</p>
+          </div>
+          <ChevronRight className="h-5 w-5 shrink-0 text-slate-300" />
+        </button>
+      </section>
+
       <RewardsStore open={storeOpen} onClose={() => setStoreOpen(false)} />
       <AddCoins open={addCoinsOpen} onClose={() => setAddCoinsOpen(false)} onSubmitted={refresh} />
+      <SupportPlayer open={supportOpen} onClose={() => setSupportOpen(false)} />
+      <ReferAndEarn open={referOpen} onClose={() => setReferOpen(false)} />
+      <ProfilePayout open={profileOpen} onClose={() => setProfileOpen(false)} />
     </div>
   );
 }

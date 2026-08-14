@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Gift, Crown, Sparkles, Save, Loader2 } from "lucide-react";
+import { Gift, Crown, Sparkles, Save, Loader2, Users } from "lucide-react";
 import { toast } from "sonner";
 import { useConsoleApi } from "./api";
 import { CARD, PanelHeader, Spinner } from "./primitives";
@@ -40,16 +40,18 @@ export const RewardsConfigPanel = () => {
   const [bonus, setBonus] = useState(null);
   const [vip, setVip] = useState(null);
   const [box, setBox] = useState(null);
+  const [referral, setReferral] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [b, v, s] = await Promise.all([
-        api.get("/bonus/config"), api.get("/casino/admin/vip-config"), api.get("/bonus/surprise-box-config"),
+      const [b, v, s, r] = await Promise.all([
+        api.get("/bonus/config"), api.get("/casino/admin/vip-config"),
+        api.get("/bonus/surprise-box-config"), api.get("/referrals/admin/config"),
       ]);
-      setBonus(b.data); setVip(v.data); setBox(s.data);
+      setBonus(b.data); setVip(v.data); setBox(s.data); setReferral(r.data);
     } catch { toast.error("Couldn't load reward configs"); }
     finally { setLoading(false); }
   }, [api]);
@@ -129,6 +131,43 @@ export const RewardsConfigPanel = () => {
           ))}
         </div>
       </Section>
+
+      {/* Referral program */}
+      {referral && (
+        <Section icon={Users} title="Referral Program" desc="Invite rewards for both the referrer and the new player (paid via the bonus rail)." saving={saving === "referral-program"}
+          onSave={() => save("referral-program", "/referrals/admin/config", {
+            enabled: referral.enabled,
+            referrer_amount: Number(referral.referrer_amount),
+            referee_amount: Number(referral.referee_amount),
+            qualify_event: referral.qualify_event,
+            qualify_min_amount: Number(referral.qualify_min_amount),
+            max_referrals_per_user: Number(referral.max_referrals_per_user),
+          })}>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <label className="block">
+              <span className="mb-1 block text-xs font-bold text-slate-500">Enabled</span>
+              <select value={referral.enabled ? "1" : "0"} onChange={(e) => setReferral({ ...referral, enabled: e.target.value === "1" })} data-testid="cfg-referral-enabled"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-900 focus:border-royal focus:outline-none">
+                <option value="1">On</option>
+                <option value="0">Off</option>
+              </select>
+            </label>
+            <Field label="Referrer Reward" value={referral.referrer_amount} suffix="coins" onChange={(v) => setReferral({ ...referral, referrer_amount: v })} />
+            <Field label="Referee Reward" value={referral.referee_amount} suffix="coins" onChange={(v) => setReferral({ ...referral, referee_amount: v })} />
+            <label className="block">
+              <span className="mb-1 block text-xs font-bold text-slate-500">Qualify Event</span>
+              <select value={referral.qualify_event} onChange={(e) => setReferral({ ...referral, qualify_event: e.target.value })} data-testid="cfg-referral-qualify-event"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-900 focus:border-royal focus:outline-none">
+                <option value="SIGNUP">On signup</option>
+                <option value="FIRST_RECHARGE">First recharge</option>
+                <option value="FIRST_WAGER">First wager</option>
+              </select>
+            </label>
+            <Field label="Qualify Min" value={referral.qualify_min_amount} suffix="coins" onChange={(v) => setReferral({ ...referral, qualify_min_amount: v })} />
+            <Field label="Max Referrals / User" value={referral.max_referrals_per_user} onChange={(v) => setReferral({ ...referral, max_referrals_per_user: v })} />
+          </div>
+        </Section>
+      )}
     </div>
   );
 };

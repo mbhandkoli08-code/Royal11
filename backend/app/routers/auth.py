@@ -7,7 +7,7 @@ from pymongo.errors import DuplicateKeyError
 
 from .. import assignment_service, wallet_service, login_security, otp_service
 from ..audit import log_action
-from ..constants import INACTIVITY_NUDGE_DAYS, REFERRAL_BONUS_COINS
+from ..constants import INACTIVITY_NUDGE_DAYS
 from ..db import db
 from ..deps import get_current_user
 from ..models import (
@@ -37,17 +37,6 @@ async def _generate_referral_code() -> str:
         if not await db.users.find_one({"referral_code": code}, {"_id": 0, "id": 1}):
             return code
     return uuid.uuid4().hex[:12].upper()
-
-
-async def _credit_referrer(referral_code: str, new_user_id: str) -> None:
-    referrer = await db.users.find_one({"referral_code": referral_code}, {"_id": 0})
-    if not referrer or referrer["id"] == new_user_id:
-        return
-    await db.users.update_one({"id": new_user_id}, {"$set": {"referred_by": referrer["id"]}})
-    await wallet_service.credit(
-        referrer["id"], TxnType.REFERRAL_BONUS, REFERRAL_BONUS_COINS,
-        reason="Referral bonus", request_id=f"referral:{new_user_id}",
-    )
 
 
 @router.post("/register")
@@ -100,7 +89,11 @@ async def _activate_player(user: dict) -> None:
     admin_id = await assignment_service.auto_assign_player(user["id"])
     ref = user.get("pending_referral_code")
     if ref:
-        await _credit_referrer(ref, user["id"])
+        try:
+            from .. import referral_service
+            await referral_service.register_referral(user, ref)
+        except Exception:
+            pass  # referral is best-effort; never blocks activation
     await log_action(user["id"], "PLAYER_CREATED", target_type="user", target_id=user["id"],
                      metadata={"auto_assigned_admin_id": admin_id})
 
