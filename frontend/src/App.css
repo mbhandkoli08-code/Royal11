@@ -1,3 +1,39 @@
 .App {
   min-height: 100vh;
 }
+
+/* ---------------------------------------------------------------------------
+   Rummy table ambient atmosphere (elegant Vegas-lounge). Purely decorative,
+   pointer-events:none. Kept low-opacity so it never competes with cards or the
+   live meld-assist UI.
+--------------------------------------------------------------------------- */
+@keyframes r-float {
+  0%   { transform: translateY(0) scale(1);      opacity: 0; }
+  12%  { opacity: 0.55; }
+  55%  { opacity: 0.8; }
+  88%  { opacity: 0.35; }
+  100% { transform: translateY(-160px) scale(1.15); opacity: 0; }
+}
+@keyframes r-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(28px, -22px); }
+}
+@keyframes r-twinkle {
+  0%, 100% { opacity: 0.15; }
+  50%      { opacity: 0.85; }
+}
+@keyframes r-rays {
+  0%   { transform: translateX(-6%) rotate(-2deg); opacity: 0.20; }
+  50%  { opacity: 0.42; }
+  100% { transform: translateX(6%) rotate(2deg);   opacity: 0.20; }
+}
+
+.r-ambiance { will-change: transform, opacity; }
+
+@media (prefers-reduced-motion: reduce) {
+  .r-ambiance,
+  .r-ambiance * {
+    animation: none !important;
+  }
+}
+

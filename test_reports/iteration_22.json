@@ -1,0 +1,25 @@
+{
+  "summary": "Frontend-only regression per review request: verified responsive nav shell (desktop full sidebar, tablet 76px icon-rail, mobile bottom-nav), route navigation across Home/Sports/Fantasy/Cards/Games/Wallet at all breakpoints, and the Rummy table Theme picker + ambiance + summary-modal re-open fix. All 8 scenarios pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Global", "issues": ["Non-blocking console warning: 'Please ensure that the container has a non-static position...' (likely framer-motion layoutId scroll offset warning). Cosmetic only."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "SideNav/BottomNav share identical ITEMS array – consider extracting to a shared constants module to keep them in sync (DRY).",
+    "Framer-motion scroll offset warning surfaces on every page — investigate parent positioning of the animated element (likely nav-pill layoutId in BottomNav) to silence noise."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "test_credentials": "player1@royal11.com / ChangeMe123! (verified working)",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Nav shell + Rummy theme/ambiance/summary-modal fix all verified across 1920x900, 800x1100, 390x844. Rummy summary modal correctly stays dismissed after close (verified 3.5s wait, no re-open). Theme picker updates data-rummy-theme attribute correctly for red_felt/green_felt/luxury. Ambiance layer present and non-blocking. All side-nav-* and nav-* testids functional.",
+  "rca of the issue": "N/A – no issues found. Prior summary-modal re-open bug (unstable useEffect dep) confirmed fixed via round.id gating in summaryShownFor ref."
+}

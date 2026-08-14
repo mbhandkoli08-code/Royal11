@@ -1,21 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { Home, Trophy, Users, Gamepad2, Wallet, Spade } from "lucide-react";
 import { motion } from "framer-motion";
-
-const ITEMS = [
-  { to: "/", label: "Home", icon: Home, id: "home" },
-  { to: "/sports", label: "Sports", icon: Trophy, id: "sports" },
-  { to: "/fantasy", label: "Fantasy", icon: Users, id: "fantasy" },
-  { to: "/casino", label: "Cards", icon: Spade, id: "casino" },
-  { to: "/games", label: "Games", icon: Gamepad2, id: "games" },
-  { to: "/wallet", label: "Wallet", icon: Wallet, id: "wallet" },
-];
+import { NAV_ITEMS as ITEMS } from "@/lib/navItems";
 
 export const BottomNav = () => {
   return (
     <nav
       data-testid="bottom-nav"
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-100 bg-white/80 backdrop-blur-xl"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-100 bg-white/80 backdrop-blur-xl md:hidden"
     >
       <div className="mx-auto flex max-w-2xl items-stretch justify-between px-3 py-2 sm:px-6">
         {ITEMS.map((item) => {

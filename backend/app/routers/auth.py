@@ -199,6 +199,20 @@ async def set_console_theme(payload: ConsoleThemeRequest, user: dict = Depends(g
     return {"console_theme": theme}
 
 
+RUMMY_THEMES = {"luxury", "red_felt", "green_felt"}
+
+
+class RummyThemeRequest(BaseModel):
+    theme: str
+
+
+@router.put("/rummy-theme")
+async def set_rummy_theme(payload: RummyThemeRequest, user: dict = Depends(get_current_user)):
+    theme = payload.theme if payload.theme in RUMMY_THEMES else "luxury"
+    await db.users.update_one({"id": user["id"]}, {"$set": {"rummy_theme": theme}})
+    return {"rummy_theme": theme}
+
+
 @router.post("/activity")
 async def activity(user: dict = Depends(get_current_user)):
     """Called when the app opens. Returns a one-time, non-punitive nudge if the

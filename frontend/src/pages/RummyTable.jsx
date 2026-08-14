@@ -4,10 +4,25 @@ import { toast } from "sonner";
 import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, Sparkles, Wifi, WifiOff } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { classifyGroup, evaluateHand, provisionalDeadwood } from "@/lib/rummy";
+import { RummyAmbiance } from "@/components/RummyAmbiance";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SUIT = { s: "\u2660", h: "\u2665", d: "\u2666", c: "\u2663" };
 const RED = new Set(["h", "d"]);
+
+// Per-player table skins — only the felt surface + accent/background change; the
+// card art, layout and live meld-assist are identical across themes.
+const THEMES = {
+  luxury: { label: "Charcoal", gold: "#d4af37", felt: "#141110", swatch: "#1a1614",
+    bg: "radial-gradient(1200px 600px at 50% -10%, #221c19 0%, #141110 55%, #0c0a09 100%)",
+    panel: "linear-gradient(180deg, rgba(30,25,22,.9), rgba(16,13,12,.95))" },
+  red_felt: { label: "Red Felt", gold: "#f0d68a", felt: "#5c1018", swatch: "#7a1420",
+    bg: "radial-gradient(1200px 600px at 50% -10%, #7a1420 0%, #4a0d14 55%, #2a070b 100%)",
+    panel: "linear-gradient(180deg, rgba(122,20,32,.5), rgba(74,13,20,.85))" },
+  green_felt: { label: "Green Felt", gold: "#e8d59a", felt: "#0f5132", swatch: "#0f5132",
+    bg: "radial-gradient(1200px 600px at 50% -10%, #14663f 0%, #0c3d26 55%, #062316 100%)",
+    panel: "linear-gradient(180deg, rgba(15,81,50,.5), rgba(9,48,30,.9))" },
+};
 
 const RCard = ({ card, selected, onClick, small, plain }) => {
   const size = small ? "h-12 w-9 text-sm" : "h-16 w-11 text-base";
@@ -56,8 +71,16 @@ export default function RummyTable({ tableId, onLeave }) {
   const [showDrop, setShowDrop] = useState(false);
   const [verify, setVerify] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [theme, setTheme] = useState(() => user?.rummy_theme || localStorage.getItem("royal11_rummy_theme") || "luxury");
+  const th = THEMES[theme] || THEMES.luxury;
+  const changeTheme = (key) => {
+    setTheme(key);
+    localStorage.setItem("royal11_rummy_theme", key);
+    axios.put(`${API}/auth/rummy-theme`, { theme: key }, { headers }).catch(() => {});
+  };
   const pollRef = useRef(null);
   const hbRef = useRef(0);
+  const summaryShownFor = useRef(null);
 
   const round = state?.round;
   const wildRank = round?.wild?.rank;
@@ -90,11 +113,16 @@ export default function RummyTable({ tableId, onLeave }) {
     const ids = new Set(hand.map((c) => c.id));
     setGroups((prev) => prev.map((g) => g.filter((id) => ids.has(id))).filter((g) => g.length));
     setSelected((prev) => prev.filter((id) => ids.has(id)));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [handKey]);
 
-  // Show the post-round summary once when the round settles.
-  useEffect(() => { if (round?.phase === "SETTLED" && round?.result) setShowSummary(true); }, [round?.phase, round?.result]);
+  // Show the post-round summary once per settled round (guard against poll
+  // refreshes re-opening it after the player dismisses it).
+  useEffect(() => {
+    if (round?.phase === "SETTLED" && round?.result && summaryShownFor.current !== round.id) {
+      summaryShownFor.current = round.id;
+      setShowSummary(true);
+    }
+  }, [round?.phase, round?.result, round?.id]);
 
   const groupedIds = useMemo(() => new Set(groups.flat()), [groups]);
   const trayCards = hand.filter((c) => !groupedIds.has(c.id));
@@ -132,10 +160,11 @@ export default function RummyTable({ tableId, onLeave }) {
   const canStart = !round || settled;
 
   return (
-    <div data-testid="rummy-table" data-rummy-theme="luxury"
-      className="min-h-screen text-white [--r-gold:#d4af37] [--r-felt:#141110]"
-      style={{ background: "radial-gradient(1200px 600px at 50% -10%, #221c19 0%, #141110 55%, #0c0a09 100%)" }}>
-      <div className="mx-auto max-w-3xl px-4 pb-40 pt-5 lg:max-w-5xl">
+    <div data-testid="rummy-table" data-rummy-theme={theme}
+      className="relative min-h-screen overflow-hidden text-white"
+      style={{ background: th.bg, "--r-gold": th.gold, "--r-felt": th.felt }}>
+      <RummyAmbiance />
+      <div className="relative z-10 mx-auto max-w-3xl px-4 pb-40 pt-5 lg:max-w-5xl">
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -149,6 +178,14 @@ export default function RummyTable({ tableId, onLeave }) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Theme picker */}
+            <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/20 p-1" data-testid="rummy-theme-picker">
+              {Object.entries(THEMES).map(([key, t]) => (
+                <button key={key} data-testid={`rummy-theme-${key}`} onClick={() => changeTheme(key)} title={t.label}
+                  className={`h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 ${theme === key ? "border-[var(--r-gold)]" : "border-white/20"}`}
+                  style={{ background: t.swatch }} />
+              ))}
+            </div>
             <span data-testid="rummy-conn" className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${conn ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/20 text-rose-300 animate-pulse"}`}>
               {conn ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}{conn ? "Live" : "Reconnecting"}
             </span>
@@ -158,7 +195,7 @@ export default function RummyTable({ tableId, onLeave }) {
         </div>
 
         {/* Opponents + wild */}
-        <div className="rounded-3xl border border-[var(--r-gold)]/20 bg-[var(--r-felt)]/60 p-4 shadow-2xl" style={{ background: "linear-gradient(180deg, rgba(30,25,22,.9), rgba(16,13,12,.95))" }}>
+        <div className="rounded-3xl border border-[var(--r-gold)]/20 p-4 shadow-2xl" style={{ background: th.panel }}>
           <div className="mb-3 flex flex-wrap items-center gap-2" data-testid="rummy-players">
             {players.map((p) => {
               const isTurn = round?.turn?.user_id === p.user_id && playing;
@@ -278,7 +315,7 @@ export default function RummyTable({ tableId, onLeave }) {
           <div className="w-full max-w-xs rounded-3xl border border-white/10 bg-[#1a1614] p-6 text-center">
             <Flag className="mx-auto h-8 w-8 text-amber-300" />
             <p className="mt-3 font-display text-lg font-extrabold">Drop this hand?</p>
-            <p className="mt-1 text-sm text-white/50">You'll concede {round?.players?.find((p) => p.is_you)?.has_ever_drawn === false ? 20 : 40} points and sit out this deal.</p>
+            <p className="mt-1 text-sm text-white/50">You&apos;ll concede {round?.players?.find((p) => p.is_you)?.has_ever_drawn === false ? 20 : 40} points and sit out this deal.</p>
             <div className="mt-5 flex gap-2">
               <button onClick={() => setShowDrop(false)} className="flex-1 rounded-2xl bg-white/10 py-3 text-sm font-bold">Cancel</button>
               <button data-testid="drop-confirm" onClick={doDrop} className="flex-1 rounded-2xl bg-amber-400 py-3 text-sm font-black text-black">Drop</button>

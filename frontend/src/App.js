@@ -7,6 +7,7 @@ import { Construction, Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { WalletProvider } from "@/context/WalletContext";
 import { BottomNav } from "@/components/BottomNav";
+import { SideNav } from "@/components/SideNav";
 import { WelcomeAgentModal } from "@/components/WelcomeAgentModal";
 import FantasyPage from "@/pages/FantasyPage";
 import CasinoPage from "@/pages/CasinoPage";
@@ -51,15 +52,18 @@ const ProtectedShell = () => {
     <WalletProvider>
       <ScrollTop />
       <WelcomeAgentModal />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/wallet" element={<WalletPage />} />
-        <Route path="/sports" element={<SportsPage />} />
-        <Route path="/fantasy" element={<FantasyPage />} />
-        <Route path="/games" element={<Placeholder title="Games" />} />
-        <Route path="/casino" element={<CasinoPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <SideNav />
+      <div className="md:pl-[76px] lg:pl-64">
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/wallet" element={<WalletPage />} />
+          <Route path="/sports" element={<SportsPage />} />
+          <Route path="/fantasy" element={<FantasyPage />} />
+          <Route path="/games" element={<Placeholder title="Games" />} />
+          <Route path="/casino" element={<CasinoPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
       <BottomNav />
     </WalletProvider>
   );
