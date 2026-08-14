@@ -37,3 +37,46 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Independence Day — continuous cloth-flutter for the tricolor flag (loops
+   like wind; never spins/rotates fully). Subtle, GPU-friendly transforms.
+--------------------------------------------------------------------------- */
+@keyframes id-flag-wave {
+  0%   { transform: skewX(0deg) skewY(0deg) rotate(0deg); }
+  15%  { transform: skewX(-2.2deg) skewY(0.7deg) rotate(0.5deg); }
+  30%  { transform: skewX(1.6deg) skewY(-0.5deg) rotate(-0.4deg); }
+  45%  { transform: skewX(-1.6deg) skewY(0.5deg) rotate(0.4deg); }
+  60%  { transform: skewX(1.1deg) skewY(-0.35deg) rotate(-0.3deg); }
+  75%  { transform: skewX(-1.0deg) skewY(0.3deg) rotate(0.25deg); }
+  100% { transform: skewX(0deg) skewY(0deg) rotate(0deg); }
+}
+@keyframes id-flag-shine {
+  0%   { background-position: 130% 0; }
+  100% { background-position: -50% 0; }
+}
+.id-flag-cloth {
+  transform-origin: left center;
+  animation: id-flag-wave 3.6s ease-in-out infinite;
+  will-change: transform;
+}
+.id-flag-cloth::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(105deg, rgba(255,255,255,0) 34%, rgba(255,255,255,0.4) 47%, rgba(255,255,255,0) 60%);
+  background-size: 250% 100%;
+  animation: id-flag-shine 3.6s ease-in-out infinite;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+@keyframes id-dove {
+  0%   { transform: translate(0, 0) rotate(0deg); opacity: 0; }
+  15%  { opacity: 0.85; }
+  100% { transform: translate(var(--dx, 40px), var(--dy, -30px)) rotate(-6deg); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .id-flag-cloth, .id-flag-cloth::after { animation: none !important; }
+}
+
+

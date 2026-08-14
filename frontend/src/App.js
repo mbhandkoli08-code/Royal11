@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { WalletProvider } from "@/context/WalletContext";
 import { BottomNav } from "@/components/BottomNav";
 import { SideNav } from "@/components/SideNav";
+import { isIndependenceWindow } from "@/lib/festive";
 import { WelcomeAgentModal } from "@/components/WelcomeAgentModal";
 import FantasyPage from "@/pages/FantasyPage";
 import CasinoPage from "@/pages/CasinoPage";
@@ -52,6 +53,11 @@ const ProtectedShell = () => {
     <WalletProvider>
       <ScrollTop />
       <WelcomeAgentModal />
+      {isIndependenceWindow() && (
+        <div data-testid="festive-ribbon" aria-hidden="true"
+          className="fixed inset-x-0 top-0 z-[60] h-1"
+          style={{ background: "linear-gradient(90deg,#FF9933 0 33%,#ffffff 33% 66%,#138808 66% 100%)" }} />
+      )}
       <SideNav />
       <div className="md:pl-[76px] lg:pl-64">
         <Routes>

@@ -14,6 +14,8 @@ import { MatchDetail } from "@/components/MatchDetail";
 import { USER, QUICK_ACTIONS, GAMES, FANTASY_PROMO_BG, STORE_ITEMS } from "@/lib/data";
 import { RewardsStore } from "@/components/RewardsStore";
 import { RewardWheel } from "@/components/RewardWheel";
+import { IndependenceBanner } from "@/components/IndependenceBanner";
+import { isIndependenceWindow } from "@/lib/festive";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const CRICKET_BG =
@@ -156,6 +158,8 @@ export default function HomePage() {
     claimStreak();
   };
 
+  const festiveOn = isIndependenceWindow();
+
   return (
     <div className="mx-auto max-w-6xl px-5 pb-28 pt-6 sm:px-8 lg:px-10">
       {/* Header */}
@@ -216,6 +220,8 @@ export default function HomePage() {
           />
         </div>
       </header>
+
+      {festiveOn && <IndependenceBanner />}
 
       {ownedBadges.length > 0 && (
         <div data-testid="home-badges" className="mt-4 flex flex-wrap items-center gap-2">

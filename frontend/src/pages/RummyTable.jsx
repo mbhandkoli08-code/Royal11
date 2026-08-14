@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, Sparkles, Wifi, WifiOff } from "lucide-react";
+import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, Sparkles, Wifi, WifiOff, AlertTriangle, Coins } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { useWallet } from "@/context/WalletContext";
 import { classifyGroup, evaluateHand, provisionalDeadwood } from "@/lib/rummy";
 import { RummyAmbiance } from "@/components/RummyAmbiance";
+import { RummyMusic } from "@/components/RummyMusic";
+import { AddCoins } from "@/components/AddCoins";
+
+// Full-count exposure escrowed by the server per seat each deal
+// (rummy_engine: MAX_POINTS * point_value). We mirror it client-side purely as
+// a heads-up so the player can top up before they get locked out of the deal.
+const MAX_POINTS = 80;
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SUIT = { s: "\u2660", h: "\u2665", d: "\u2666", c: "\u2663" };
@@ -62,6 +70,7 @@ const Timer = ({ deadline, active }) => {
 
 export default function RummyTable({ tableId, onLeave }) {
   const { user, token } = useAuth();
+  const { balance, refresh: refreshWallet } = useWallet();
   const headers = useMemo(() => ({ Authorization: `Bearer ${token}` }), [token]);
   const [state, setState] = useState(null);
   const [groups, setGroups] = useState([]);
@@ -71,6 +80,7 @@ export default function RummyTable({ tableId, onLeave }) {
   const [showDrop, setShowDrop] = useState(false);
   const [verify, setVerify] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
+  const [showAddCoins, setShowAddCoins] = useState(false);
   const [theme, setTheme] = useState(() => user?.rummy_theme || localStorage.getItem("royal11_rummy_theme") || "luxury");
   const th = THEMES[theme] || THEMES.luxury;
   const changeTheme = (key) => {
@@ -81,6 +91,7 @@ export default function RummyTable({ tableId, onLeave }) {
   const pollRef = useRef(null);
   const hbRef = useRef(0);
   const summaryShownFor = useRef(null);
+  const rechargePromptedRef = useRef(false);
 
   const round = state?.round;
   const wildRank = round?.wild?.rank;
@@ -88,6 +99,14 @@ export default function RummyTable({ tableId, onLeave }) {
   const byId = useMemo(() => Object.fromEntries(hand.map((c) => [c.id, c])), [hand]);
   const myTurn = !!round?.turn?.is_you && round?.phase === "PLAYING";
   const drawDone = !!round?.turn?.draw_done;
+
+  // Low-balance heads-up (cash tables only): a deal escrows MAX_POINTS *
+  // point_value per seat, so warn when the wallet can't cover the next hand.
+  const pointValue = round?.config?.point_value ?? state?.config?.point_value ?? 1;
+  const isCashTable = !!state && !(state.is_practice || round?.is_practice);
+  const reserveNeeded = MAX_POINTS * pointValue;
+  const betweenRounds = !!state && (!round || round?.phase === "SETTLED");
+  const lowBalance = isCashTable && balance < reserveNeeded;
 
   const loadState = useCallback(async () => {
     try {
@@ -124,6 +143,21 @@ export default function RummyTable({ tableId, onLeave }) {
     }
   }, [round?.phase, round?.result, round?.id]);
 
+  // Reset the one-time recharge prompt when a fresh deal begins.
+  useEffect(() => { if (round?.phase === "PLAYING") rechargePromptedRef.current = false; }, [round?.phase]);
+
+  // On a fresh/waiting table with no funds, surface the recharge sheet once so
+  // the player can top up before the deal. When a round has just SETTLED we let
+  // the post-round summary (which carries its own recharge CTA) show instead,
+  // to avoid stacking two modals.
+  useEffect(() => {
+    const summaryPending = round?.phase === "SETTLED" && !!round?.result;
+    if (lowBalance && betweenRounds && !summaryPending && !showSummary && !showAddCoins && !rechargePromptedRef.current) {
+      rechargePromptedRef.current = true;
+      setShowAddCoins(true);
+    }
+  }, [lowBalance, betweenRounds, round?.phase, round?.result, showSummary, showAddCoins]);
+
   const groupedIds = useMemo(() => new Set(groups.flat()), [groups]);
   const trayCards = hand.filter((c) => !groupedIds.has(c.id));
   const groupInfos = groups.map((g) => classifyGroup(g.map((id) => byId[id]).filter(Boolean), wildRank));
@@ -138,7 +172,17 @@ export default function RummyTable({ tableId, onLeave }) {
   const addTo = (gi) => { if (!selected.length) return; setGroups((g) => g.map((grp, i) => (i === gi ? [...grp, ...selected.filter((id) => !grp.includes(id))] : grp))); setSelected([]); };
   const pullOut = (id) => { setGroups((g) => g.map((grp) => grp.filter((x) => x !== id)).filter((grp) => grp.length)); };
 
-  const doStart = () => act(async () => { const { data } = await post("start"); setState(data); }).catch((e) => toast.error(e.response?.data?.detail || "Couldn't deal"));
+  const doStart = () => {
+    if (lowBalance) {
+      setShowAddCoins(true);
+      return toast.error(`Add coins to play — you need ${reserveNeeded.toLocaleString("en-IN")} to deal`);
+    }
+    return act(async () => { const { data } = await post("start"); setState(data); }).catch((e) => {
+      const msg = e.response?.data?.detail || "Couldn't deal";
+      if (/fund|balance|enough/i.test(msg)) setShowAddCoins(true);
+      toast.error(msg);
+    });
+  };
   const doDraw = (source) => act(async () => { const { data } = await post("draw", { source }); setState(data); }).catch((e) => toast.error(e.response?.data?.detail || "Couldn't draw"));
   const doDiscard = () => act(async () => {
     if (selected.length !== 1) return toast.error("Select exactly one card to discard");
@@ -186,6 +230,7 @@ export default function RummyTable({ tableId, onLeave }) {
                   style={{ background: t.swatch }} />
               ))}
             </div>
+            <RummyMusic />
             <span data-testid="rummy-conn" className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${conn ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/20 text-rose-300 animate-pulse"}`}>
               {conn ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}{conn ? "Live" : "Reconnecting"}
             </span>
@@ -193,6 +238,26 @@ export default function RummyTable({ tableId, onLeave }) {
               className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/5 disabled:opacity-40"><LogOut className="h-3.5 w-3.5" /> Leave</button>
           </div>
         </div>
+
+        {/* Low-balance warning */}
+        {lowBalance && (
+          <div data-testid="rummy-low-balance"
+            className="mb-4 flex items-center gap-3 rounded-2xl border border-amber-400/50 bg-amber-500/10 p-3.5 shadow-lg">
+            <span className="grid h-9 w-9 shrink-0 animate-pulse place-items-center rounded-xl bg-amber-400/20 text-amber-300">
+              <AlertTriangle className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-amber-200">Low balance</p>
+              <p className="truncate text-xs text-amber-100/70">
+                Next hand needs {reserveNeeded.toLocaleString("en-IN")} coins · you have {balance.toLocaleString("en-IN")}
+              </p>
+            </div>
+            <button data-testid="rummy-recharge-btn" onClick={() => setShowAddCoins(true)}
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-amber-400 px-4 py-2 text-xs font-black text-black transition-transform hover:scale-105 active:scale-95">
+              <Coins className="h-3.5 w-3.5" /> Recharge
+            </button>
+          </div>
+        )}
 
         {/* Opponents + wild */}
         <div className="rounded-3xl border border-[var(--r-gold)]/20 p-4 shadow-2xl" style={{ background: th.panel }}>
@@ -347,10 +412,19 @@ export default function RummyTable({ tableId, onLeave }) {
             {round.result.players.find((p) => p.user_id === user?.id && p.error) && (
               <p className="mt-3 rounded-xl bg-rose-500/15 px-3 py-2 text-xs text-rose-300">Your declaration was invalid: {round.result.players.find((p) => p.user_id === user?.id).error}</p>
             )}
+            {lowBalance && (
+              <button data-testid="summary-recharge-btn" onClick={() => { setShowSummary(false); setShowAddCoins(true); }}
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-400/50 bg-amber-500/10 py-3 text-sm font-black text-amber-300">
+                <Coins className="h-4 w-4" /> Low balance — Recharge to keep playing
+              </button>
+            )}
             <button data-testid="summary-close" onClick={() => setShowSummary(false)} className="mt-5 w-full rounded-2xl bg-[var(--r-gold)] py-3 text-sm font-black text-black">Continue</button>
           </div>
         </div>
       )}
+
+      {/* Recharge sheet — top up without leaving the table */}
+      <AddCoins open={showAddCoins} onClose={() => { setShowAddCoins(false); refreshWallet(); }} onSubmitted={refreshWallet} />
     </div>
   );
 }
