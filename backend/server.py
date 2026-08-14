@@ -17,7 +17,7 @@ from app.wallet_service import ensure_indexes
 from app.deposit_service import ensure_deposit_indexes
 from app.hierarchy_service import ensure_hierarchy_indexes
 from app.fantasy_service import ensure_fantasy_indexes, settle_due_contests, ensure_demo_fantasy
-from app import revenue_service, storage_service, payroll_service, login_security, otp_service, bonus_service, surprise_box_service, support_service, referral_service, admin_credit_service, promo_service
+from app import revenue_service, storage_service, payroll_service, login_security, otp_service, bonus_service, surprise_box_service, support_service, referral_service, admin_credit_service, promo_service, festival_service, notification_service
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from datetime import date, timedelta
 from app.routers.auth import router as auth_router
@@ -39,6 +39,7 @@ from app.routers.referrals import router as referrals_router
 from app.routers.profile import router as profile_router
 from app.routers.admin_credit import router as admin_credit_router
 from app.routers.promo import router as promo_router
+from app.routers.notifications import router as notifications_router
 from app.games import engine as casino_engine
 from app.games import progression_service as casino_progression
 
@@ -368,6 +369,7 @@ api_router.include_router(referrals_router)
 api_router.include_router(profile_router)
 api_router.include_router(admin_credit_router)
 api_router.include_router(promo_router)
+api_router.include_router(notifications_router)
 app.include_router(api_router)
 
 app.add_middleware(
@@ -430,6 +432,8 @@ async def ensure_db_indexes():
     await referral_service.ensure_indexes()
     await admin_credit_service.ensure_indexes()
     await promo_service.ensure_indexes()
+    await festival_service.ensure_indexes()
+    await notification_service.ensure_indexes()
     try:
         await promo_service.seed_demo_codes()
     except Exception as e:  # noqa: BLE001

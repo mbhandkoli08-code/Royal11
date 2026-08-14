@@ -7,8 +7,10 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from ..deps import get_current_user, require_roles
+from ..audit import log_action
 from ..models import Role
-from .. import bonus_service, surprise_box_service
+from .. import bonus_service, surprise_box_service, festival_service
+from fastapi import HTTPException, status
 
 router = APIRouter(prefix="/bonus", tags=["bonus"])
 
@@ -31,6 +33,22 @@ class ConfigPatch(BaseModel):
 @router.get("/me")
 async def my_bonus(user: dict = Depends(get_current_user)):
     return await bonus_service.get_status(user["id"])
+
+
+@router.get("/festival")
+async def festival_status(user: dict = Depends(get_current_user)):
+    return await festival_service.get_status(user["id"])
+
+
+@router.post("/festival/claim")
+async def festival_claim(user: dict = Depends(get_current_user)):
+    try:
+        res = await festival_service.claim(user["id"])
+    except ValueError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    await log_action(user["id"], "FESTIVAL_BONUS_CLAIMED",
+                     target_type="festival", target_id=res["festival_id"])
+    return {"ok": True, **res, "status": await bonus_service.get_status(user["id"])}
 
 
 @router.get("/config", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])

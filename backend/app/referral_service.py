@@ -14,13 +14,14 @@ import uuid
 from datetime import datetime, timezone
 
 from . import bonus_service
+from . import notification_service
 from .audit import log_action
 from .db import db
 
 DEFAULTS = {
     "enabled": True,
-    "referrer_amount": 200,          # coins to the referrer (bonus rail)
-    "referee_amount": 100,           # coins to the new player (bonus rail)
+    "referrer_amount": 125,          # coins to the referrer (bonus rail)
+    "referee_amount": 75,            # coins to the new player (bonus rail)
     "qualify_event": "FIRST_RECHARGE",  # SIGNUP | FIRST_RECHARGE | FIRST_WAGER
     "qualify_min_amount": 100,       # min recharge/wager coins to qualify
     "multiple": None,                # playthrough multiple (None = bonus default)
@@ -77,6 +78,15 @@ async def _reward_referrer(rec: dict, cfg: dict) -> None:
     }})
     await log_action(None, "REFERRAL_REWARDED", target_type="referral", target_id=rec["id"],
                      metadata={"referrer_id": rec["referrer_id"], "referee_id": rec["referee_id"]})
+    # Explicit, named notification to the referrer (bell + toast on the client).
+    referee = await db.users.find_one({"id": rec["referee_id"]}, {"_id": 0, "display_name": 1})
+    friend = (referee or {}).get("display_name") or "Your friend"
+    amount = int(cfg["referrer_amount"])
+    await notification_service.create(
+        rec["referrer_id"], "referral_reward", "Referral reward unlocked!",
+        f"🎉 {friend} joined using your code and made their first recharge — you earned {amount} coins!",
+        data={"amount": amount, "referee_name": friend, "referee_id": rec["referee_id"]},
+        request_id=f"referral_reward_notif:{rec['referee_id']}")
 
 
 async def register_referral(referee: dict, referral_code: str) -> None:
@@ -156,4 +166,32 @@ async def me(user: dict) -> dict:
             "referrer_reward": r.get("referrer_reward", 0),
             "created_at": r["created_at"],
         } for r in rows],
+    }
+
+
+async def admin_stats() -> dict:
+    """Aggregate referral program stats for Super Admin."""
+    total = await db.referrals.count_documents({})
+    rewarded = await db.referrals.count_documents({"status": "REWARDED"})
+    pending = await db.referrals.count_documents({"status": "JOINED"})
+    # Total bonus paid: referrer rewards (only on REWARDED) + every referee reward.
+    agg = db.referrals.aggregate([{"$group": {
+        "_id": None,
+        "referrer_paid": {"$sum": "$referrer_reward"},
+        "referee_paid": {"$sum": "$referee_reward"},
+    }}])
+    row = await agg.to_list(1)
+    referrer_paid = row[0]["referrer_paid"] if row else 0
+    referee_paid = row[0]["referee_paid"] if row else 0
+    unique_referrers = len(await db.referrals.distinct("referrer_id"))
+    return {
+        "total_referrals": total,
+        "rewarded": rewarded,
+        "pending_qualification": pending,
+        "unique_referrers": unique_referrers,
+        "bonus_paid": {
+            "to_referrers": referrer_paid,
+            "to_referees": referee_paid,
+            "total": referrer_paid + referee_paid,
+        },
     }

@@ -4,24 +4,14 @@ import { Spade, Users, Coins, Loader2, ShieldCheck, Plus, LogOut, Play, Check, X
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import RummyTable from "@/pages/RummyTable";
+import { PlayingCard } from "@/components/PlayingCard";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const SUIT = { s: "♠", h: "♥", d: "♦", c: "♣" };
 const GAMES = [
   { id: "high_card", label: "High Card", icon: Spade },
   { id: "rummy_points", label: "Rummy", icon: Layers },
 ];
-
-const Card = ({ code }) => {
-  if (!code) return <span className="grid h-14 w-10 place-items-center rounded-lg border-2 border-dashed border-slate-200 bg-slate-50 text-slate-300">?</span>;
-  const red = code[1] === "h" || code[1] === "d";
-  return (
-    <span className={`grid h-14 w-10 place-items-center rounded-lg border border-slate-200 bg-white text-lg font-black shadow-sm ${red ? "text-rose-600" : "text-slate-900"}`}>
-      <span>{code[0] === "T" ? "10" : code[0]}</span>
-      <span className="text-xs leading-none">{SUIT[code[1]]}</span>
-    </span>
-  );
-};
 
 export default function CasinoPage() {
   const { user, token } = useAuth();
@@ -71,6 +61,13 @@ export default function CasinoPage() {
 
   useEffect(() => { loadLobby(); loadMeta(); }, [loadLobby, loadMeta]);
 
+  // Keep the lobby fresh so tables that start a round drop their Join button.
+  useEffect(() => {
+    if (tableId) return undefined;
+    const t = setInterval(loadLobby, 10000);
+    return () => clearInterval(t);
+  }, [tableId, loadLobby]);
+
   // Poll table state (~1.5s) while seated at a HIGH CARD table. Rummy tables
   // render <RummyTable/>, which does its own turn-aware polling.
   useEffect(() => {
@@ -97,7 +94,10 @@ export default function CasinoPage() {
   const joinTable = (id) => act(async () => {
     await axios.post(`${API}/casino/tables/${id}/join`, {}, { headers });
     setTableId(id); setVerify(null);
-  }).catch((e) => toast.error(e.response?.data?.detail || "Couldn't join"));
+  }).catch((e) => {
+    toast.error(e.response?.data?.detail || "Couldn't join — this table just started a round");
+    loadLobby();  // refresh so a table that just filled/started drops its Join button
+  });
 
   const leaveTable = () => act(async () => {
     await axios.post(`${API}/casino/tables/${tableId}/leave`, {}, { headers });
@@ -191,20 +191,30 @@ export default function CasinoPage() {
             <p className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-400" data-testid="casino-no-tables">No open {practice ? "practice" : "cash"} tables yet — create one to get started.</p>
           ) : (
             <div className="space-y-3">
-              {tables.filter((t) => !!t.is_practice === practice).map((t) => (
+              {tables.filter((t) => !!t.is_practice === practice).map((t) => {
+                const joinable = t.status === "WAITING" && t.seat_count < t.max_players;
+                return (
                 <div key={t.id} data-testid={`casino-table-${t.id}`} className="flex items-center justify-between rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                   <div>
                     <p className="font-bold text-slate-900">{t.name}</p>
                     <p className="mt-0.5 flex items-center gap-3 text-xs text-slate-500">
                       <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {t.seat_count}/{t.max_players}</span>
                       <span className="inline-flex items-center gap-1"><Coins className="h-3.5 w-3.5" /> {t.config.point_value != null ? `${t.config.point_value}/pt` : `${t.config.stake} entry`}</span>
-                      <span>{t.config.rake_pct}% rake</span>
+                      {t.status === "RUNNING" && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold text-emerald-700">In progress</span>}
                     </p>
                   </div>
-                  <button data-testid={`casino-join-${t.id}`} onClick={() => joinTable(t.id)} disabled={busy}
-                    className="rounded-full bg-royal px-5 py-2.5 text-xs font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-70">Join</button>
+                  {joinable ? (
+                    <button data-testid={`casino-join-${t.id}`} onClick={() => joinTable(t.id)} disabled={busy}
+                      className="rounded-full bg-royal px-5 py-2.5 text-xs font-bold text-white transition-transform hover:-translate-y-0.5 disabled:opacity-70">Join</button>
+                  ) : (
+                    <span data-testid={`casino-table-status-${t.id}`}
+                      className="rounded-full bg-slate-100 px-4 py-2.5 text-xs font-bold text-slate-400">
+                      {t.status === "RUNNING" ? "In progress" : "Full"}
+                    </span>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -219,23 +229,56 @@ export default function CasinoPage() {
             <button data-testid="casino-leave" onClick={leaveTable} disabled={busy} className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-500 hover:bg-slate-50"><LogOut className="h-3.5 w-3.5" /> Leave</button>
           </div>
 
-          <div className="rounded-3xl bg-gradient-to-b from-emerald-700 to-emerald-900 p-5 shadow-lift">
-            <div className="mb-3 flex items-center justify-between text-white/90">
-              <span className="text-xs font-semibold uppercase tracking-wider">Table</span>
-              {round?.pot != null && <span className="rounded-full bg-black/25 px-3 py-1 text-xs font-bold">Pot {round.pot}</span>}
+          <div className="vegas-felt vegas-felt--red relative overflow-hidden p-5" style={{ minHeight: 340 }}>
+            <div className="vegas-rail" />
+            <div className="vegas-spotlight" />
+            <div className="relative z-10 mb-3 flex items-center justify-between text-white/90">
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-amber-200/90">Royal Table</span>
+              {round?.pot != null && <span className="rounded-full bg-black/35 px-3 py-1 text-xs font-bold text-amber-200 ring-1 ring-amber-300/40">Pot {round.pot}</span>}
             </div>
-            <div className="space-y-2.5" data-testid="casino-seats">
-              {(round?.seats || state?.seats || []).map((s, i) => {
-                const win = round?.winner_user_id && s.user_id === round.winner_user_id;
-                return (
-                  <div key={s.user_id} className={`flex items-center justify-between rounded-2xl px-3 py-2.5 ${win ? "bg-amber-300/95" : "bg-white/10"}`}>
-                    <span className={`text-sm font-bold ${win ? "text-amber-900" : "text-white"}`}>
-                      {s.display_name}{s.user_id === user?.id ? " (You)" : ""}{win ? " · Winner 🏆" : ""}
-                    </span>
-                    <span className="flex gap-1.5">{(round?.seats ? s.cards : [null]).map((c, j) => <Card key={j} code={c} />)}</span>
-                  </div>
-                );
-              })}
+
+            {/* Center dealer pile */}
+            <div className="pointer-events-none absolute inset-x-0 top-[42%] z-10 flex -translate-y-1/2 flex-col items-center">
+              <div className="flex">
+                <PlayingCard faceDown size="md" />
+                <div className="-ml-6"><PlayingCard faceDown size="md" /></div>
+                <div className="-ml-6"><PlayingCard faceDown size="md" /></div>
+              </div>
+              <span className="mt-2 text-[10px] font-bold uppercase tracking-widest text-amber-200/70">Deck</span>
+            </div>
+
+            {/* Seats around the oval */}
+            <div className="relative z-20 mx-auto" style={{ height: 260, maxWidth: 560 }} data-testid="casino-seats">
+              {(() => {
+                const all = round?.seats || state?.seats || [];
+                // Put "you" at the bottom-center; others spread around the arc.
+                const meIdx = all.findIndex((s) => s.user_id === user?.id);
+                const seats = meIdx > 0 ? [all[meIdx], ...all.slice(0, meIdx), ...all.slice(meIdx + 1)] : all;
+                const n = Math.max(seats.length, 1);
+                return seats.map((s, i) => {
+                  const theta = (Math.PI / 2) + (i * 2 * Math.PI) / n; // start at bottom
+                  const x = 50 + 40 * Math.cos(theta);
+                  const y = 52 + 40 * Math.sin(theta);
+                  const win = round?.winner_user_id && s.user_id === round.winner_user_id;
+                  const cards = round?.seats ? (s.cards || []) : [null];
+                  const isMe = s.user_id === user?.id;
+                  return (
+                    <div key={s.user_id} data-testid={`casino-seat-${s.user_id}`}
+                      className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1"
+                      style={{ left: `${x}%`, top: `${y}%`, width: 96 }}>
+                      <div className="flex gap-1">
+                        {cards.map((c, j) => c ? <PlayingCard key={j} code={c} size="sm" /> : <PlayingCard key={j} faceDown size="sm" />)}
+                      </div>
+                      <div className={`vegas-seat flex items-center gap-1.5 rounded-full px-2 py-1 ${win ? "vegas-seat--active bg-amber-300/95" : "bg-black/35 ring-1 ring-white/15"}`}>
+                        <PlayerAvatar seed={s.user_id} name={s.display_name} size={22} />
+                        <span className={`max-w-[70px] truncate text-[11px] font-bold ${win ? "text-amber-900" : "text-white"}`}>
+                          {isMe ? "You" : s.display_name}{win ? " 🏆" : ""}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
 

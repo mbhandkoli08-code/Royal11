@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, Sparkles, Wifi, WifiOff, AlertTriangle, Coins } from "lucide-react";
+import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, Wifi, WifiOff, AlertTriangle, Coins } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useWallet } from "@/context/WalletContext";
 import { classifyGroup, evaluateHand, provisionalDeadwood } from "@/lib/rummy";
 import { RummyAmbiance } from "@/components/RummyAmbiance";
 import { RummyMusic } from "@/components/RummyMusic";
 import { AddCoins } from "@/components/AddCoins";
+import { PlayingCard } from "@/components/PlayingCard";
+import { PlayerAvatar } from "@/components/PlayerAvatar";
 
 // Full-count exposure escrowed by the server per seat each deal
 // (rummy_engine: MAX_POINTS * point_value). We mirror it client-side purely as
@@ -15,8 +17,6 @@ import { AddCoins } from "@/components/AddCoins";
 const MAX_POINTS = 80;
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const SUIT = { s: "\u2660", h: "\u2665", d: "\u2666", c: "\u2663" };
-const RED = new Set(["h", "d"]);
 
 // Per-player table skins — only the felt surface + accent/background change; the
 // card art, layout and live meld-assist are identical across themes.
@@ -33,23 +33,13 @@ const THEMES = {
 };
 
 const RCard = ({ card, selected, onClick, small, plain }) => {
-  const size = small ? "h-12 w-9 text-sm" : "h-16 w-11 text-base";
-  if (!card) return <span className={`grid ${size} place-items-center rounded-lg border border-dashed border-white/15 bg-white/5 text-white/30`}>?</span>;
-  const face = card.joker ? (
-    <span className={`grid ${size} place-items-center rounded-lg border font-black shadow ${selected ? "-translate-y-2 border-[var(--r-gold)] ring-2 ring-[var(--r-gold)]" : "border-amber-300/40"} bg-gradient-to-br from-amber-300 to-yellow-600 text-black`}>
-      <Sparkles className="h-4 w-4" />
-      <span className="text-[8px] font-bold leading-none">JOKER</span>
-    </span>
-  ) : (
-    <span className={`grid ${size} place-items-center rounded-lg border bg-[#f7f2e7] font-black leading-none shadow ${selected ? "-translate-y-2 border-[var(--r-gold)] ring-2 ring-[var(--r-gold)]" : "border-black/10"} ${RED.has(card.suit) ? "text-rose-600" : "text-slate-900"}`}>
-      <span>{card.rank === "T" ? "10" : card.rank}</span>
-      <span className="text-xs">{SUIT[card.suit]}</span>
-    </span>
-  );
-  if (plain) return <span data-testid={`rcard-${card.id}`} className="transition-transform">{face}</span>;
+  const size = small ? "sm" : "md";
+  if (!card) return <span className="pc-empty" style={{ width: small ? 38 : 46, height: small ? 54 : 66 }} />;
+  if (plain) return <span data-testid={`rcard-${card.id}`}><PlayingCard card={card} size={size} plain /></span>;
   return (
-    <button type="button" onClick={onClick} data-testid={`rcard-${card.id}`} className="transition-transform">
-      {face}
+    <button type="button" onClick={onClick} data-testid={`rcard-${card.id}`}
+      className={`pc-btn ${selected ? "pc-sel rounded-[10px]" : ""}`}>
+      <PlayingCard card={card} size={size} plain />
     </button>
   );
 };
@@ -260,15 +250,21 @@ export default function RummyTable({ tableId, onLeave }) {
         )}
 
         {/* Opponents + wild */}
-        <div className="rounded-3xl border border-[var(--r-gold)]/20 p-4 shadow-2xl" style={{ background: th.panel }}>
-          <div className="mb-3 flex flex-wrap items-center gap-2" data-testid="rummy-players">
+        <div className="vegas-felt vegas-felt--red relative overflow-hidden p-4 shadow-2xl">
+          <div className="vegas-rail" />
+          <div className="vegas-spotlight" />
+          <div className="relative z-10 mb-3 flex flex-wrap items-center gap-2" data-testid="rummy-players">
             {players.map((p) => {
               const isTurn = round?.turn?.user_id === p.user_id && playing;
               return (
-                <div key={p.user_id} className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${isTurn ? "border-[var(--r-gold)] bg-[var(--r-gold)]/10" : "border-white/10 bg-white/5"}`}>
-                  <span className={`h-2 w-2 rounded-full ${p.status === "active" || p.status === "seated" ? "bg-emerald-400" : p.status === "dropped" ? "bg-amber-400" : "bg-rose-400"}`} />
-                  <span className="font-bold">{p.display_name}{p.is_you ? " (You)" : ""}</span>
-                  {p.card_count != null && <span className="text-white/40">{p.card_count} cards</span>}
+                <div key={p.user_id} data-testid={`rummy-seat-${p.user_id}`}
+                  className={`vegas-seat flex items-center gap-2 rounded-full px-2.5 py-1.5 text-xs ${isTurn ? "vegas-seat--active bg-[var(--r-gold)]/15" : "bg-black/30 ring-1 ring-white/10"}`}>
+                  <span className="relative">
+                    <PlayerAvatar seed={p.user_id} name={p.display_name} size={26} />
+                    <span className={`absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-black/40 ${p.status === "active" || p.status === "seated" ? "bg-emerald-400" : p.status === "dropped" ? "bg-amber-400" : "bg-rose-400"}`} />
+                  </span>
+                  <span className="font-bold text-white">{p.display_name}{p.is_you ? " (You)" : ""}</span>
+                  {p.card_count != null && <span className="text-white/45">{p.card_count} cards</span>}
                   {settled && p.points != null && <span className="font-black text-[var(--r-gold)]">{p.points}pt</span>}
                   {isTurn && <Timer deadline={round?.turn?.deadline} active />}
                 </div>
@@ -278,25 +274,25 @@ export default function RummyTable({ tableId, onLeave }) {
 
           {/* Piles */}
           {round && (
-            <div className="flex items-center justify-center gap-6 py-2">
+            <div className="relative z-10 flex items-center justify-center gap-6 py-2">
               <div className="text-center">
                 <button data-testid="rummy-draw-closed" disabled={!myTurn || drawDone || busy} onClick={() => doDraw("closed")}
-                  className="grid h-16 w-11 place-items-center rounded-lg border border-[var(--r-gold)]/40 bg-gradient-to-br from-[#2a2320] to-[#15110f] text-[var(--r-gold)] shadow disabled:opacity-40">
-                  <Layers className="h-5 w-5" />
+                  className="pc-btn disabled:opacity-40">
+                  <PlayingCard faceDown size="md" />
                 </button>
-                <p className="mt-1 text-[10px] text-white/40">Deck ({round.closed_count})</p>
+                <p className="mt-1 text-[10px] text-white/50">Deck ({round.closed_count})</p>
               </div>
               <div className="text-center">
-                <button data-testid="rummy-draw-open" disabled={!myTurn || drawDone || busy} onClick={() => doDraw("open")} className="disabled:opacity-50">
+                <button data-testid="rummy-draw-open" disabled={!myTurn || drawDone || busy} onClick={() => doDraw("open")} className="pc-btn disabled:opacity-50">
                   <RCard card={round.open_top} plain />
                 </button>
-                <p className="mt-1 text-[10px] text-white/40">Discard</p>
+                <p className="mt-1 text-[10px] text-white/50">Discard</p>
               </div>
               <div className="text-center">
-                <div className="grid h-16 w-11 place-items-center rounded-lg border border-amber-300/40 bg-amber-300/10">
-                  <RCard card={{ ...(round.wild.code === "JK" ? { joker: true, id: "wild" } : { id: "wild", code: round.wild.code, rank: round.wild.code[0], suit: round.wild.code[1] }) }} small plain />
+                <div className="grid place-items-center">
+                  <RCard card={{ ...(round.wild.code === "JK" ? { joker: true, id: "wild" } : { id: "wild", code: round.wild.code, rank: round.wild.code[0], suit: round.wild.code[1] }) }} plain />
                 </div>
-                <p className="mt-1 text-[10px] text-white/40">Wild</p>
+                <p className="mt-1 text-[10px] text-white/50">Wild</p>
               </div>
             </div>
           )}

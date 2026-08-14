@@ -1,9 +1,14 @@
-import { useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, Gift, Check, Loader2 } from "lucide-react";
+import axios from "axios";
+import { toast } from "sonner";
 import { IndependenceFlag } from "@/components/IndependenceFlag";
 import { IndependenceConfetti } from "@/components/IndependenceConfetti";
 import { IndependenceMusic } from "@/components/IndependenceMusic";
+import { useAuth } from "@/context/AuthContext";
+import { useWallet } from "@/context/WalletContext";
 
+const API = process.env.REACT_APP_BACKEND_URL + "/api";
 const DISMISS_KEY = "royal11_id_banner_dismissed";
 
 const Dove = ({ style, size = 20 }) => (
@@ -16,15 +21,58 @@ const Dove = ({ style, size = 20 }) => (
 // dark/gold luxury aesthetic. Generic symbols only (flag, chakra, doves,
 // fireworks) — no real people or names. Dismissible for the day.
 export const IndependenceBanner = () => {
+  const { token } = useAuth();
+  const { refresh } = useWallet();
   const [dismissed, setDismissed] = useState(
     () => localStorage.getItem(DISMISS_KEY) === new Date().toDateString()
   );
+  const [gift, setGift] = useState(null); // {active, claimed, bonus_coins}
+  const [claiming, setClaiming] = useState(false);
+  const [sparks, setSparks] = useState([]);
+
+  useEffect(() => {
+    if (!token) return;
+    axios.get(`${API}/bonus/festival`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(({ data }) => setGift(data)).catch(() => { /* banner still shows */ });
+  }, [token]);
+
   if (dismissed) return null;
 
   const close = () => {
     localStorage.setItem(DISMISS_KEY, new Date().toDateString());
     setDismissed(true);
   };
+
+  const burst = () => {
+    const dots = Array.from({ length: 12 }, (_, i) => {
+      const ang = (Math.PI * 2 * i) / 12 + Math.random() * 0.4;
+      const dist = 26 + Math.random() * 26;
+      return { id: `${Date.now()}-${i}`, dx: `${Math.cos(ang) * dist}px`, dy: `${Math.sin(ang) * dist}px` };
+    });
+    setSparks(dots);
+    setTimeout(() => setSparks([]), 750);
+  };
+
+  const claim = async () => {
+    if (claiming || gift?.claimed) return;
+    setClaiming(true);
+    try {
+      const { data } = await axios.post(`${API}/bonus/festival/claim`, {},
+        { headers: { Authorization: `Bearer ${token}` } });
+      burst();
+      toast.success(`🎉 Freedom Gift unlocked! +${data.bonus_coins} bonus coins`, {
+        description: "Playable now — unlocks to real as you play. Jai Hind! 🇮🇳",
+      });
+      setGift((g) => ({ ...(g || {}), claimed: true, bonus_coins: data.bonus_coins }));
+      refresh && refresh();
+    } catch (e) {
+      toast.error("Couldn't claim the gift", { description: e.response?.data?.detail || "" });
+    } finally {
+      setClaiming(false);
+    }
+  };
+
+  const canClaim = gift?.active && !gift?.claimed;
 
   return (
     <div
@@ -59,8 +107,39 @@ export const IndependenceBanner = () => {
               Independence Day
             </span>
           </h2>
-          <p className="mt-1 text-sm text-white/60">Celebrating the spirit of freedom with the ROYAL11 family. Jai Hind! 🇮🇳</p>
-          <div className="mt-3 flex items-center gap-2">
+          <p className="mt-1 text-sm text-white/60">
+            {gift?.claimed
+              ? "Your Freedom Gift is in your bonus wallet. Jai Hind! 🇮🇳"
+              : "Celebrate freedom with a gift from the ROYAL11 family. Jai Hind! 🇮🇳"}
+          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2.5">
+            {gift?.claimed ? (
+              <span
+                data-testid="festival-claimed"
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-400/15 px-3.5 py-2 text-sm font-bold text-emerald-300"
+              >
+                <Check className="h-4 w-4" /> Gift Claimed · +{gift.bonus_coins} coins
+              </span>
+            ) : (
+              <div className="relative">
+                <button
+                  data-testid="festival-claim-btn"
+                  onClick={claim}
+                  disabled={!canClaim || claiming}
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-extrabold text-[#201203] shadow-lg transition-transform disabled:opacity-60 ${sparks.length ? "id-claim-pop" : ""}`}
+                  style={{ background: "linear-gradient(180deg,#FFD25A,#E9B23C)", boxShadow: "0 6px 18px rgba(233,178,60,0.35)" }}
+                >
+                  {claiming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Gift className="h-4 w-4" />}
+                  Claim {gift?.bonus_coins ?? 151} Coins
+                </button>
+                <span className="id-sparks" data-testid="festival-sparks">
+                  {sparks.map((s) => (
+                    <span key={s.id} className="id-spark" style={{ "--dx": s.dx, "--dy": s.dy }} />
+                  ))}
+                </span>
+              </div>
+            )}
             <IndependenceMusic />
           </div>
         </div>

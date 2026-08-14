@@ -220,7 +220,11 @@ async def start_round(table_id: str, actor_id: str) -> dict:
     return await get_state(table_id, actor_id)
 
 
-def _round_view(r: dict, user_id: str) -> dict:
+def _round_view(r: dict, user_id: str) -> dict | None:
+    # Rummy rounds use a different schema (hands/players) and are served by the
+    # rummy engine — never render them through this High-Card view.
+    if "seats" not in r:
+        return None
     settled = r["phase"] == "SETTLED"
     seats = []
     for s in r["seats"]:

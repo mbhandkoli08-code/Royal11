@@ -1,0 +1,97 @@
+/* Vegas casino theme — realistic playing cards + felt table surface. */
+
+/* ---- Playing card ---- */
+.pc {
+  position: relative;
+  border-radius: 10px;
+  background: linear-gradient(155deg, #fffef9 0%, #f6f1e4 68%, #ece4d2 100%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  overflow: hidden;
+  user-select: none;
+  flex: none;
+}
+.pc::before {
+  /* glossy top-left sheen */
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0%, rgba(255, 255, 255, 0) 42%);
+  pointer-events: none;
+}
+.pc-pip { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 0.9; font-weight: 900; }
+.pc-pip-tl { top: 4%; left: 7%; }
+.pc-pip-br { bottom: 4%; right: 7%; transform: rotate(180deg); }
+.pc-center { position: absolute; inset: 0; display: grid; place-items: center; }
+.pc-red { color: #d3122a; }
+.pc-black { color: #1a1a22; }
+.pc-face-badge {
+  display: grid; place-items: center; border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, #fff7dd, #e9c667 70%, #c99a2e);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.6), 0 1px 3px rgba(0,0,0,0.25);
+  color: inherit; font-weight: 900;
+}
+
+/* ---- Branded card back ---- */
+.pc-back {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 210, 90, 0.10) 0 6px, transparent 6px 12px),
+    repeating-linear-gradient(-45deg, rgba(255, 210, 90, 0.10) 0 6px, transparent 6px 12px),
+    linear-gradient(160deg, #a30f1e 0%, #7a0a16 55%, #4e070e 100%);
+  border: 1px solid rgba(255, 210, 90, 0.55);
+  display: grid; place-items: center;
+}
+.pc-back::before {
+  content: "";
+  position: absolute; inset: 5px;
+  border: 1px solid rgba(255, 210, 90, 0.5);
+  border-radius: 6px;
+  pointer-events: none;
+}
+.pc-back-mono {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-weight: 900; letter-spacing: -0.5px; color: #ffd25a;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.pc-empty {
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px; display: grid; place-items: center; color: rgba(255,255,255,0.3);
+}
+
+.pc-btn { transition: transform 0.16s ease, box-shadow 0.16s ease; cursor: pointer; }
+.pc-btn:hover { transform: translateY(-4px); }
+.pc-sel { transform: translateY(-10px); box-shadow: 0 8px 18px rgba(0,0,0,0.35), 0 0 0 2px var(--r-gold, #e9c667); }
+
+/* ---- Vegas felt table ---- */
+.vegas-felt {
+  position: relative;
+  background:
+    radial-gradient(120% 90% at 50% 12%, rgba(255, 255, 255, 0.10), transparent 55%),
+    radial-gradient(140% 120% at 50% 120%, rgba(0, 0, 0, 0.55), transparent 60%),
+    linear-gradient(180deg, #0f5a3a 0%, #0a4a30 45%, #073522 100%);
+  border-radius: 26px;
+  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.5), 0 12px 30px rgba(0, 0, 0, 0.35);
+  border: 6px solid #3a2415;
+  outline: 2px solid rgba(255, 210, 90, 0.35);
+}
+.vegas-felt--red {
+  background:
+    radial-gradient(120% 90% at 50% 12%, rgba(255, 255, 255, 0.08), transparent 55%),
+    radial-gradient(140% 120% at 50% 120%, rgba(0, 0, 0, 0.6), transparent 60%),
+    linear-gradient(180deg, #7a1420 0%, #5c0e18 45%, #3c070d 100%);
+}
+.vegas-rail { position: absolute; inset: 0; border-radius: 20px; pointer-events: none; box-shadow: inset 0 0 0 2px rgba(255,210,90,0.25); }
+
+/* Seat around the table */
+.vegas-seat { transition: box-shadow 0.3s ease, transform 0.3s ease; }
+.vegas-seat--active {
+  box-shadow: 0 0 0 2px var(--r-gold, #e9c667), 0 0 26px rgba(233, 198, 103, 0.55);
+}
+.vegas-spotlight {
+  position: absolute; top: -10%; left: 50%; width: 60%; height: 60%;
+  transform: translateX(-50%);
+  background: radial-gradient(circle, rgba(255, 244, 214, 0.18), transparent 68%);
+  filter: blur(8px); pointer-events: none;
+}

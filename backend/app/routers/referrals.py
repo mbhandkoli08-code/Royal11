@@ -32,6 +32,11 @@ async def get_config():
     return await referral_service.get_config()
 
 
+@router.get("/admin/stats", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def admin_stats():
+    return await referral_service.admin_stats()
+
+
 @router.put("/admin/config", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
 async def set_config(payload: ReferralConfigPatch):
     patch = {k: v for k, v in payload.model_dump().items() if v is not None}

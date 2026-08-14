@@ -1,0 +1,37 @@
+{
+  "summary": "Iteration 27: Vegas Cards redesign + cash-table join bug fix validated end-to-end. Backend pytest (4 tests, /app/backend/tests/test_casino_join_fix_iter27.py): 4/4 PASS — lobby returns status+seat_count+max_players fields the UI uses; High Card create→join(p1)→join(p2)→start settles with provably-fair verified match; Rummy create→join(p1+p2)→POST /casino/rummy/tables/{id}/start transitions status to RUNNING as expected. Frontend Playwright: (a) Lobby: High Card had 22 Join buttons (all WAITING) and 0 status labels; Rummy tab had 11 Join buttons + 7 disabled 'In progress' labels (data-testid casino-table-status-<id>) — the fix is live. (b) High Card table: red felt with Royal Table header, Pot chip, 2 seat chips with DiceBear avatars, 2 realistic PlayingCards on reveal (J♦ + Q♦), 3 R11-branded playing-card-back deck, casino-result 'Rahul Sharma won 6 coins (pot 20, rake 14)', Deal Next Round, Verify → 'Verified — the deal matches the pre-committed hash' + toast 'You won 6 practice chips!'. (c) Rummy Vegas table: red felt panel, 2 rummy-seat chips with avatars/13-cards/active-turn glow + 27s timer, deck of 78 with R11 back, realistic Discard + Wild cards, 13 rcard-* in the hand tray (also data-testid playing-card), grouping helper chips (Pure Sequence / 2 Sequences / All 13 grouped), Est. deadwood: 68, and all 5 action buttons present (rummy-discard/draw-open/draw-closed/declare/drop).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/casino/tables/{id}/join (rummy, RUNNING)", "issue": "When an already-seated user posts /join while the rummy round is RUNNING, join_table is a silent no-op and the follow-up engine.get_state → _round_view KeyError('seats') → 500. Engine._round_view assumes High-Card round schema; rummy rounds use a different shape (has hands/players). The UI-level fix (disabled 'In progress' label + refresh-on-failure) prevents this from being reachable in practice, but the endpoint should either short-circuit for already-seated users or _round_view should handle rummy shape (or defer to the rummy router). Traceback in /var/log/supervisor/backend.err.log: engine.py:226 KeyError 'seats'."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_casino_join_fix_iter27.py",
+    "/app/test_reports/pytest/iter27.xml"
+  ],
+  "action_items": [
+    "Optional: harden POST /api/casino/tables/{id}/join to avoid 500 when a seated user re-joins a RUNNING rummy table (make engine.get_state / _round_view rummy-aware, or return early with current-state 200 without touching round). UI already sidesteps this via the disabled label + refresh-on-failed-join."
+  ],
+  "critical_code_review_comments": [
+    "CasinoPage.jsx joinable logic (status==='WAITING' && seat_count<max_players) is correct and matches backend engine behaviour. Failed join now calls loadLobby() → good UX.",
+    "10s lobby poll (setInterval loadLobby, 10000) is only active while in the lobby (tableId falsy) → efficient.",
+    "High Card auto-settles instantly (engine.start_round line 219 sets status back to WAITING) — the 'RUNNING' lobby label therefore only visibly triggers for turn-based Rummy tables. That matches the reported UX (majority of the 'In progress' labels seen are on rummy_points).",
+    "PlayingCard has data-testid=playing-card and playing-card-back both rendered correctly (15 hand cards + 1 deck back on rummy; 2 revealed + 3 backs on high card).",
+    "Vegas felt panel uses vegas-felt / vegas-rail / vegas-spotlight CSS — legible contrast (amber-200 text on deep-red felt) is fine.",
+    "Minor: consider handling the rummy re-join 500 mentioned above so backend never returns 5xx for a benign client action."
+  ],
+  "updated_files": ["/app/backend/tests/test_casino_join_fix_iter27.py"],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% (all Vegas + join-fix testids verified)"},
+  "test_credentials": "player1@royal11.com / ChangeMe123! ; casino_p2@royal11.com / ChangeMe123!",
+  "seed_data_creation": "Created 1 fresh practice High Card table and 1 practice Rummy table (max_players=2) during UI runs; both were dealt at least once. Ledger entries: 1 High Card settled round (pot 20, rake 14, payout 6 practice chips). No cleanup needed — practice tables/rounds don't affect real revenue.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Vegas Cards + join-fix are all green. The single remaining backend nit is that POST /casino/tables/{id}/join on a RUNNING rummy table 500s (engine._round_view assumes High Card seat schema) — reachable only via a stale client or a race. The frontend already refreshes the lobby on failed-join and disables Join for RUNNING/full tables, so this is not a user-visible regression. If retesting, use player1 + casino_p2 sessions and API to prepare 2-seat tables (as demonstrated in the playwright script) to speed up Deal validation.",
+  "rca of the issue": "Original 'Couldn't join' RCA: lobby snapshot returned RUNNING tables but the UI rendered an active Join. Fix (verified): CasinoPage.jsx computes joinable = status==='WAITING' && seat_count<max_players and renders a disabled 'In progress'/'Full' label with data-testid casino-table-status-<id> for the else branch; failed join now calls loadLobby() to refresh state, and the lobby polls every 10s. Backend engine.join_table already rejects RUNNING/full — the fix simply prevents the click from being possible on stale rows."
+}

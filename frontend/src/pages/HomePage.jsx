@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Bell, Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles, Smile, Ghost, Crown, Award, Trophy, Zap, LogOut, ShieldCheck } from "lucide-react";
+import { Coins, Wallet, Plus, ChevronRight, Flame, Radio, Sparkles, Smile, Ghost, Crown, Award, Trophy, Zap, LogOut, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import axios from "axios";
 import { useWallet } from "@/context/WalletContext";
@@ -15,6 +15,7 @@ import { USER, QUICK_ACTIONS, GAMES, FANTASY_PROMO_BG, STORE_ITEMS } from "@/lib
 import { RewardsStore } from "@/components/RewardsStore";
 import { RewardWheel } from "@/components/RewardWheel";
 import { IndependenceBanner } from "@/components/IndependenceBanner";
+import { NotificationBell } from "@/components/NotificationBell";
 import { isIndependenceWindow } from "@/lib/festive";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -177,14 +178,7 @@ export default function HomePage() {
                 <ShieldCheck className="h-5 w-5" />
               </button>
             )}
-            <button
-              data-testid="notification-btn"
-              onClick={() => toast("No new notifications")}
-              className="relative grid h-11 w-11 place-items-center rounded-2xl bg-white text-slate-600 shadow-soft transition-transform hover:-translate-y-0.5"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-flame ring-2 ring-white" />
-            </button>
+            <NotificationBell />
             <button
               data-testid="logout-btn"
               onClick={() => {

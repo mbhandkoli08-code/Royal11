@@ -1,16 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { X, Copy, Check, Gift, Users, Loader2, Share2 } from "lucide-react";
+import { X, Copy, Check, Gift, Users, Loader2, Share2, Sparkles } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-
-const STATUS_STYLES = {
-  JOINED: "bg-amber-100 text-amber-700",
-  QUALIFIED: "bg-sky-100 text-sky-700",
-  REWARDED: "bg-emerald-100 text-emerald-700",
-};
 
 // Player "Refer & Earn": shows the code + share link, WhatsApp / copy / native
 // share, reward amounts, and a "My Referrals" list with status + total earned.
@@ -65,9 +59,11 @@ export const ReferAndEarn = ({ open, onClose }) => {
             <div className="flex justify-center py-16 text-slate-400"><Loader2 className="h-6 w-6 animate-spin" /></div>
           ) : (
             <>
-              {/* Hero */}
-              <div className="rounded-3xl bg-gradient-to-br from-royal to-flame p-5 text-white">
-                <p className="text-sm font-semibold text-white/80">Invite friends, both get bonus coins</p>
+              {/* Hero — Independence "freedom" theme */}
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-royal to-flame p-5 text-white">
+                <div className="absolute inset-x-0 top-0 h-1" style={{ background: "linear-gradient(90deg,#FF9933 0 33%,#ffffff 33% 66%,#138808 66% 100%)" }} />
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/80">Freedom to Play</p>
+                <p className="mt-0.5 text-sm font-semibold text-white/90">Refer &amp; unlock more freedom to play — you both get bonus coins! 🇮🇳</p>
                 <div className="mt-3 flex items-end gap-4">
                   <div>
                     <p className="text-[11px] uppercase tracking-wider text-white/70">You get</p>
@@ -120,20 +116,47 @@ export const ReferAndEarn = ({ open, onClose }) => {
                 </div>
               </div>
 
+              {/* Milestone nudge */}
+              {(() => {
+                const joined = data.stats.joined;
+                const nextMilestone = Math.max(1, Math.ceil((joined + 1) / 5) * 5);
+                const remaining = nextMilestone - joined;
+                return (
+                  <div data-testid="refer-nudge" className="mt-3 flex items-center gap-2 rounded-2xl bg-flame/10 px-3.5 py-2.5">
+                    <Sparkles className="h-4 w-4 text-flame" />
+                    <p className="text-xs font-semibold text-slate-700">
+                      {remaining === 1 ? "Just 1 more friend" : `${remaining} more friends`} to reach {nextMilestone} referrals — keep the freedom rolling!
+                    </p>
+                  </div>
+                );
+              })()}
+
               {/* My referrals */}
               <div className="mt-5">
                 <p className="mb-2 flex items-center gap-1.5 text-sm font-bold text-slate-900"><Users className="h-4 w-4" /> My referrals</p>
                 {data.referrals.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-slate-400">No referrals yet — share your code to start earning.</p>
-                ) : data.referrals.map((r, i) => (
-                  <div key={i} data-testid={`refer-row-${i}`} className="mb-2 flex items-center justify-between rounded-2xl border border-slate-100 px-3.5 py-3">
-                    <span className="text-sm font-semibold text-slate-800">{r.referee_name}</span>
-                    <div className="flex items-center gap-2">
-                      {r.referrer_reward > 0 && <span className="text-xs font-bold text-emerald-600">+{r.referrer_reward}</span>}
-                      <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLES[r.status] || "bg-slate-100 text-slate-500"}`}>{r.status}</span>
-                    </div>
+                  <div className="rounded-2xl border border-dashed border-slate-200 py-8 text-center">
+                    <p className="text-sm font-semibold text-slate-500">No referrals yet</p>
+                    <p className="mt-1 text-xs text-slate-400">Share your code above — you both earn bonus coins when a friend joins &amp; recharges.</p>
                   </div>
-                ))}
+                ) : data.referrals.map((r, i) => {
+                  const rewarded = r.status === "REWARDED";
+                  const label = rewarded ? `Recharged · Bonus earned +${r.referrer_reward}` : "Joined · pending recharge";
+                  return (
+                    <div key={i} data-testid={`refer-row-${i}`} className="mb-2 flex items-center justify-between rounded-2xl border border-slate-100 px-3.5 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] font-extrabold ${rewarded ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                          {(r.referee_name || "P").slice(0, 2).toUpperCase()}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{r.referee_name}</p>
+                          <p className={`text-[11px] font-medium ${rewarded ? "text-emerald-600" : "text-amber-600"}`}>{label}</p>
+                        </div>
+                      </div>
+                      {rewarded && <span className="text-xs font-bold text-emerald-600">+{r.referrer_reward}</span>}
+                    </div>
+                  );
+                })}
               </div>
             </>
           )}
