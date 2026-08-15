@@ -245,8 +245,8 @@ export default function RummyTable({ tableId, onLeave }) {
 
   return (
     <div data-testid="rummy-table" data-rummy-theme={theme}
-      className="fixed inset-0 z-[70] overflow-y-auto overflow-x-hidden overscroll-contain text-white"
-      style={{ background: th.bg, "--r-gold": th.gold, "--r-felt": th.felt }}>
+      className="fixed left-0 top-0 right-0 bottom-0 z-[70] overflow-y-auto overflow-x-hidden overscroll-contain text-white"
+      style={{ background: th.bg, "--r-gold": th.gold, "--r-felt": th.felt, WebkitOverflowScrolling: "touch" }}>
       <RummyAmbiance />
       <div className="relative z-10 mx-auto max-w-3xl px-3 pb-32 pt-4 sm:px-4 sm:pt-5 lg:max-w-5xl">
         {/* Header */}
