@@ -15,7 +15,7 @@ from .constants import (
 )
 from .db import db
 from .models import Role, TxnType
-from . import notification_service, storage_service
+from . import notification_service, storage_service, email_service
 from .audit import log_action
 
 
@@ -330,3 +330,135 @@ async def get_daily_summaries(days: int = 14) -> list[dict]:
     await generate_daily_summary(today - timedelta(days=1))
     rows = [s async for s in db.daily_summaries.find({}, {"_id": 0}).sort("date", -1).limit(days)]
     return rows
+
+
+
+# ---------------- settlement due reminders (in-app + email) ----------------
+async def send_due_reminders(days_before: int = 2) -> int:
+    """Nudge Admins about a PENDING settlement whose due date is within
+    `days_before` days. Idempotent per settlement via `reminded_at`."""
+    today = datetime.now(timezone.utc).date()
+    sent = 0
+    async for s in db.settlements.find(
+            {"status": "PENDING", "reminded_at": {"$in": [None, ""]}},
+            {"_id": 0, "id": 1, "admin_id": 1, "due_date": 1, "week_start": 1,
+             "week_end": 1, "super_admin_share_inr": 1}):
+        try:
+            due = date.fromisoformat(s["due_date"])
+        except Exception:
+            continue
+        delta = (due - today).days
+        if delta < 0 or delta > days_before:
+            continue
+        amount = s.get("super_admin_share_inr", 0)
+        title = "Settlement due soon"
+        body = (f"Your weekly settlement of ₹{amount:,} for {s['week_start']} → {s['week_end']} "
+                f"is due on {s['due_date']}. Please settle to keep your account active.")
+        try:
+            await notification_service.create(
+                s["admin_id"], "settlement_reminder", title, body,
+                request_id=f"settle_reminder:{s['id']}")
+        except Exception:
+            pass
+        user = await db.users.find_one({"id": s["admin_id"]}, {"_id": 0, "email": 1, "display_name": 1})
+        if user and user.get("email"):
+            html = (f"<p>Hi {user.get('display_name', 'Admin')},</p>"
+                    f"<p>{body}</p>"
+                    f"<p>Open ROYAL11 Console → My Settlements → <b>Settle Now</b> to pay and upload proof.</p>"
+                    f"<p>— ROYAL11</p>")
+            try:
+                await email_service.send_email(user["email"], "ROYAL11 — settlement due soon", html)
+            except Exception:
+                pass
+        await db.settlements.update_one({"id": s["id"]}, {"$set": {"reminded_at": _now_iso()}})
+        sent += 1
+    return sent
+
+
+# ---------------- Admin weekly settlement statement (PDF) ----------------
+async def build_statement_pdf(settlement_id: str, admin_id: Optional[str] = None) -> tuple[str, bytes]:
+    q = {"id": settlement_id}
+    if admin_id:
+        q["admin_id"] = admin_id
+    s = await db.settlements.find_one(q, {"_id": 0})
+    if not s:
+        raise ValueError("Settlement not found")
+    admin = await db.users.find_one({"id": s["admin_id"]}, {"_id": 0, "display_name": 1, "email": 1})
+    admin = admin or {}
+
+    import io
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.pdfgen import canvas
+
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=A4)
+    w, h = A4
+    gold = colors.HexColor("#b8860b")
+
+    c.setFillColor(colors.HexColor("#17060a"))
+    c.rect(0, h - 30 * mm, w, 30 * mm, fill=1, stroke=0)
+    c.setFillColor(gold)
+    c.setFont("Helvetica-Bold", 20)
+    c.drawString(20 * mm, h - 20 * mm, "ROYAL11 — Settlement Statement")
+
+    y = h - 42 * mm
+    c.setFillColor(colors.black)
+    c.setFont("Helvetica", 10)
+    def line(label, value, bold=False):
+        nonlocal y
+        c.setFont("Helvetica-Bold" if bold else "Helvetica", 11 if bold else 10)
+        c.drawString(22 * mm, y, label)
+        c.drawRightString(w - 22 * mm, y, str(value))
+        y -= 8 * mm
+
+    line("Admin", admin.get("display_name", "—"))
+    line("Statement ID", settlement_id)
+    line("Period", f"{s['week_start']}  →  {s['week_end']}")
+    line("Due date", s.get("due_date", "—"))
+    line("Status", s.get("status", "—"))
+    y -= 3 * mm
+    c.setStrokeColor(colors.HexColor("#dddddd")); c.line(22 * mm, y, w - 22 * mm, y); y -= 8 * mm
+    line("Gross deposits collected", f"Rs. {s.get('total_deposits_inr', 0):,}")
+    line(f"Company share ({s.get('split_pct_used', 0)}%)", f"Rs. {s.get('super_admin_share_inr', 0):,}")
+    line("Your retained share", f"Rs. {s.get('admin_share_inr', 0):,}")
+    y -= 2 * mm
+    c.setStrokeColor(colors.HexColor("#dddddd")); c.line(22 * mm, y, w - 22 * mm, y); y -= 8 * mm
+    line("NET REMITTED TO COMPANY", f"Rs. {s.get('super_admin_share_inr', 0):,}", bold=True)
+    if s.get("payment_reference"):
+        line("Payment reference", s["payment_reference"])
+    if s.get("settled_at"):
+        line("Confirmed on", s["settled_at"][:16].replace("T", " "))
+
+    c.setFont("Helvetica-Oblique", 8)
+    c.setFillColor(colors.grey)
+    c.drawString(22 * mm, 15 * mm,
+                 f"Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} · "
+                 f"Virtual-coin platform · figures in INR.")
+    c.showPage(); c.save()
+    buf.seek(0)
+    fname = f"settlement_{s['week_start']}_{admin.get('display_name', 'admin').replace(' ', '_')}.pdf"
+    return fname, buf.getvalue()
+
+
+async def beneficiaries_from_settlements(week_start: Optional[str], settlement_status: Optional[str],
+                                         field: str = "admin_share_inr") -> list[dict]:
+    """Pre-fill a bulk payout from settlements (e.g. paying Admins their share or
+    a reversal). Returns [{admin_id, name, amount, remarks}]."""
+    if field not in ("admin_share_inr", "super_admin_share_inr", "total_deposits_inr"):
+        field = "admin_share_inr"
+    q: dict = {}
+    if week_start:
+        q["week_start"] = week_start
+    if settlement_status:
+        q["status"] = settlement_status
+    out = []
+    async for s in db.settlements.find(q, {"_id": 0}).sort("week_start", -1):
+        u = await db.users.find_one({"id": s["admin_id"]}, {"_id": 0, "display_name": 1})
+        out.append({
+            "admin_id": s["admin_id"], "name": (u or {}).get("display_name", "—"),
+            "amount": s.get(field, 0),
+            "remarks": f"Settlement {s['week_start']}→{s['week_end']}",
+        })
+    return out

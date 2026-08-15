@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { X, Loader2, Landmark, ShieldCheck } from "lucide-react";
+import { X, Loader2, Landmark, ShieldCheck, CheckCircle2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const UPI_RE = /^[\w.\-]{2,256}@[a-zA-Z]{2,64}$/;
 
 const Toggle = ({ label, desc, checked, onChange, testid, disabled }) => (
   <button type="button" data-testid={testid} onClick={() => !disabled && onChange(!checked)} disabled={disabled}
@@ -19,11 +21,17 @@ const Toggle = ({ label, desc, checked, onChange, testid, disabled }) => (
   </button>
 );
 
-const Input = ({ label, value, onChange, testid, placeholder }) => (
+const Input = ({ label, value, onChange, testid, placeholder, error, prefix, right, inputMode, maxLength }) => (
   <label className="block">
     <span className="mb-1.5 block text-xs font-semibold text-slate-600">{label}</span>
-    <input data-testid={testid} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-      className="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm outline-none focus:border-royal" />
+    <div className={`flex items-center rounded-xl border bg-white transition-colors ${error ? "border-rose-300 focus-within:border-rose-400" : "border-slate-200 focus-within:border-royal"}`}>
+      {prefix && <span className="pl-3.5 text-sm font-semibold text-slate-400">{prefix}</span>}
+      <input data-testid={testid} value={value || ""} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        inputMode={inputMode} maxLength={maxLength}
+        className="w-full bg-transparent px-3.5 py-2.5 text-sm outline-none" />
+      {right && <span className="pr-3">{right}</span>}
+    </div>
+    {error && <span data-testid={`${testid}-error`} className="mt-1 flex items-center gap-1 text-xs text-rose-500"><AlertCircle className="h-3 w-3" /> {error}</span>}
   </label>
 );
 
@@ -36,16 +44,38 @@ export const ProfilePayout = ({ open, onClose }) => {
   const [p, setP] = useState(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [ifscLookup, setIfscLookup] = useState({ status: "idle", bank: "", branch: "" });
 
   const load = useCallback(async () => {
     setLoading(true);
     try { const { data } = await axios.get(`${API}/me/profile`, headers); setP(data); }
     catch { toast.error("Couldn't load profile"); }
     setLoading(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   useEffect(() => { if (open) load(); }, [open, load]);
+
+  // Live IFSC lookup (Razorpay public API) — auto-fills bank name on a valid code.
+  const ifsc = p?.bank?.ifsc || "";
+  useEffect(() => {
+    if (!open) return;
+    if (!IFSC_RE.test(ifsc)) { setIfscLookup({ status: "idle", bank: "", branch: "" }); return; }
+    let cancelled = false;
+    setIfscLookup({ status: "loading", bank: "", branch: "" });
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://ifsc.razorpay.com/${ifsc}`);
+        if (!res.ok) throw new Error("not found");
+        const d = await res.json();
+        if (cancelled) return;
+        setIfscLookup({ status: "ok", bank: d.BANK || "", branch: d.BRANCH || "" });
+        setP((prev) => (prev && !prev.bank?.bank_name ? { ...prev, bank: { ...(prev.bank || {}), bank_name: d.BANK || "" } } : prev));
+      } catch {
+        if (!cancelled) setIfscLookup({ status: "error", bank: "", branch: "" });
+      }
+    }, 450);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [ifsc, open]);
 
   const setBank = (k, v) => setP({ ...p, bank: { ...(p.bank || {}), [k]: v } });
   const setConsent = (k, v) => {
@@ -54,7 +84,15 @@ export const ProfilePayout = ({ open, onClose }) => {
     setP({ ...p, consent });
   };
 
+  const mobile = p?.mobile || "";
+  const upi = p?.upi_id || "";
+  const mobileErr = mobile && !/^\d{10}$/.test(mobile) ? "Enter exactly 10 digits" : "";
+  const ifscErr = ifsc && !IFSC_RE.test(ifsc) ? "Format: SBIN0000001" : (ifscLookup.status === "error" ? "IFSC not found — check the code" : "");
+  const upiErr = upi && !UPI_RE.test(upi) ? "Format: username@bank" : "";
+  const canSave = !mobileErr && !ifscErr && !upiErr && ifscLookup.status !== "loading";
+
   const save = async () => {
+    if (!canSave) return;
     setBusy(true);
     try {
       const { data } = await axios.put(`${API}/me/profile`, {
@@ -87,24 +125,33 @@ export const ProfilePayout = ({ open, onClose }) => {
             <div className="space-y-5">
               <div className="flex items-start gap-2 rounded-2xl bg-slate-50 p-3 text-xs text-slate-500">
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-royal" />
-                Your details are private and visible only to the platform's Super Admin for payout verification. Only you can edit them.
+                Your details are private and visible only to the platform&apos;s Super Admin for payout verification. Only you can edit them.
               </div>
 
-              <Input label="Mobile number" testid="profile-mobile" value={p.mobile} onChange={(v) => setP({ ...p, mobile: v })} placeholder="+91 98765 43210" />
+              <Input label="Mobile number" testid="profile-mobile" value={mobile} prefix="+91" inputMode="numeric" maxLength={10}
+                onChange={(v) => setP({ ...p, mobile: v.replace(/\D/g, "").slice(0, 10) })} placeholder="98765 43210" error={mobileErr} />
 
               <div>
                 <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Payout — Bank</p>
                 <div className="space-y-3">
                   <Input label="Account holder name" testid="profile-holder" value={p.bank?.account_holder_name} onChange={(v) => setBank("account_holder_name", v)} placeholder="As per bank" />
-                  <Input label="Account number" testid="profile-acct" value={p.bank?.account_number} onChange={(v) => setBank("account_number", v)} placeholder="Account number" />
+                  <Input label="Account number" testid="profile-acct" value={p.bank?.account_number} inputMode="numeric" onChange={(v) => setBank("account_number", v)} placeholder="Account number" />
                   <div className="grid grid-cols-2 gap-3">
-                    <Input label="IFSC" testid="profile-ifsc" value={p.bank?.ifsc} onChange={(v) => setBank("ifsc", v)} placeholder="HDFC0001234" />
+                    <Input label="IFSC" testid="profile-ifsc" value={p.bank?.ifsc} maxLength={11}
+                      onChange={(v) => setBank("ifsc", v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11))}
+                      placeholder="SBIN0000001" error={ifscErr}
+                      right={ifscLookup.status === "loading" ? <Loader2 className="h-4 w-4 animate-spin text-slate-400" /> : ifscLookup.status === "ok" ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : null} />
                     <Input label="Bank name" testid="profile-bank" value={p.bank?.bank_name} onChange={(v) => setBank("bank_name", v)} placeholder="Bank" />
                   </div>
+                  {ifscLookup.status === "ok" && (ifscLookup.bank || ifscLookup.branch) && (
+                    <p data-testid="profile-ifsc-branch" className="flex items-center gap-1 text-xs text-emerald-600">
+                      <CheckCircle2 className="h-3 w-3" /> {ifscLookup.bank}{ifscLookup.branch ? ` · ${ifscLookup.branch}` : ""}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <Input label="UPI ID" testid="profile-upi" value={p.upi_id} onChange={(v) => setP({ ...p, upi_id: v })} placeholder="name@bank" />
+              <Input label="UPI ID" testid="profile-upi" value={upi} onChange={(v) => setP({ ...p, upi_id: v.trim() })} placeholder="name@bank" error={upiErr} />
 
               <div>
                 <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Promotional messages</p>
@@ -121,7 +168,7 @@ export const ProfilePayout = ({ open, onClose }) => {
 
         {p && (
           <div className="border-t border-slate-100 p-4">
-            <button data-testid="profile-save" disabled={busy} onClick={save}
+            <button data-testid="profile-save" disabled={busy || !canSave} onClick={save}
               className="w-full rounded-2xl bg-royal py-3 text-sm font-bold text-white disabled:opacity-50">
               {busy ? "Saving…" : "Save details"}
             </button>

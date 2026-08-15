@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Landmark, Upload, AlertTriangle, CheckCircle2, Copy, Check } from "lucide-react";
+import { Loader2, Landmark, Upload, AlertTriangle, CheckCircle2, Copy, Check, FileText } from "lucide-react";
 import { useConsoleApi, fmtCoins, fmtDate } from "@/console/api";
 import { PanelHeader, Field, PrimaryButton, Spinner, Modal, CARD, thCls, tdCls, StatusBadge, EmptyState } from "@/console/primitives";
 
@@ -50,6 +50,16 @@ export const AdminSettlementsPanel = () => {
     setCopied(true); setTimeout(() => setCopied(false), 1500);
   };
 
+  const downloadStatement = async (s) => {
+    try {
+      const { data } = await api.get(`/admin/settlement/${s.id}/statement.pdf`, { responseType: "blob" });
+      const url = URL.createObjectURL(data);
+      const link = document.createElement("a");
+      link.href = url; link.download = `settlement_${s.week_start}.pdf`; link.click();
+      URL.revokeObjectURL(url);
+    } catch { toast.error("Couldn't download statement"); }
+  };
+
   if (loading) return <Spinner label="Loading your settlements…" />;
 
   const overdue = rows.filter((s) => s.is_overdue);
@@ -88,7 +98,9 @@ export const AdminSettlementsPanel = () => {
                     <td className={tdCls}><span className={`text-xs font-semibold ${s.is_overdue ? "text-rose-600" : "text-slate-400"}`}>{s.due_date}</span></td>
                     <td className={tdCls}><StatusBadge status={s.status} /></td>
                     <td className={tdCls}>
-                      <div className="flex justify-end">
+                      <div className="flex items-center justify-end gap-2">
+                        <button data-testid={`statement-${s.id}`} onClick={() => downloadStatement(s)} title="Download statement PDF"
+                          className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"><FileText className="h-3.5 w-3.5" /> PDF</button>
                         {s.status === "PENDING" ? (
                           <PrimaryButton data-testid={`settle-now-${s.id}`} onClick={() => setTarget(s)} className="!px-3 !py-2 text-xs">Settle Now</PrimaryButton>
                         ) : <span className="text-xs text-slate-400">{s.status === "SUBMITTED" ? "Awaiting confirm" : "—"}</span>}

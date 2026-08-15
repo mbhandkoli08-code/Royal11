@@ -28,6 +28,17 @@ async def admin_company_bank():
     return await bt.get_company_bank()
 
 
+@router.get("/admin/settlement/{settlement_id}/statement.pdf",
+            dependencies=[Depends(require_roles(Role.ADMIN))])
+async def settlement_statement(settlement_id: str, caller: dict = Depends(get_current_user)):
+    try:
+        fname, pdf = await revenue_service.build_statement_pdf(settlement_id, caller["id"])
+    except ValueError as e:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(e))
+    return Response(content=pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
 @router.post("/admin/settlement/{settlement_id}/pay",
              dependencies=[Depends(require_roles(Role.ADMIN))])
 async def submit_payment(
@@ -192,18 +203,29 @@ class ExportBeneficiary(BaseModel):
 class ExportRequest(BaseModel):
     template_id: Optional[str] = None
     beneficiaries: list[ExportBeneficiary]
+    format: str = "csv"
 
 
 @router.post("/superadmin/payouts/export", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
 async def export_payouts(payload: ExportRequest, caller: dict = Depends(get_current_user)):
     if not payload.beneficiaries:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Select at least one beneficiary")
+    fmt = "xlsx" if payload.format == "xlsx" else "csv"
     try:
-        fname, csv_text = await bt.export_payout_csv(
-            payload.template_id, [b.model_dump() for b in payload.beneficiaries])
+        fname, data, content_type = await bt.export_payout_csv(
+            payload.template_id, [b.model_dump() for b in payload.beneficiaries], fmt=fmt)
     except ValueError as e:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
     await log_action(caller["id"], "payout.export",
-                     metadata={"count": len(payload.beneficiaries), "template_id": payload.template_id})
-    return Response(content=csv_text, media_type="text/csv",
+                     metadata={"count": len(payload.beneficiaries), "template_id": payload.template_id,
+                               "format": fmt})
+    return Response(content=data, media_type=content_type,
                     headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@router.get("/superadmin/payouts/from-settlements",
+            dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])
+async def payouts_from_settlements(week_start: Optional[str] = None, status: Optional[str] = None,
+                                   field: str = "admin_share_inr"):
+    """Pre-fill a bulk payout from settlements (pay Admins their share / reversal)."""
+    return await revenue_service.beneficiaries_from_settlements(week_start, status, field)

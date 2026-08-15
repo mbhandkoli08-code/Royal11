@@ -402,6 +402,7 @@ async def _daily_maintenance():
     try:
         await revenue_service.generate_daily_summary(date.today() - timedelta(days=1))
         await revenue_service.ensure_recent_settlements()
+        await revenue_service.send_due_reminders()
         await payroll_service.run_recent_payroll()
         await bonus_service.expire_bonuses()
         await surprise_box_service.generate_boxes()

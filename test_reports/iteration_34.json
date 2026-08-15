@@ -1,0 +1,40 @@
+{
+  "summary": "Frontend-only validation testing of Player 'Profile & Payout' modal and Admin 'Collection Bank Accounts' Add-Account modal. All specified behaviors work correctly: mobile stripping/max-10, mobile inline error + Save disabled, IFSC auto-upper/strip, invalid IFSC error + Save/Submit disabled, live Razorpay IFSC lookup showing branch line and auto-filling bank name (when empty), UPI regex validation, and full successful submissions with 200 responses (NO 422s). Toasts 'Profile saved' and 'Bank account added' both displayed.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ProfilePayout auto-fills bank_name only when previously empty (see line 72). This is correct behavior to avoid clobbering user-entered values; observed 'State Bank of India' remained after switching IFSC to HDFC0001234 because the field was already populated from an earlier profile load. Branch line still updates, so user can visually reconcile. No action needed but worth noting."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped)", "frontend": "100%"},
+  "test_credentials": "player1@royal11.com / ChangeMe123! ; admin1@royal11.com / ChangeMe123!",
+  "seed_data_creation": "Created a new admin collection bank account (HDFC TEST, IFSC HDFC0001234) via the UI as part of the submit-success test.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All frontend validation for profile-payout and bank-account-panel is verified end-to-end. Player Save PUT /api/me/profile -> 200. Admin POST /api/admin/bank-accounts -> 200. Razorpay IFSC public API is reachable from the preview env for HDFC0001234 (returns 'HDFC Bank · PARK STREET' — note Razorpay's demo record for HDFC0001234 labels itself as 'HDFC Bank').",
+  "detailed_results": {
+    "player_profile_payout": {
+      "mobile_strip_and_max10": "PASS - typed 'abc98765abc4321012345' -> '9876543210'",
+      "short_mobile_error_and_save_disabled": "PASS - error 'Enter exactly 10 digits' shown, Save disabled",
+      "ifsc_valid_lookup_branch": "PASS - HDFC0001234 -> profile-ifsc-branch shows 'HDFC Bank · PARK STREET'",
+      "ifsc_auto_uppercase_and_strip": "PASS - typed 'hdfc0001234' -> 'HDFC0001234'",
+      "ifsc_invalid_error_and_save_disabled": "PASS",
+      "upi_invalid_error": "PASS - 'notanupi' -> 'Format: username@bank'",
+      "upi_valid_clears_error": "PASS - 'name@hdfc' clears error",
+      "full_valid_save_no_422": "PASS - PUT /api/me/profile returned 200, toast 'Profile saved' visible"
+    },
+    "admin_bank_account_panel": {
+      "modal_opens": "PASS",
+      "ifsc_auto_upper_strip_max11": "PASS",
+      "invalid_ifsc_error_and_submit_disabled": "PASS - 'abc123' -> 'ABC123', error shown, submit disabled",
+      "valid_ifsc_lookup_and_autofill": "PASS - branch line + bank_name auto-filled to 'HDFC Bank'",
+      "submit_success_no_422": "PASS - POST /api/admin/bank-accounts returned 200, toast 'Bank account added' visible"
+    }
+  }
+}

@@ -10,6 +10,7 @@ import { buildUpiUri } from "@/lib/upi";
 import { buildWaLink } from "@/lib/whatsapp";
 
 const EMPTY = { account_holder_name: "", account_number: "", ifsc: "", bank_name: "", label: "", upi_id: "" };
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 
 // Admin/Manager manage MULTIPLE collection accounts; exactly one is active and
 // that's what players see (with its auto-generated UPI QR). Old accounts stay
@@ -25,6 +26,7 @@ export const BankAccountPanel = () => {
   const [form, setForm] = useState(EMPTY);
   const [whatsapp, setWhatsapp] = useState("");
   const [waSaving, setWaSaving] = useState(false);
+  const [ifscLookup, setIfscLookup] = useState({ status: "idle", bank: "", branch: "" });
 
   const load = useCallback(async () => {
     try {
@@ -46,11 +48,35 @@ export const BankAccountPanel = () => {
   };
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+  const setIfsc = (e) => setForm((f) => ({ ...f, ifsc: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11) }));
+
+  // Live IFSC lookup (Razorpay public API) — auto-fills bank name on a valid code.
+  useEffect(() => {
+    if (!modal) return;
+    if (!IFSC_RE.test(form.ifsc)) { setIfscLookup({ status: "idle", bank: "", branch: "" }); return; }
+    let cancelled = false;
+    setIfscLookup({ status: "loading", bank: "", branch: "" });
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://ifsc.razorpay.com/${form.ifsc}`);
+        if (!res.ok) throw new Error("not found");
+        const d = await res.json();
+        if (cancelled) return;
+        setIfscLookup({ status: "ok", bank: d.BANK || "", branch: d.BRANCH || "" });
+        setForm((f) => (f.bank_name ? f : { ...f, bank_name: d.BANK || "" }));
+      } catch { if (!cancelled) setIfscLookup({ status: "error", bank: "", branch: "" }); }
+    }, 450);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [form.ifsc, modal]);
+
+  const ifscErr = form.ifsc && !IFSC_RE.test(form.ifsc) ? "Format: SBIN0000001" : (ifscLookup.status === "error" ? "IFSC not found — check the code" : "");
+  const canCreate = !ifscErr && ifscLookup.status !== "loading";
 
   const create = async () => {
     if (busy) return;
     if (!form.account_holder_name || !form.account_number || !form.ifsc || !form.bank_name)
       return toast.error("Please fill account holder, number, IFSC and bank name");
+    if (!IFSC_RE.test(form.ifsc)) return toast.error("Invalid IFSC — format: SBIN0000001");
     setBusy(true);
     try {
       await api.post("/admin/bank-accounts", {
@@ -86,7 +112,7 @@ export const BankAccountPanel = () => {
       <PanelHeader
         title="Collection Bank Accounts"
         subtitle="Add multiple accounts; the active one is shown to players (with its UPI QR). Totals below are from confirmed deposits."
-        actions={<PrimaryButton data-testid="bank-add-btn" disabled={suspended} onClick={() => { setForm(EMPTY); setModal(true); }}><Plus className="h-4 w-4" /> Add Account</PrimaryButton>}
+        actions={<PrimaryButton data-testid="bank-add-btn" disabled={suspended} onClick={() => { setForm(EMPTY); setIfscLookup({ status: "idle", bank: "", branch: "" }); setModal(true); }}><Plus className="h-4 w-4" /> Add Account</PrimaryButton>}
       />
 
       {/* WhatsApp contact shown to players (wa.me) */}
@@ -94,7 +120,7 @@ export const BankAccountPanel = () => {
         <div className="mb-2 flex items-center gap-2 font-display text-base font-bold text-slate-900">
           <MessageCircle className="h-5 w-5 text-emerald-500" /> WhatsApp contact
         </div>
-        <p className="mb-3 text-xs text-slate-400">Players see a "Chat on WhatsApp" button when this is set. Use full number with country code (e.g. +91XXXXXXXXXX). Leave blank to hide it.</p>
+        <p className="mb-3 text-xs text-slate-400">Players see a &quot;Chat on WhatsApp&quot; button when this is set. Use full number with country code (e.g. +91XXXXXXXXXX). Leave blank to hide it.</p>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <input
             data-testid="whatsapp-input" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)}
@@ -170,8 +196,13 @@ export const BankAccountPanel = () => {
             <Field label="Nickname / label (optional)" data-testid="bank-label" value={form.label} onChange={set("label")} placeholder="e.g. Primary GPay" />
             <Field label="Bank name" data-testid="bank-name" value={form.bank_name} onChange={set("bank_name")} />
             <Field label="Account holder name" data-testid="bank-holder" value={form.account_holder_name} onChange={set("account_holder_name")} />
-            <Field label="Account number" data-testid="bank-number" value={form.account_number} onChange={set("account_number")} />
-            <Field label="IFSC" data-testid="bank-ifsc" value={form.ifsc} onChange={set("ifsc")} />
+            <Field label="Account number" data-testid="bank-number" value={form.account_number} onChange={set("account_number")} inputMode="numeric" />
+            <Field label="IFSC" data-testid="bank-ifsc" value={form.ifsc} onChange={setIfsc} maxLength={11} placeholder="SBIN0000001"
+              hint={ifscErr
+                ? <span className="text-rose-500" data-testid="bank-ifsc-error">{ifscErr}</span>
+                : ifscLookup.status === "loading" ? <span>Looking up bank…</span>
+                : ifscLookup.status === "ok" ? <span className="text-emerald-600" data-testid="bank-ifsc-branch">{ifscLookup.bank}{ifscLookup.branch ? ` · ${ifscLookup.branch}` : ""}</span>
+                : null} />
           </div>
           <Field label="UPI ID (optional)" data-testid="bank-upi" value={form.upi_id} onChange={set("upi_id")} placeholder="name@okicici" hint="A scannable UPI QR is generated automatically from this ID." />
           {buildUpiUri(form.upi_id.trim(), form.account_holder_name) && (
@@ -180,7 +211,7 @@ export const BankAccountPanel = () => {
               <p className="text-xs text-slate-500"><QrCode className="mb-1 h-4 w-4 text-sky-500" /> Live QR preview — this is what players scan.</p>
             </div>
           )}
-          <PrimaryButton data-testid="bank-create-submit" onClick={create} disabled={busy} className="w-full">
+          <PrimaryButton data-testid="bank-create-submit" onClick={create} disabled={busy || !canCreate} className="w-full">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Add Account
           </PrimaryButton>
         </div>

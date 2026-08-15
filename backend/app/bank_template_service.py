@@ -149,9 +149,10 @@ async def _beneficiary_details(admin_id: str) -> dict:
 
 # ---------------- bulk payout export ----------------
 async def export_payout_csv(template_id: Optional[str], beneficiaries: list[dict],
-                            default_mode: str = "NEFT") -> tuple[str, str]:
-    """Render a bulk payout CSV for the chosen bank template. `beneficiaries` is a
-    list of {admin_id, amount, remarks}. Returns (filename, csv_text)."""
+                            default_mode: str = "NEFT", fmt: str = "csv") -> tuple[str, bytes, str]:
+    """Render a bulk payout file for the chosen bank template. `beneficiaries` is
+    a list of {admin_id, amount, remarks}. `fmt` is 'csv' or 'xlsx'. Returns
+    (filename, file_bytes, content_type)."""
     template = None
     if template_id:
         template = await db.bank_payout_templates.find_one({"id": template_id}, {"_id": 0})
@@ -161,9 +162,7 @@ async def export_payout_csv(template_id: Optional[str], beneficiaries: list[dict
         raise ValueError("No payout template available")
 
     columns = template["columns"]
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow([c["header"] for c in columns])
+    # Resolve + validate beneficiaries once.
     missing = []
     rendered = []
     for b in beneficiaries:
@@ -176,8 +175,9 @@ async def export_payout_csv(template_id: Optional[str], beneficiaries: list[dict
         raise ValueError(
             "These beneficiaries have no bank account on file — add it before exporting: "
             + ", ".join(missing))
-    for b, det in rendered:
-        row_vals = {
+
+    def _row(b, det):
+        vals = {
             "beneficiary_name": det["beneficiary_name"],
             "account_number": det["account_number"],
             "ifsc": det["ifsc"],
@@ -185,9 +185,31 @@ async def export_payout_csv(template_id: Optional[str], beneficiaries: list[dict
             "mode": b.get("mode") or default_mode,
             "remarks": b.get("remarks") or "",
         }
-        w.writerow([row_vals.get(c["field"], "") for c in columns])
-    fname = f"payout_{template['bank_code'].lower()}_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
-    return fname, buf.getvalue()
+        return [vals.get(c["field"], "") for c in columns]
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
+    base = f"payout_{template['bank_code'].lower()}_{stamp}"
+    header = [c["header"] for c in columns]
+
+    if fmt == "xlsx":
+        from openpyxl import Workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Payouts"
+        ws.append(header)
+        for b, det in rendered:
+            ws.append(_row(b, det))
+        bio = io.BytesIO()
+        wb.save(bio)
+        return (f"{base}.xlsx", bio.getvalue(),
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(header)
+    for b, det in rendered:
+        w.writerow(_row(b, det))
+    return f"{base}.csv", buf.getvalue().encode("utf-8"), "text/csv"
 
 
 # ---------------- company remittance bank account ----------------

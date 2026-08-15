@@ -23,8 +23,10 @@ export const BankPayoutsPanel = () => {
   const [editing, setEditing] = useState(null); // template object being edited (null=closed)
   const [saving, setSaving] = useState(false);
   const [exportTemplate, setExportTemplate] = useState("");
+  const [exportFormat, setExportFormat] = useState("csv");
   const [selected, setSelected] = useState({}); // admin_id -> {checked, amount, remarks}
   const [exporting, setExporting] = useState(false);
+  const [loadingFromSettle, setLoadingFromSettle] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -82,19 +84,34 @@ export const BankPayoutsPanel = () => {
   const toggle = (id) => setSelected((s) => ({ ...s, [id]: { ...(s[id] || { amount: "", remarks: "" }), checked: !s[id]?.checked } }));
   const setField = (id, k, v) => setSelected((s) => ({ ...s, [id]: { ...(s[id] || { checked: true }), [k]: v } }));
 
+  const loadFromSettlements = async () => {
+    setLoadingFromSettle(true);
+    try {
+      const { data } = await api.get("/superadmin/payouts/from-settlements?field=admin_share_inr");
+      const next = {};
+      data.forEach((r) => { next[r.admin_id] = { checked: true, amount: r.amount, remarks: r.remarks }; });
+      setSelected(next);
+      toast.success(`Loaded ${data.length} beneficiaries from settlements`);
+    } catch { toast.error("Couldn't load from settlements"); } finally { setLoadingFromSettle(false); }
+  };
+
   const exportCsv = async () => {
     const beneficiaries = admins.filter((a) => selected[a.admin_id]?.checked)
       .map((a) => ({ admin_id: a.admin_id, amount: Number(selected[a.admin_id]?.amount) || 0, remarks: selected[a.admin_id]?.remarks || "" }));
     if (!beneficiaries.length) return toast.error("Select at least one beneficiary");
     setExporting(true);
     try {
-      const { data } = await api.post("/superadmin/payouts/export", { template_id: exportTemplate, beneficiaries }, { responseType: "blob" });
+      const { data } = await api.post("/superadmin/payouts/export", { template_id: exportTemplate, format: exportFormat, beneficiaries }, { responseType: "blob" });
       const url = URL.createObjectURL(data);
-      const link = document.createElement("a"); link.href = url; link.download = "payout.csv"; link.click();
+      const link = document.createElement("a"); link.href = url;
+      link.download = exportFormat === "xlsx" ? "payout.xlsx" : "payout.csv"; link.click();
       URL.revokeObjectURL(url);
       toast.success("Payout file exported");
-    } catch (e) { toast.error("Couldn't export", { description: e.response?.data?.detail || "" }); }
-    finally { setExporting(false); }
+    } catch (e) {
+      let msg = "Couldn't export";
+      try { msg = JSON.parse(await e.response?.data?.text())?.detail || msg; } catch { /* ignore */ }
+      toast.error(msg);
+    } finally { setExporting(false); }
   };
 
   if (loading) return <Spinner label="Loading payout templates…" />;
@@ -141,8 +158,19 @@ export const BankPayoutsPanel = () => {
               {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-slate-500">File type</span>
+            <select data-testid="export-format-select" value={exportFormat} onChange={(e) => setExportFormat(e.target.value)}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 outline-none focus:border-sky-400">
+              <option value="csv">CSV</option>
+              <option value="xlsx">Excel (.xlsx)</option>
+            </select>
+          </label>
+          <GhostButton data-testid="load-from-settlements" onClick={loadFromSettlements} disabled={loadingFromSettle}>
+            {loadingFromSettle ? <Loader2 className="h-4 w-4 animate-spin" /> : <Users className="h-4 w-4" />} Load from settlements
+          </GhostButton>
           <PrimaryButton data-testid="export-payout-csv" onClick={exportCsv} disabled={exporting} className="ml-auto">
-            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Export CSV
+            {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />} Export {exportFormat === "xlsx" ? "Excel" : "CSV"}
           </PrimaryButton>
         </div>
         <div className="overflow-x-auto">

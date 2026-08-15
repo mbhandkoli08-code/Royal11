@@ -4,8 +4,32 @@ hierarchy and ledger transaction types.
 from datetime import datetime
 from enum import Enum
 from typing import List, Optional
+import re
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+# Standard Indian IFSC: 4 letters + '0' + 6 alphanumerics (e.g. SBIN0000001).
+IFSC_RE = re.compile(r"^[A-Z]{4}0[A-Z0-9]{6}$")
+
+
+def _validate_ifsc(v: Optional[str], *, required: bool) -> Optional[str]:
+    if v is None or str(v).strip() == "":
+        if required:
+            raise ValueError("IFSC is required")
+        return None
+    v = str(v).strip().upper()
+    if not IFSC_RE.match(v):
+        raise ValueError("Invalid IFSC — expected 4 letters + 0 + 6 alphanumerics, e.g. SBIN0000001")
+    return v
+
+
+def _validate_mobile(v: Optional[str]) -> Optional[str]:
+    if v is None or str(v).strip() == "":
+        return None
+    v = str(v).strip()
+    if not re.fullmatch(r"\d{10}", v):
+        raise ValueError("Mobile number must be exactly 10 digits")
+    return v
 
 
 class Role(str, Enum):
@@ -283,6 +307,11 @@ class BankAccountInput(BaseModel):
     account_holder_name: str = Field(min_length=1, max_length=120)
     account_number: str = Field(min_length=4, max_length=34)
     ifsc: str = Field(min_length=4, max_length=15)
+
+    @field_validator("ifsc")
+    @classmethod
+    def _ifsc(cls, v):
+        return _validate_ifsc(v, required=True)
     bank_name: str = Field(min_length=1, max_length=120)
     label: Optional[str] = Field(default=None, max_length=60)
     upi_id: Optional[str] = Field(default=None, max_length=100)
@@ -360,6 +389,11 @@ class PlayerBankInput(BaseModel):
     ifsc: Optional[str] = Field(default=None, max_length=15)
     bank_name: Optional[str] = Field(default=None, max_length=120)
 
+    @field_validator("ifsc")
+    @classmethod
+    def _ifsc(cls, v):
+        return _validate_ifsc(v, required=False)
+
 
 class MarketingConsent(BaseModel):
     marketing_opt_in: bool = False
@@ -373,6 +407,11 @@ class PlayerProfileUpdate(BaseModel):
     upi_id: Optional[str] = Field(default=None, max_length=100)
     bank: Optional[PlayerBankInput] = None
     consent: Optional[MarketingConsent] = None
+
+    @field_validator("mobile")
+    @classmethod
+    def _mobile(cls, v):
+        return _validate_mobile(v)
 
 
 # ---------------------------------------------------------------------------
