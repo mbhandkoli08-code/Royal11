@@ -43,6 +43,7 @@ from app.routers.notifications import router as notifications_router
 from app.routers.chatbot import router as chatbot_router
 from app.routers.crypto_purchase import router as crypto_purchase_router
 from app.routers.settlement import router as settlement_router
+from app.routers.daily_bonus import router as daily_bonus_router
 from app.games import engine as casino_engine
 from app.games import progression_service as casino_progression
 
@@ -376,6 +377,7 @@ api_router.include_router(notifications_router)
 api_router.include_router(chatbot_router)
 api_router.include_router(crypto_purchase_router)
 api_router.include_router(settlement_router)
+api_router.include_router(daily_bonus_router)
 app.include_router(api_router)
 
 app.add_middleware(
@@ -433,6 +435,8 @@ async def ensure_db_indexes():
     await otp_service.ensure_indexes()
     from app import password_reset_service
     await password_reset_service.ensure_indexes()
+    from app import daily_bonus_service
+    await daily_bonus_service.ensure_indexes()
     await casino_engine.ensure_indexes()
     from app.games import slots_service as casino_slots
     await casino_slots.ensure_indexes()

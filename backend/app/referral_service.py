@@ -20,7 +20,7 @@ from .db import db
 
 DEFAULTS = {
     "enabled": True,
-    "referrer_amount": 125,          # coins to the referrer (bonus rail)
+    "referrer_amount": 200,          # coins to the referrer (bonus rail)
     "referee_amount": 75,            # coins to the new player (bonus rail)
     "qualify_event": "FIRST_RECHARGE",  # SIGNUP | FIRST_RECHARGE | FIRST_WAGER
     "qualify_min_amount": 100,       # min recharge/wager coins to qualify

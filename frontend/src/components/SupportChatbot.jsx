@@ -4,9 +4,11 @@ import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Send, Loader2, LifeBuoy } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { ROYAL_JOKER_AVATAR } from "@/lib/casinoAssets";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const JOKER = "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/b699cef89ea177b822f771f3208c4985a22ff6671411a0cc37050245aca9cf19.jpeg";
+// Unified approved Royal Mascot Joker (same character as the in-game Joker card).
+const JOKER = ROYAL_JOKER_AVATAR;
 const QUICK = [
   "How do I add coins?",
   "Are the games provably fair?",

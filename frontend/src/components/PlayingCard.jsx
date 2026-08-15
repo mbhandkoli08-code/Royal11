@@ -1,4 +1,5 @@
 import "../pages/casino-vegas.css";
+import { ROYAL_JOKER_CARD } from "@/lib/casinoAssets";
 
 const SUIT = { s: "♠", h: "♥", d: "♦", c: "♣" };
 const RED = new Set(["h", "d"]);
@@ -49,11 +50,11 @@ export function PlayingCard({ card, code, faceDown, size = "sm", selected, onCli
 
   let inner;
   if (c.joker) {
+    // Approved unified Royal Mascot Joker art (photoreal-illustrated card).
     inner = (
-      <span className="pc" style={dim} data-testid="playing-card">
-        <span className="pc-pip pc-pip-tl pc-red" style={{ fontSize: pf + "rem" }}>J<span style={{ fontSize: pf * 0.7 + "rem" }}>★</span></span>
-        <span className="pc-center pc-red" style={{ fontSize: cf + "rem" }}>★</span>
-        <span className="pc-pip pc-pip-br pc-red" style={{ fontSize: pf + "rem" }}>J<span style={{ fontSize: pf * 0.7 + "rem" }}>★</span></span>
+      <span className="pc pc-joker" style={dim} data-testid="playing-card">
+        <img src={ROYAL_JOKER_CARD} alt="Joker" draggable="false"
+          style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, display: "block" }} />
       </span>
     );
   } else {

@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, Wifi, WifiOff, AlertTriangle, Coins } from "lucide-react";
+import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, Wifi, WifiOff, AlertTriangle, Coins, Gift } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useWallet } from "@/context/WalletContext";
 import { classifyGroup, evaluateHand, provisionalDeadwood } from "@/lib/rummy";
 import { RummyAmbiance } from "@/components/RummyAmbiance";
 import { RummyMusic } from "@/components/RummyMusic";
 import { AddCoins } from "@/components/AddCoins";
+import { ReferAndEarn } from "@/components/ReferAndEarn";
+import { DailyBonusWidget } from "@/components/DailyBonusWidget";
 import { PlayingCard } from "@/components/PlayingCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { PALACE_BACKDROP, ROYAL_DEALER } from "@/lib/casinoAssets";
@@ -80,6 +82,7 @@ export default function RummyTable({ tableId, onLeave }) {
   const [verify, setVerify] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [showAddCoins, setShowAddCoins] = useState(false);
+  const [showRewards, setShowRewards] = useState(false);
   const [celebOpen, setCelebOpen] = useState(true);
   const [showLowChips, setShowLowChips] = useState(false);
   const [theme, setTheme] = useState(() => user?.rummy_theme || localStorage.getItem("royal11_rummy_theme") || "luxury");
@@ -246,6 +249,8 @@ export default function RummyTable({ tableId, onLeave }) {
             <span data-testid="rummy-conn" className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${conn ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/20 text-rose-300 animate-pulse"}`}>
               {conn ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}{conn ? "Live" : "Reconnecting"}
             </span>
+            <button data-testid="rummy-rewards-btn" onClick={() => setShowRewards(true)}
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--r-gold)]/40 bg-[var(--r-gold)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--r-gold)] hover:bg-[var(--r-gold)]/20"><Gift className="h-3.5 w-3.5" /> Rewards</button>
             <button data-testid="rummy-leave" onClick={doLeave} disabled={busy || playing}
               className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/5 disabled:opacity-40"><LogOut className="h-3.5 w-3.5" /> Leave</button>
           </div>
@@ -383,9 +388,9 @@ export default function RummyTable({ tableId, onLeave }) {
             {/* Action bar */}
             <div className="mt-4 grid grid-cols-3 gap-2">
               <button data-testid="rummy-discard" onClick={doDiscard} disabled={!myTurn || !drawDone || selected.length !== 1 || busy}
-                className="flex items-center justify-center gap-1.5 rounded-2xl bg-white/10 py-3 text-sm font-bold text-white disabled:opacity-40"><Hand className="h-4 w-4" /> Discard</button>
+                className="flex items-center justify-center gap-1.5 rounded-2xl bg-[#6b0f1a] py-3 text-sm font-bold text-white ring-1 ring-[var(--r-gold)]/30 disabled:opacity-40"><Hand className="h-4 w-4" /> Discard</button>
               <button data-testid="rummy-declare" onClick={doDeclare} disabled={!myTurn || !drawDone || !evalResult.canDeclare || busy}
-                className="flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-500 py-3 text-sm font-black text-black disabled:opacity-40"><Trophy className="h-4 w-4" /> Declare</button>
+                className="flex items-center justify-center gap-1.5 rounded-2xl bg-[var(--r-gold)] py-3 text-sm font-black text-black disabled:opacity-40"><Trophy className="h-4 w-4" /> Declare</button>
               <button data-testid="rummy-drop" onClick={() => setShowDrop(true)} disabled={!myTurn || drawDone || busy}
                 className="flex items-center justify-center gap-1.5 rounded-2xl bg-white/10 py-3 text-sm font-bold text-amber-300 disabled:opacity-40"><Flag className="h-4 w-4" /> Drop</button>
             </div>
@@ -439,6 +444,18 @@ export default function RummyTable({ tableId, onLeave }) {
 
       {/* Recharge sheet — top up without leaving the table */}
       <AddCoins palace open={showAddCoins} onClose={() => { setShowAddCoins(false); refreshWallet(); }} onSubmitted={refreshWallet} />
+
+      {/* Rewards modal — Refer & Earn + Promo (opened from the Rewards top-bar button) */}
+      <ReferAndEarn open={showRewards} onClose={() => setShowRewards(false)} />
+
+      {/* Persistent HUD: Daily Bonus (bottom-left) + Emoji-only badge (bottom-right) */}
+      <div className="fixed bottom-4 left-4 z-40 hidden sm:block">
+        <DailyBonusWidget onClaimed={refreshWallet} />
+      </div>
+      <div data-testid="emoji-only-badge"
+        className="fixed bottom-4 right-4 z-40 hidden items-center gap-1.5 rounded-full border border-[var(--r-gold)]/40 bg-black/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--r-gold)] backdrop-blur-md sm:inline-flex">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Emoji Only
+      </div>
     </div>
   );
 }

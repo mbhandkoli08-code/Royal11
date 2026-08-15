@@ -1,0 +1,51 @@
+{
+  "summary": "Frontend E2E validation of ROYAL11's new Daily Bonus + Promo apply + Refer 200 UI. All 4 review-request items PASS end-to-end. Registered a brand new player via signup+OTP (OTP fetched from backend OTP_DEBUG log), opened Rewards modal on /wallet, exercised promo happy/duplicate/invalid, joined a practice Points Rummy table, claimed daily bonus, verified countdown + reload persistence, verified in-table rewards button + emoji badge, and confirmed /wallet, lobby, and rummy table load without errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "detailed_results": {
+    "rewards_modal_on_wallet": {
+      "wallet-refer-btn_present_and_opens_modal": "PASS",
+      "refer-heading_text": "PASS ('Refer & Earn 200 Coins')",
+      "hero_YOU_GET_200_THEY_GET_75": "PASS (both '200' and '75' rendered in modal hero)",
+      "promo-section_promo-input_promo-apply_present": "PASS",
+      "rewards-disclaimer_exact_text": "PASS ('Virtual coins only · No cash value · No withdrawal or redemption')"
+    },
+    "promo_apply_flows_fresh_account": {
+      "WELCOME100_happy_path": "PASS (toast: 'Promo applied!+100 bonus coins')",
+      "WELCOME100_duplicate": "PASS (toast: 'You've already used this promo code')",
+      "NOPECODE_invalid": "PASS (toast: 'Invalid or expired promo code')"
+    },
+    "rummy_table_daily_bonus": {
+      "quick_play_creates_practice_Points_Rummy_table": "PASS (rummy-table renders)",
+      "daily-bonus-widget_bottom-left_visible": "PASS",
+      "daily-bonus-claim_CLAIM_button_visible_for_fresh_player": "PASS",
+      "claim_click_success_toast": "PASS ('Daily bonus claimed!+50 bonus coins')",
+      "widget_switches_to_Claimed_today_state": "PASS (claim btn removed)",
+      "daily-bonus-countdown_HHMMSS_format": "PASS ('04:00:38' observed, ticking to '04:00:28')",
+      "reload_persists_claimed_state_server_authoritative": "PASS (after F5 countdown remains, no claim btn)",
+      "rummy-rewards-btn_opens_same_ReferAndEarn_modal": "PASS (heading '200 Coins' shown, disclaimer present)",
+      "emoji-only-badge_bottom-right": "PASS (visible on desktop 1920x1080)"
+    },
+    "regression": {
+      "wallet_page_loads_without_error": "PASS",
+      "rummy_lobby_loads_without_error": "PASS",
+      "rummy_table_loads_without_error": "PASS"
+    }
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "ReferAndEarn heading correctly renders the referrer amount only after /api/referrals/me responds — E2E tests must wait for data to load before asserting on the heading (heading temporarily shows 'Refer & Earn' without amount for ~1s). Consider preloading config or showing a skeleton to prevent copy flicker.",
+    "DailyBonusWidget uses server_time to compute skew and derives the countdown from Date.now() - skew — good server-authoritative pattern, correctly resisted the reload-based cheat (state was refetched server-side).",
+    "RummyTable auto-opens the Round Result / LowChipsPopup modals which can visually overlap the DailyBonusWidget bottom-left; force clicks still work but a real user tapping through modals is fine because the widget is z-index 40 vs modals at higher z. Non-blocking.",
+    "Practice-mode Rummy table auto-plays a bot round almost immediately on entry (round already SETTLED with pot 80) — good for smoke tests but the Scoreboard modal may pop before the tester interacts."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% (all review-request bullets verified)"},
+  "test_credentials": "Fresh accounts registered via UI signup + OTP: qa_1786803869_3685@royal11.com / Test1234! (used for Rummy + Daily Bonus + Promo). Existing player1@royal11.com / ChangeMe123! was used only for an isolated wallet-modal spot-check.",
+  "seed_data_creation": "Two throwaway QA players registered via UI signup: qa_1786803695_1222@royal11.com and qa_1786803869_3685@royal11.com (both verified via OTP). Both claimed +100 WELCOME100 (once each) and +50 daily bonus (once each).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All Daily Bonus + Promo + Refer 200 UI flows are green. Two gotchas for future runs: (1) After signup redirect the /wallet page can briefly be covered by the 'Welcome +1000 bonus coins' toast — press Escape or wait 3s before clicking wallet-refer-btn. (2) ReferAndEarn heading interpolates the amount only after /api/referrals/me loads, so poll `page.text_content('refer-heading')` for '200' rather than asserting on the first read. (3) On Points Rummy practice tables a bot auto-starts a round and the Scoreboard modal can overlap the bottom-left DailyBonusWidget — dismiss it via the Continue button before claiming, or use force=True clicks. OTP debug logs are still emitted by app.otp_service to /var/log/supervisor/backend.err.log with format 'OTP_DEBUG <email> -> <code>'.",
+  "rca of the issue": "No functional issues found. Initial test flakes were purely test-harness timing (waiting for referrals API before asserting heading text; dismissing auto-opened Round-Result modal before clicking the daily bonus claim). Once those were handled the flow is deterministic and all UI + integration wiring works as specified."
+}

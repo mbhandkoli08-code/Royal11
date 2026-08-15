@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { X, Copy, Check, Gift, Users, Loader2, Share2, Sparkles } from "lucide-react";
+import { X, Copy, Check, Gift, Users, Loader2, Share2, Sparkles, Ticket } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 // Player "Refer & Earn": shows the code + share link, WhatsApp / copy / native
-// share, reward amounts, and a "My Referrals" list with status + total earned.
+// share, reward amounts, a promo-code redeem box, and a "My Referrals" list.
 export const ReferAndEarn = ({ open, onClose }) => {
   const { token } = useAuth();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [promo, setPromo] = useState("");
+  const [promoBusy, setPromoBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -24,6 +26,20 @@ export const ReferAndEarn = ({ open, onClose }) => {
   }, [token]);
 
   useEffect(() => { if (open) load(); }, [open, load]);
+
+  const applyPromo = async () => {
+    const code = promo.trim();
+    if (!code) return;
+    setPromoBusy(true);
+    try {
+      const { data: res } = await axios.post(`${API}/promo/apply`, { code },
+        { headers: { Authorization: `Bearer ${token}` } });
+      toast.success("Promo applied!", { description: `+${res.bonus_coins} bonus coins` });
+      setPromo("");
+    } catch (e) {
+      toast.error(e.response?.data?.detail || "Couldn't apply promo code");
+    } finally { setPromoBusy(false); }
+  };
 
   if (!open) return null;
 
@@ -49,7 +65,7 @@ export const ReferAndEarn = ({ open, onClose }) => {
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
           <div className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-royal-light text-royal"><Gift className="h-5 w-5" /></span>
-            <h2 className="font-display text-lg font-bold text-slate-900">Refer &amp; Earn</h2>
+            <h2 data-testid="refer-heading" className="font-display text-lg font-bold text-slate-900">Refer &amp; Earn{data?.config?.referrer_amount ? ` ${data.config.referrer_amount} Coins` : ""}</h2>
           </div>
           <button data-testid="refer-close" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>
         </div>
@@ -158,6 +174,25 @@ export const ReferAndEarn = ({ open, onClose }) => {
                   );
                 })}
               </div>
+
+              {/* Promo code redemption */}
+              <div className="mt-5" data-testid="promo-section">
+                <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-slate-600"><Ticket className="h-4 w-4" /> Have a promo code?</p>
+                <div className="flex items-center gap-2">
+                  <input data-testid="promo-input" value={promo} onChange={(e) => setPromo(e.target.value.toUpperCase())}
+                    placeholder="Enter promo code"
+                    className="min-w-0 flex-1 rounded-2xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-semibold uppercase tracking-wider text-slate-900 outline-none focus:border-royal/40" />
+                  <button data-testid="promo-apply" onClick={applyPromo} disabled={promoBusy || !promo.trim()}
+                    className="shrink-0 rounded-2xl bg-royal px-5 py-3 text-sm font-bold text-white disabled:opacity-50">
+                    {promoBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Apply"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Virtual-coin disclaimer (baked into the design) */}
+              <p data-testid="rewards-disclaimer" className="mt-5 text-center text-[11px] font-medium text-slate-400">
+                Virtual coins only · No cash value · No withdrawal or redemption
+              </p>
             </>
           )}
         </div>
