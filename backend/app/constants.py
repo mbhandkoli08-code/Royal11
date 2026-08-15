@@ -12,6 +12,7 @@ ADMIN_RECHARGE_BONUS_RATE = 1.5  # ₹100 paid → 150 coins credited
 # Part 2 — revenue share + settlement
 DEFAULT_SUPER_ADMIN_PCT = 70  # Super Admin's default share of an Admin's collections
 SETTLEMENT_DUE_WEEKDAY = 2     # 0=Mon … 2=Wed → the Wednesday after the week ends
+SETTLEMENT_GRACE_DAYS = 3      # days after due date to warn before auto-suspending
 
 # Part 3 — balance-usage alert thresholds (percent of allocation used)
 USAGE_WARN_PCT = 80

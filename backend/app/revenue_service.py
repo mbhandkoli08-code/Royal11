@@ -9,11 +9,14 @@ import uuid
 from .constants import (
     DEFAULT_SUPER_ADMIN_PCT,
     SETTLEMENT_DUE_WEEKDAY,
+    SETTLEMENT_GRACE_DAYS,
     USAGE_CRITICAL_PCT,
     SuspendReason,
 )
 from .db import db
 from .models import Role, TxnType
+from . import notification_service, storage_service
+from .audit import log_action
 
 
 def _now_iso() -> str:
@@ -146,20 +149,59 @@ async def generate_settlements_for_week(week_start: date, week_end: date) -> int
 
 
 async def apply_overdue_suspensions() -> None:
-    """Suspend Admins with a PENDING settlement past its due date; reinstate
-    those who no longer have any overdue PENDING settlement."""
-    today = datetime.now(timezone.utc).date().isoformat()
-    overdue_admins = set()
-    async for s in db.settlements.find({"status": "PENDING"}, {"_id": 0, "admin_id": 1, "due_date": 1}):
-        if s["due_date"] < today:
-            overdue_admins.add(s["admin_id"])
+    """Grace-aware overdue handling. For each Admin with an unpaid (PENDING)
+    settlement past its due date:
+      • within the grace window → flag WARNING + notify once (no suspend, so a
+        payment in transit doesn't disrupt the Admin);
+      • past due_date + grace → auto-suspend (SETTLEMENT_OVERDUE).
+    Admins whose settlement proof is SUBMITTED (awaiting Super-Admin confirm) are
+    treated as paying and are never suspended. Clearing all overdue lifts it."""
+    from datetime import date as _date
+    today = datetime.now(timezone.utc).date()
+    grace = timedelta(days=SETTLEMENT_GRACE_DAYS)
+
+    suspend_admins: set[str] = set()
+    warn_admins: set[str] = set()
+    async for s in db.settlements.find(
+            {"status": "PENDING"}, {"_id": 0, "id": 1, "admin_id": 1, "due_date": 1,
+                                    "warned_at": 1, "super_admin_share_inr": 1, "week_start": 1}):
+        due = _date.fromisoformat(s["due_date"])
+        if today <= due:
+            continue  # not overdue yet
+        if today >= due + grace:
+            suspend_admins.add(s["admin_id"])
+        else:
+            warn_admins.add(s["admin_id"])
+            if not s.get("warned_at"):
+                await db.settlements.update_one({"id": s["id"]}, {"$set": {"warned_at": _now_iso()}})
+                try:
+                    await notification_service.create(
+                        s["admin_id"], "settlement_overdue", "Settlement payment due",
+                        f"Your weekly settlement of ₹{s.get('super_admin_share_inr', 0):,} is overdue. "
+                        f"Please settle within {SETTLEMENT_GRACE_DAYS} days to avoid suspension.")
+                except Exception:
+                    pass
 
     async for a in db.admin_allocations.find({}, {"_id": 0, "user_id": 1}):
         aid = a["user_id"]
-        if aid in overdue_admins:
+        if aid in suspend_admins:
             await suspend_user(aid, SuspendReason.SETTLEMENT_OVERDUE)
         else:
             await reinstate_user(aid, only_if_reason=SuspendReason.SETTLEMENT_OVERDUE)
+
+
+def _decorate_status(s: dict) -> dict:
+    """Add derived UI fields: is_overdue, in_grace, grace_ends, net_to_remit."""
+    from datetime import date as _date
+    today = datetime.now(timezone.utc).date()
+    due = _date.fromisoformat(s["due_date"])
+    grace_end = due + timedelta(days=SETTLEMENT_GRACE_DAYS)
+    unpaid = s["status"] in ("PENDING", "SUBMITTED")
+    s["grace_ends"] = grace_end.isoformat()
+    s["is_overdue"] = bool(unpaid and s["status"] == "PENDING" and today > due)
+    s["in_grace"] = bool(s["is_overdue"] and today < grace_end)
+    s["net_to_remit_inr"] = s.get("super_admin_share_inr", 0)
+    return s
 
 
 async def ensure_recent_settlements() -> None:
@@ -180,7 +222,53 @@ async def list_settlements(limit: int = 200) -> list[dict]:
             u = await db.users.find_one({"id": aid}, {"_id": 0, "display_name": 1})
             cache[aid] = (u or {}).get("display_name", "—")
         s["admin_name"] = cache[aid]
+        s.pop("proof_path", None)
+        s["has_proof"] = bool(s.get("proof_ref") or s.get("_has_proof"))
+        _decorate_status(s)
     return rows
+
+
+async def list_admin_settlements(admin_id: str, limit: int = 60) -> list[dict]:
+    """Admin-facing: this Admin's own weekly settlements + derived state."""
+    await ensure_recent_settlements()
+    rows = [s async for s in db.settlements.find(
+        {"admin_id": admin_id}, {"_id": 0}).sort("week_start", -1).limit(limit)]
+    for s in rows:
+        s.pop("proof_path", None)
+        s["has_proof"] = bool(s.get("proof_ref"))
+        _decorate_status(s)
+    return rows
+
+
+async def submit_settlement_payment(settlement_id: str, admin_id: str, *, reference: Optional[str],
+                                     image_bytes: Optional[bytes], content_type: Optional[str]) -> dict:
+    """Admin submits proof of the remittance → status SUBMITTED (awaiting SA confirm)."""
+    s = await db.settlements.find_one({"id": settlement_id, "admin_id": admin_id}, {"_id": 0})
+    if not s:
+        raise ValueError("Settlement not found")
+    if s["status"] == "SETTLED":
+        raise ValueError("Settlement already marked paid")
+    patch = {"status": "SUBMITTED", "payment_reference": (reference or "").strip()[:120] or None,
+             "submitted_at": _now_iso(), "proof_ref": (reference or "").strip()[:120] or "attached"}
+    if image_bytes:
+        try:
+            result = await storage_service.put_object(
+                f"settlement_proofs/{settlement_id}", image_bytes, content_type or "image/png")
+            patch["proof_path"] = result["path"]
+        except Exception:
+            pass
+    await db.settlements.update_one({"id": settlement_id}, {"$set": patch})
+    await log_action(admin_id, "SETTLEMENT_PROOF_SUBMITTED", target_type="settlement",
+                     target_id=settlement_id, metadata={"reference": patch["payment_reference"]})
+    # Payment is now in transit (SUBMITTED, no longer PENDING) — lift any overdue
+    # suspension so the Admin isn't disrupted while awaiting Super-Admin confirm.
+    await apply_overdue_suspensions()
+    return _decorate_status(await db.settlements.find_one({"id": settlement_id}, {"_id": 0}))
+
+
+async def get_settlement_proof_path(settlement_id: str) -> Optional[str]:
+    s = await db.settlements.find_one({"id": settlement_id}, {"_id": 0, "proof_path": 1})
+    return (s or {}).get("proof_path")
 
 
 async def settle(settlement_id: str, settled_by: str) -> dict:

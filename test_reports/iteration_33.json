@@ -1,0 +1,23 @@
+{
+  "summary": "Iter33 — Weekly INR Settlement (Admin↔SuperAdmin) + bank payout templates + CSV export. Backend: 22/22 pytest tests passed (admin settlements shape, company bank get/put, 6 seeded starter templates present, template CRUD + validation, per-admin assign, format-aware CSV export with matching template header order + resolved beneficiary details, submit-proof requires ref-or-screenshot, RBAC 403 for PLAYER & ADMIN on /superadmin/* and PLAYER on /admin/settlement/*, empty-beneficiary export 400). Frontend: AdminSettlementsPanel loads for admin1 with 3 rows (SUBMITTED for week 2026-08-16, two prior SETTLED); Settle-Now button is auto-hidden once the row is SUBMITTED (correct). SuperAdmin SettlementsPanel shows company-bank-card, edit+save works and persists (verified via re-read). settle-<id> confirm-paid button opens settle-modal → settle-confirm marks row SETTLED. BankPayoutsPanel: all 6 starter templates render (Universal, HDFC, ICICI, SBI, Axis, Union) with 'verify' badge + warning banner, template-new creates a template that appears in the grid, export-template-select lists all templates, per-admin assign dropdown shows 'Template assigned' toast, Export CSV returns 200 text/csv with header row matching selected template columns and rows containing admin1's resolved beneficiary details (Admin One, 999900004521, ICIC0000123).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_settlement_payouts_iter33.py",
+    "/app/test_reports/pytest/iter33_settlement.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "revenue_service.list_admin_settlements/list_settlements always calls ensure_recent_settlements() which triggers apply_overdue_suspensions() on every read — fine functionally but could add DB write pressure on hot endpoints; consider throttling to once/minute.",
+    "settlement.py update_template has dead line `patch['columns'] = [c if isinstance(c, dict) else c for c in patch['columns']]` (identity comprehension, no-op) — cosmetic cleanup.",
+    "bank_template_service._beneficiary_details silently returns empty strings when admin has no bank account; UI already surfaces 'no bank' in payout-admins-table which is good, but the CSV export will still emit blank account/IFSC rows without an error — consider a 400 if any selected beneficiary has no bank on file."
+  ],
+  "updated_files": ["/app/backend/tests/test_settlement_payouts_iter33.py"],
+  "success_rate": {"backend": "100% (22/22)", "frontend": "100% (all critical flows)"},
+  "test_credentials": "superadmin@royal11.com / admin1@royal11.com / player1@royal11.com — ChangeMe123!",
+  "seed_data_creation": "None persistent. Test template TSTUI/TEST_UI_TPL was created via UI then deleted; company bank was overwritten with TEST_HOLDER_UI / 9876543210 / HDFC0000123 (SA can restore real values via SettlementsPanel).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Seeded PENDING settlement for admin1 (week 2026-08-16, net ₹5,600) is now SETTLED after this run (backend test submitted proof; UI test confirmed). To re-test the Settle-Now → SUBMITTED flow, create a fresh PENDING settlement in db.settlements for admin1 (unique week_start, due_date future). Overdue grace/warning/auto-suspend paths were NOT re-verified in this iteration (curl-verified per E1 note) — worth a targeted test if grace logic changes.",
+  "rca of the issue": "N/A — no issues found."
+}
