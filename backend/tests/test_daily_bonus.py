@@ -78,6 +78,75 @@ def test_daily_bonus_matrix():
             finally:
                 await daily_bonus_service.set_config({"enabled": True, "amount": 50})
                 await _cleanup(uid2)
+
+            # Streak ladder (day-7 jackpot + reset) — same loop, same client.
+            await _streak_scenarios()
+            await daily_bonus_service.set_config({"enabled": True, "amount": 50, "day7_amount": 250})
         finally:
             await _cleanup(uid)
     asyncio.run(go())
+
+
+
+def test_streak_ladder_and_next_day_pure():
+    """Pure streak helpers: 7-day ladder + continuation/loop/reset rules."""
+    cfg = {"enabled": True, "amount": 50, "day7_amount": 250}
+    assert daily_bonus_service._ladder(cfg) == [50, 50, 50, 50, 50, 50, 250]
+
+    yday = "2026-08-14"
+    # No prior claim -> day 1.
+    assert daily_bonus_service._next_streak_day(None, yday) == 1
+    # Unbroken run continues.
+    assert daily_bonus_service._next_streak_day({"ist_date": yday, "streak_day": 1}, yday) == 2
+    assert daily_bonus_service._next_streak_day({"ist_date": yday, "streak_day": 6}, yday) == 7
+    # Day 7 loops back to day 1.
+    assert daily_bonus_service._next_streak_day({"ist_date": yday, "streak_day": 7}, yday) == 1
+    # A missed day (last claim not yesterday) resets to day 1.
+    assert daily_bonus_service._next_streak_day({"ist_date": "2020-01-01", "streak_day": 4}, yday) == 1
+
+
+async def _streak_scenarios():
+    """DB-backed streak scenarios (called inside the matrix test's single event
+    loop — the shared motor client binds to the first loop, so we must not open
+    a second asyncio.run):
+    (a) claiming on day 7 after an unbroken run pays the bigger jackpot;
+    (b) a missed day resets the ladder to day 1 = base amount."""
+    await daily_bonus_service.set_config({"enabled": True, "amount": 50, "day7_amount": 250})
+    today, yesterday = daily_bonus_service._ist_today_yesterday(daily_bonus_service._now())
+
+    # (a) Day-7 jackpot: seed an unbroken run where yesterday was day 6.
+    uid = await _mk_user()
+    try:
+        await db.daily_bonus_claims.insert_one({
+            "id": f"daily_bonus:{uid}:{yesterday}", "user_id": uid, "ist_date": yesterday,
+            "streak_day": 6, "amount": 50, "created_at": yesterday + "T00:00:00+00:00",
+        })
+        st = await daily_bonus_service.status(uid)
+        assert st["claimable"] is True
+        assert st["streak_day"] == 7 and st["amount"] == 250  # jackpot preview
+        before = await _bonus_balance(uid)
+        after = await daily_bonus_service.claim(uid)
+        assert after["streak_day"] == 7
+        assert await _bonus_balance(uid) - before == 250
+        rec = await db.daily_bonus_claims.find_one({"id": f"daily_bonus:{uid}:{today}"}, {"_id": 0})
+        assert rec["streak_day"] == 7 and rec["amount"] == 250
+    finally:
+        await _cleanup(uid)
+
+    # (b) Missed day: last claim older than yesterday -> resets to day 1.
+    uid2 = await _mk_user()
+    try:
+        await db.daily_bonus_claims.insert_one({
+            "id": f"daily_bonus:{uid2}:old", "user_id": uid2, "ist_date": "2026-08-01",
+            "streak_day": 4, "amount": 50, "created_at": "2026-08-01T00:00:00+00:00",
+        })
+        st2 = await daily_bonus_service.status(uid2)
+        assert st2["streak_day"] == 1 and st2["amount"] == 50
+        before2 = await _bonus_balance(uid2)
+        after2 = await daily_bonus_service.claim(uid2)
+        assert after2["streak_day"] == 1
+        assert await _bonus_balance(uid2) - before2 == 50
+    finally:
+        await _cleanup(uid2)
+
+

@@ -14,7 +14,9 @@ import "./casino-vegas.css";
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const GAMES = [
   { id: "high_card", label: "High Card", icon: Spade },
-  { id: "rummy_points", label: "Rummy", icon: Layers },
+  { id: "rummy_points", label: "Points Rummy", icon: Layers },
+  { id: "rummy_pool", label: "Pool Rummy", icon: Layers },
+  { id: "rummy_deals", label: "Deals Rummy", icon: Layers },
   { id: "slots_777", label: "777 Slots", icon: Cherry },
 ];
 
@@ -30,6 +32,11 @@ export default function CasinoPage() {
   const [practice, setPractice] = useState(false);
   const [game, setGame] = useState(() => localStorage.getItem("royal11_casino_game") || "high_card");
   const [meta, setMeta] = useState({ practiceBal: 0, prog: null });
+  // Pool/Deals match-creation options.
+  const [poolType, setPoolType] = useState(101);
+  const [numDeals, setNumDeals] = useState(2);
+  const [entryFee, setEntryFee] = useState(100);
+  const isRummy = game.startsWith("rummy");
   const pollRef = useRef(null);
 
   // Persist the current table + game so a page reload rehydrates the same round
@@ -85,16 +92,19 @@ export default function CasinoPage() {
   // Poll table state (~1.5s) while seated at a HIGH CARD table. Rummy tables
   // render <RummyTable/>, which does its own turn-aware polling.
   useEffect(() => {
-    if (!tableId || game === "rummy_points") return undefined;
+    if (!tableId || isRummy) return undefined;
     loadState(tableId);
     pollRef.current = setInterval(() => loadState(tableId), 1500);
     return () => clearInterval(pollRef.current);
-  }, [tableId, loadState, game]);
+  }, [tableId, loadState, isRummy]);
 
   const act = async (fn, ...args) => { setBusy(true); try { return await fn(...args); } finally { setBusy(false); } };
 
   const createTable = () => act(async () => {
-    const cfg = game === "rummy_points" ? { point_value: 1 } : {};
+    let cfg = {};
+    if (game === "rummy_points") cfg = { point_value: 1 };
+    else if (game === "rummy_pool") cfg = { pool_type: poolType, entry_fee: entryFee };
+    else if (game === "rummy_deals") cfg = { num_deals: numDeals, entry_fee: entryFee };
     const { data } = await axios.post(`${API}/casino/tables`, { game_type: game, is_practice: practice, config: cfg }, { headers });
     await axios.post(`${API}/casino/tables/${data.id}/join`, {}, { headers });
     setTableId(data.id); setVerify(null);
@@ -133,7 +143,7 @@ export default function CasinoPage() {
   const seated = state?.seats?.some((s) => s.user_id === user?.id);
 
   // Rummy tables get the full-screen turn-based table UI.
-  if (tableId && game === "rummy_points") {
+  if (tableId && isRummy) {
     return <RummyTable tableId={tableId} onLeave={() => { setTableId(null); setState(null); setVerify(null); loadLobby(); loadMeta(); }} />;
   }
 
@@ -206,6 +216,41 @@ export default function CasinoPage() {
               </Link>
             </>
           )}
+          {(game === "rummy_pool" || game === "rummy_deals") && (
+            <div data-testid="rummy-variant-config" className="mb-4 rounded-2xl border border-amber-300/25 bg-black/30 p-3">
+              <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-amber-300">
+                {game === "rummy_pool" ? "Pool settings" : "Deals settings"}
+              </p>
+              {game === "rummy_pool" ? (
+                <div className="mb-3">
+                  <p className="mb-1.5 text-xs text-amber-100/60">Pool limit</p>
+                  <div className="inline-flex rounded-full bg-black/40 p-1 ring-1 ring-amber-300/20">
+                    {[101, 201].map((v) => (
+                      <button key={v} data-testid={`pool-type-${v}`} onClick={() => setPoolType(v)}
+                        className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${poolType === v ? "bg-gradient-to-r from-amber-300 to-yellow-600 text-[#2a1503]" : "text-amber-100/60"}`}>{v} Pool</button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-3">
+                  <p className="mb-1.5 text-xs text-amber-100/60">Number of deals</p>
+                  <div className="inline-flex rounded-full bg-black/40 p-1 ring-1 ring-amber-300/20">
+                    {[2, 3].map((v) => (
+                      <button key={v} data-testid={`num-deals-${v}`} onClick={() => setNumDeals(v)}
+                        className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${numDeals === v ? "bg-gradient-to-r from-amber-300 to-yellow-600 text-[#2a1503]" : "text-amber-100/60"}`}>{v} Deals</button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="mb-1.5 text-xs text-amber-100/60">Entry (coins, charged once)</p>
+              <div className="flex flex-wrap gap-1.5" data-testid="entry-fee-options">
+                {[50, 100, 250, 500].map((v) => (
+                  <button key={v} data-testid={`entry-fee-${v}`} onClick={() => setEntryFee(v)}
+                    className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors ${entryFee === v ? "bg-gradient-to-r from-amber-300 to-yellow-600 text-[#2a1503]" : "bg-black/40 text-amber-100/60 ring-1 ring-amber-300/15"}`}>{v}</button>
+                ))}
+              </div>
+            </div>
+          )}
           <button data-testid="casino-create-table" onClick={createTable} disabled={busy}
             className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/40 bg-black/40 py-4 text-sm font-bold text-amber-100 shadow-lift transition-transform hover:-translate-y-0.5 disabled:opacity-70">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />} Create {practice ? "Practice" : GAMES.find((g) => g.id === game).label} Table
@@ -224,7 +269,12 @@ export default function CasinoPage() {
                     <p className="font-bold text-amber-100">{t.name}</p>
                     <p className="mt-0.5 flex items-center gap-3 text-xs text-amber-100/60">
                       <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {t.seat_count}/{t.max_players}</span>
-                      <span className="inline-flex items-center gap-1"><Coins className="h-3.5 w-3.5" /> {t.config.point_value != null ? `${t.config.point_value}/pt` : `${t.config.stake} entry`}</span>
+                      <span className="inline-flex items-center gap-1"><Coins className="h-3.5 w-3.5" /> {
+                        t.game_type === "rummy_pool" ? `${t.config.entry_fee} entry · ${t.config.pool_type} pool`
+                          : t.game_type === "rummy_deals" ? `${t.config.entry_fee} entry · ${t.config.num_deals} deals`
+                            : t.config.point_value != null ? `${t.config.point_value}/pt`
+                              : `${t.config.stake} entry`
+                      }</span>
                       {t.status === "RUNNING" && <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-200">In progress</span>}
                     </p>
                   </div>

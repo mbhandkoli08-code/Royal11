@@ -73,6 +73,14 @@ async def create_table(game_type: str, creator_id: str, name: str | None = None,
                        config: dict | None = None, is_practice: bool = False) -> dict:
     g = _game(game_type)
     cfg = {**g["default_config"], **(config or {})}
+    # Normalize Pool/Deals match config so a table advertises only valid options.
+    if game_type == "rummy_pool":
+        cfg["pool_type"] = 201 if int(cfg.get("pool_type", 101)) == 201 else 101
+        cfg["entry_fee"] = max(1, int(cfg.get("entry_fee", 100)))
+    elif game_type == "rummy_deals":
+        nd = int(cfg.get("num_deals", 2))
+        cfg["num_deals"] = nd if nd in (2, 3) else 2
+        cfg["entry_fee"] = max(1, int(cfg.get("entry_fee", 100)))
     doc = {
         "id": str(uuid.uuid4()), "game_type": game_type,
         "name": (name or f"{g['label']} Table").strip()[:60], "config": cfg,

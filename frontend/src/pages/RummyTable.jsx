@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, Wifi, WifiOff, AlertTriangle, Coins, Gift } from "lucide-react";
+import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, Wifi, WifiOff, AlertTriangle, Coins, Gift, Crown } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useWallet } from "@/context/WalletContext";
 import { classifyGroup, evaluateHand, provisionalDeadwood } from "@/lib/rummy";
@@ -12,7 +12,7 @@ import { ReferAndEarn } from "@/components/ReferAndEarn";
 import { DailyBonusWidget } from "@/components/DailyBonusWidget";
 import { PlayingCard } from "@/components/PlayingCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
-import { AAA_ROOM_BG, ROYAL_HOST_V2 } from "@/lib/casinoAssets";
+import { AAA_ROOM_BG, AAA_ROOM_HOST } from "@/lib/casinoAssets";
 import { WinCelebration, Scoreboard, LowChipsPopup } from "@/components/casino/OrnatePopups";
 
 // Full-count exposure escrowed by the server per seat each deal
@@ -104,7 +104,21 @@ export default function RummyTable({ tableId, onLeave }) {
   const summaryShownFor = useRef(null);
   const rechargePromptedRef = useRef(false);
 
+  // Immersive mode: RummyTable is a full-screen overlay — hide the app's
+  // floating chatbot launcher (z-95) while playing so it never covers the table.
+  useEffect(() => {
+    document.body.classList.add("rummy-immersive");
+    return () => document.body.classList.remove("rummy-immersive");
+  }, []);
+
+  // Host character is a free cosmetic (matches the "Host" tab in My Table).
+  const [hostOn, setHostOn] = useState(() => (localStorage.getItem("royal11_rummy_host") ?? "on") !== "off");
+  const toggleHost = () => setHostOn((v) => { const nv = !v; localStorage.setItem("royal11_rummy_host", nv ? "on" : "off"); return nv; });
+
   const round = state?.round;
+  const match = state?.match;
+  const variant = round?.config?.variant || match?.variant || "points";
+  const variantLabel = variant === "pool" ? "Pool Rummy" : variant === "deals" ? "Deals Rummy" : "Points Rummy";
   const wildRank = round?.wild?.rank;
   const hand = round?.your_hand || [];
   const byId = useMemo(() => Object.fromEntries(hand.map((c) => [c.id, c])), [hand]);
@@ -115,9 +129,13 @@ export default function RummyTable({ tableId, onLeave }) {
   // point_value per seat, so warn when the wallet can't cover the next hand.
   const pointValue = round?.config?.point_value ?? state?.config?.point_value ?? 1;
   const isCashTable = !!state && !(state.is_practice || round?.is_practice);
-  const reserveNeeded = MAX_POINTS * pointValue;
+  const entryFeeCfg = state?.config?.entry_fee ?? match?.entry_fee ?? 0;
+  const matchRunning = match?.status === "RUNNING";
+  const reserveNeeded = variant === "points" ? MAX_POINTS * pointValue : entryFeeCfg;
   const betweenRounds = !!state && (!round || round?.phase === "SETTLED");
-  const lowBalance = isCashTable && balance < reserveNeeded;
+  // Pool/Deals charge the entry ONCE at match start, so only warn when there's
+  // no running match (i.e. before starting a fresh match).
+  const lowBalance = isCashTable && balance < reserveNeeded && (variant === "points" || !matchRunning);
 
   const loadState = useCallback(async () => {
     try {
@@ -227,10 +245,10 @@ export default function RummyTable({ tableId, onLeave }) {
 
   return (
     <div data-testid="rummy-table" data-rummy-theme={theme}
-      className="relative min-h-screen overflow-hidden text-white"
+      className="fixed inset-0 z-[70] overflow-y-auto overflow-x-hidden overscroll-contain text-white"
       style={{ background: th.bg, "--r-gold": th.gold, "--r-felt": th.felt }}>
       <RummyAmbiance />
-      <div className="relative z-10 mx-auto max-w-3xl px-4 pb-40 pt-5 lg:max-w-5xl">
+      <div className="relative z-10 mx-auto max-w-3xl px-3 pb-32 pt-4 sm:px-4 sm:pt-5 lg:max-w-5xl">
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -238,33 +256,39 @@ export default function RummyTable({ tableId, onLeave }) {
             <div>
               <p className="font-display text-lg font-extrabold tracking-tight">{state.name}</p>
               <p className="flex items-center gap-2 text-[11px] text-white/50">
-                <span>Points Rummy · {round?.config?.point_value ?? state.config?.point_value ?? 1}/pt</span>
+                <span data-testid="rummy-variant-label">{variant === "points" ? `Points Rummy · ${round?.config?.point_value ?? state.config?.point_value ?? 1}/pt`
+                  : variant === "pool" ? `Pool Rummy · ${match?.pool_limit ?? state.config?.pool_type ?? 101} pool · ${entryFeeCfg} entry`
+                  : `Deals Rummy · ${match?.num_deals ?? state.config?.num_deals ?? 2} deals · ${entryFeeCfg} entry`}</span>
                 <span data-testid="rummy-room-code" className="rounded-full bg-white/10 px-2 py-0.5 font-mono font-bold text-white/70">#{String(state.id || "").slice(-7).toUpperCase()}</span>
                 {(state.is_practice || round?.is_practice) && <span className="rounded-full bg-amber-500/20 px-2 py-0.5 font-black uppercase text-amber-300" data-testid="rummy-practice-tag">Practice</span>}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
             <button data-testid="rummy-info-btn" onClick={() => setShowInfo(true)}
               className="hidden items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white/60 hover:bg-white/5 sm:inline-flex" title="Table info">ⓘ Info</button>
             <button data-testid="rummy-fullscreen-btn" onClick={toggleFullscreen}
               className="hidden items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white/60 hover:bg-white/5 sm:inline-flex" title="Fullscreen">⛶ Fullscreen</button>
-            {/* Theme picker */}
-            <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/20 p-1" data-testid="rummy-theme-picker">
+            {/* Theme picker (cosmetic — hidden on small screens to free space) */}
+            <button data-testid="rummy-host-toggle" onClick={toggleHost} title={hostOn ? "Hide host" : "Show host"}
+              className={`hidden items-center gap-1 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold sm:inline-flex ${hostOn ? "border-[var(--r-gold)]/50 bg-[var(--r-gold)]/10 text-[var(--r-gold)]" : "border-white/15 text-white/50 hover:bg-white/5"}`}>
+              <Crown className="h-3.5 w-3.5" /> Host
+            </button>
+            <div className="hidden items-center gap-1 rounded-full border border-white/10 bg-black/20 p-1 sm:flex" data-testid="rummy-theme-picker">
               {Object.entries(THEMES).map(([key, t]) => (
                 <button key={key} data-testid={`rummy-theme-${key}`} onClick={() => changeTheme(key)} title={t.label}
                   className={`h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 ${theme === key ? "border-[var(--r-gold)]" : "border-white/20"}`}
                   style={{ background: t.swatch }} />
               ))}
             </div>
-            <RummyMusic />
+            <span className="hidden sm:block"><RummyMusic /></span>
             <span data-testid="rummy-conn" className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${conn ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/20 text-rose-300 animate-pulse"}`}>
-              {conn ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}{conn ? "Live" : "Reconnecting"}
+              {conn ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}<span className="hidden sm:inline">{conn ? "Live" : "Reconnecting"}</span>
             </span>
             <button data-testid="rummy-rewards-btn" onClick={() => setShowRewards(true)}
-              className="inline-flex items-center gap-1 rounded-full border border-[var(--r-gold)]/40 bg-[var(--r-gold)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--r-gold)] hover:bg-[var(--r-gold)]/20"><Gift className="h-3.5 w-3.5" /> Rewards</button>
+              className="inline-flex items-center gap-1 rounded-full border border-[var(--r-gold)]/40 bg-[var(--r-gold)]/10 px-2.5 py-1.5 text-xs font-semibold text-[var(--r-gold)] hover:bg-[var(--r-gold)]/20"><Gift className="h-3.5 w-3.5" /><span className="hidden sm:inline"> Rewards</span></button>
             <button data-testid="rummy-leave" onClick={doLeave} disabled={busy || playing}
-              className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/5 disabled:opacity-40"><LogOut className="h-3.5 w-3.5" /> Leave</button>
+              className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/5 disabled:opacity-40"><LogOut className="h-3.5 w-3.5" /><span className="hidden sm:inline"> Leave</span></button>
           </div>
         </div>
 
@@ -288,14 +312,46 @@ export default function RummyTable({ tableId, onLeave }) {
           </div>
         )}
 
+        {/* Pool/Deals match HUD — live cumulative scores + progress + standings */}
+        {match && variant !== "points" && (
+          <div data-testid="rummy-match-hud"
+            className="mb-4 rounded-2xl border border-[var(--r-gold)]/40 bg-black/40 p-3.5 shadow-lg backdrop-blur">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[11px] font-black uppercase tracking-widest text-[var(--r-gold)]">
+                {variant === "pool" ? `${match.pool_limit} Pool` : `${match.num_deals}-Deal Match`}
+              </span>
+              <span data-testid="rummy-match-progress" className="text-[11px] font-bold text-white/70">
+                {variant === "pool"
+                  ? `Prize ${match.prize_pool} · Deal ${match.deals_played + (match.status === "RUNNING" ? 1 : 0)}`
+                  : `Prize ${match.prize_pool} · Deal ${Math.min(match.deals_played + (match.status === "RUNNING" ? 1 : 0), match.num_deals)}/${match.num_deals}`}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2" data-testid="rummy-match-scores">
+              {(match.standings || match.players).map((p) => (
+                <div key={p.user_id} data-testid={`match-score-${p.user_id}`}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ring-1 ${
+                    p.won ? "bg-[var(--r-gold)]/20 text-[var(--r-gold)] ring-[var(--r-gold)]/50"
+                      : p.eliminated ? "bg-rose-500/15 text-rose-300 ring-rose-400/30 line-through"
+                        : "bg-white/5 text-white/80 ring-white/10"}`}>
+                  <span className="max-w-[90px] truncate">{p.display_name}{p.is_you ? " (You)" : ""}</span>
+                  <span className="tabular-nums text-[var(--r-gold)]">{p.score} pts</span>
+                  {p.won && <Crown className="h-3 w-3" />}
+                </div>
+              ))}
+            </div>
+            {match.status === "ENDED" && (
+              <p data-testid="rummy-match-over" className="mt-2 text-center text-xs font-black text-[var(--r-gold)]">
+                Match over — {(match.standings || []).find((s) => s.won)?.display_name || "Winner"} wins {match.prize_pool} {state.is_practice ? "chips" : "coins"}! ({match.reason})
+              </p>
+            )}
+          </div>
+        )}
+
         {/* AAA Royal Table room + host + table */}
-        <div className="vegas-palace vegas-palace--aaa relative p-3 sm:p-5" style={{ backgroundImage: `url(${AAA_ROOM_BG})` }} data-testid="vegas-palace">
-          {/* Royal Host — decorative/ambience only (host-visible variant) */}
-          <img src={ROYAL_HOST_V2} alt="Royal host" data-testid="vegas-host"
-            className="pointer-events-none absolute -bottom-2 left-0 z-20 hidden h-[92%] max-h-[560px] w-auto select-none drop-shadow-2xl xl:block" />
-          <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 select-none font-display text-xs font-black uppercase tracking-[0.35em] text-[var(--r-gold)]/40 sm:text-sm" data-testid="rummy-backwall">Points Rummy</span>
-          <div className="vegas-felt vegas-felt--red relative overflow-hidden p-4 shadow-2xl">
-          <div className="vegas-rail" />
+        <div className={`vegas-palace vegas-palace--aaa relative p-3 sm:p-5 ${hostOn ? "vegas-palace--hosted" : ""}`} style={{ backgroundImage: `url(${hostOn ? AAA_ROOM_HOST : AAA_ROOM_BG})` }} data-testid="vegas-palace">
+          <div className="vegas-chandelier" />
+          <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 select-none font-display text-xs font-black uppercase tracking-[0.35em] text-[var(--r-gold)]/45 sm:text-sm" data-testid="rummy-backwall">{variantLabel}</span>
+          <div className="vegas-felt vegas-felt--red vegas-felt--aaa relative overflow-hidden p-4 pt-5 shadow-2xl">
           <div className="vegas-spotlight" />
           <div className="relative z-10 mb-3 flex flex-wrap items-start justify-center gap-4" data-testid="rummy-players">
             {players.map((p) => {
@@ -321,28 +377,44 @@ export default function RummyTable({ tableId, onLeave }) {
             })}
           </div>
 
-          {/* Piles */}
+          {/* Piles — DRAW / DISCARD / JOKER */}
           {round && (
-            <div className="relative z-10 flex items-center justify-center gap-6 py-2">
+            <div className="relative z-10 flex items-center justify-center gap-5 py-2 sm:gap-7">
               <div className="text-center">
                 <button data-testid="rummy-draw-closed" disabled={!myTurn || drawDone || busy} onClick={() => doDraw("closed")}
-                  className="pc-btn disabled:opacity-40">
+                  className="pile-slot pc-btn disabled:opacity-40">
                   <PlayingCard faceDown size="md" />
                 </button>
-                <p className="mt-1 text-[10px] text-white/50">Deck ({round.closed_count})</p>
+                <p className="pile-label">Draw {round.closed_count}</p>
               </div>
               <div className="text-center">
-                <button data-testid="rummy-draw-open" disabled={!myTurn || drawDone || busy} onClick={() => doDraw("open")} className="pc-btn disabled:opacity-50">
+                <button data-testid="rummy-draw-open" disabled={!myTurn || drawDone || busy} onClick={() => doDraw("open")} className="pile-slot pc-btn disabled:opacity-50">
                   <RCard card={round.open_top} plain />
                 </button>
-                <p className="mt-1 text-[10px] text-white/50">Discard</p>
+                <p className="pile-label">Discard</p>
               </div>
               <div className="text-center">
-                <div className="grid place-items-center">
+                <div className="pile-slot grid place-items-center">
                   <RCard card={{ ...(round.wild.code === "JK" ? { joker: true, id: "wild" } : { id: "wild", code: round.wild.code, rank: round.wild.code[0], suit: round.wild.code[1] }) }} plain />
                 </div>
-                <p className="mt-1 text-[10px] text-white/50">Wild</p>
+                <p className="pile-label">Joker</p>
               </div>
+            </div>
+          )}
+
+          {/* Turn indicator */}
+          {playing && (
+            <div className="relative z-10 mt-1 flex justify-center pb-1" data-testid="rummy-turn-indicator">
+              {myTurn ? (
+                <span className="turn-indicator turn-indicator--you">
+                  Your Turn <Timer deadline={round?.turn?.deadline} active />
+                </span>
+              ) : (
+                <span className="turn-indicator turn-indicator--other">
+                  {(players.find((p) => p.user_id === round?.turn?.user_id)?.display_name || "Opponent")}&apos;s turn
+                  <Timer deadline={round?.turn?.deadline} active />
+                </span>
+              )}
             </div>
           )}
           </div>
@@ -353,7 +425,9 @@ export default function RummyTable({ tableId, onLeave }) {
           <button data-testid="rummy-start" onClick={doStart} disabled={busy || (state.seat_count || 0) < 2}
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--r-gold)] py-4 text-sm font-black text-black shadow-lg transition-transform hover:-translate-y-0.5 disabled:opacity-50">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Layers className="h-4 w-4" />}
-            {(state.seat_count || 0) < 2 ? `Waiting for players (${state.seat_count}/2)` : settled ? "Deal Next Hand" : "Deal"}
+            {(state.seat_count || 0) < 2 ? `Waiting for players (${state.seat_count}/2)`
+              : variant !== "points" ? `Start ${variantLabel.replace(" Rummy", "")} Match`
+                : settled ? "Deal Next Hand" : "Deal"}
           </button>
         )}
 
@@ -480,14 +554,19 @@ export default function RummyTable({ tableId, onLeave }) {
         </div>
       )}
 
-      {/* Persistent HUD: Daily Bonus (bottom-left) + Emoji-only badge (bottom-right) */}
-      <div className="fixed bottom-4 left-4 z-40 hidden sm:block">
-        <DailyBonusWidget onClaimed={refreshWallet} />
-      </div>
-      <div data-testid="emoji-only-badge"
-        className="fixed bottom-4 right-4 z-40 hidden items-center gap-1.5 rounded-full border border-[var(--r-gold)]/40 bg-black/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--r-gold)] backdrop-blur-md sm:inline-flex">
-        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Emoji Only
-      </div>
+      {/* Persistent HUD: Daily Bonus (bottom-left) + Emoji-only badge (bottom-right).
+          Hidden while a hand is in play so it never covers the action buttons. */}
+      {!playing && (
+        <div className="fixed bottom-4 left-4 z-[75] hidden sm:block">
+          <DailyBonusWidget onClaimed={refreshWallet} />
+        </div>
+      )}
+      {!playing && (
+        <div data-testid="emoji-only-badge"
+          className="fixed bottom-4 right-4 z-[75] hidden items-center gap-1.5 rounded-full border border-[var(--r-gold)]/40 bg-black/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--r-gold)] backdrop-blur-md sm:inline-flex">
+          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Emoji Only
+        </div>
+      )}
     </div>
   );
 }

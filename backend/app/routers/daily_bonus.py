@@ -25,6 +25,7 @@ async def claim(user: dict = Depends(get_current_user)):
 class DailyBonusConfigInput(BaseModel):
     enabled: bool | None = None
     amount: int | None = Field(default=None, ge=0)
+    day7_amount: int | None = Field(default=None, ge=0)
 
 
 @router.get("/config", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])

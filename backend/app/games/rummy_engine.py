@@ -48,6 +48,71 @@ def _mk_card(idx: int, code: str) -> dict:
     return {"id": f"c{idx}", "code": code, "rank": code[0], "suit": code[1], "printed_joker": False}
 
 
+def _variant(game_type: str) -> str:
+    """points (single deal) | pool (101/201 elimination) | deals (fixed # of deals)."""
+    if game_type == "rummy_pool":
+        return "pool"
+    if game_type == "rummy_deals":
+        return "deals"
+    return "points"
+
+
+def _deal_round_doc(table: dict, participants: list[dict], round_no: int,
+                    variant: str, match_id: str | None, reserve: int) -> dict:
+    """Build (but do not persist) a fresh PLAYING deal on a locked provably-fair
+    shoe for the given participants. Shared by Points (single deal) and the
+    Pool/Deals match layer (many deals on one table)."""
+    cfg = table["config"]
+    practice = table.get("is_practice", False)
+    n = len(participants)
+    round_id = str(uuid.uuid4())
+    server_seed, nonce = rng.new_seed(), rng.new_nonce()
+    base = _base_shoe()
+    shoe = rng.shuffled_list(base, server_seed, nonce)  # LOCKED before any deal
+    commit = rng.commit_hash(server_seed, shoe)
+    cards = {f"c{i}": _mk_card(i, code) for i, code in enumerate(shoe)}
+
+    hands: dict[str, list[str]] = {}
+    for k, s in enumerate(participants):
+        hands[s["user_id"]] = [f"c{i}" for i in range(k * HAND_SIZE, (k + 1) * HAND_SIZE)]
+
+    wild_id = f"c{len(shoe) - 1}"  # last card = wild indicator (set aside)
+    wild_card = cards[wild_id]
+    wild_rank = "A" if wild_card["printed_joker"] else wild_card["rank"]
+
+    rest = [f"c{i}" for i in range(n * HAND_SIZE, len(shoe) - 1)]
+    open_pile = [rest[0]]
+    closed_pile = rest[1:]
+
+    turn_order = [s["user_id"] for s in participants]
+    players = [{
+        "user_id": s["user_id"], "display_name": s.get("display_name", "Player"), "seat": k,
+        "status": "active", "has_ever_drawn": False, "timeouts": 0,
+        "drop_points": None, "points": None, "delta": None,
+        "last_seen": _iso(_now()),
+    } for k, s in enumerate(participants)]
+
+    turn_seconds = int(cfg.get("turn_seconds", 30))
+    return {
+        "id": round_id, "table_id": table["id"], "game_type": table["game_type"],
+        "round_no": round_no, "phase": "PLAYING", "is_practice": practice, "rev": 0,
+        "config": {"variant": variant, "match_id": match_id,
+                   "point_value": int(cfg.get("point_value", 1)),
+                   "rake_pct": int(cfg.get("rake_pct", 70)),
+                   "rake_cap": int(cfg.get("rake_cap", 10_000_000)),
+                   "turn_seconds": turn_seconds,
+                   "max_timeouts": int(cfg.get("max_timeouts", 3)), "reserve": reserve},
+        "rng": {"commit_hash": commit, "nonce": nonce, "server_seed": server_seed,
+                "revealed": False},
+        "wild": {"card_id": wild_id, "code": wild_card["code"], "rank": wild_rank},
+        "cards": cards, "hands": hands, "open_pile": open_pile, "closed_pile": closed_pile,
+        "players": players, "turn_order": turn_order,
+        "turn": {"user_id": turn_order[0], "draw_done": False, "seq": 1,
+                 "deadline": _iso(_now() + timedelta(seconds=turn_seconds))},
+        "result": None, "created_at": _iso(_now()),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Persistence helpers (optimistic concurrency via a `rev` counter).
 # ---------------------------------------------------------------------------
@@ -86,12 +151,16 @@ async def start_round(table_id: str, actor_id: str) -> dict:
     if len(seats) < 2:
         raise DomainError("Need at least 2 players to deal")
 
+    variant = _variant(t["game_type"])
+    if variant != "points":
+        return await _start_match(t, actor_id, variant)
+
     cfg = t["config"]
     point_value = int(cfg.get("point_value", 1))
     reserve = rummy.MAX_POINTS * point_value
     practice = t.get("is_practice", False)
 
-    round_id = str(uuid.uuid4())
+    round_id_seed = str(uuid.uuid4())  # only used to key idempotent escrow
     # Escrow the maximum possible loss from each seat (idempotent).
     funded: list[dict] = []
     for s in seats:
@@ -101,7 +170,7 @@ async def start_round(table_id: str, actor_id: str) -> dict:
             else:
                 await bonus_service.debit_playable(
                     s["user_id"], TxnType.GAME_ENTRY, reserve, reason="Rummy table stake",
-                    request_id=f"rummy_reserve:{round_id}:{s['user_id']}")
+                    request_id=f"rummy_reserve:{round_id_seed}:{s['user_id']}")
             funded.append(s)
         except (wallet_service.InsufficientFunds, practice_service.InsufficientChips):
             continue
@@ -112,57 +181,82 @@ async def start_round(table_id: str, actor_id: str) -> dict:
             else:
                 await wallet_service.credit(
                     s["user_id"], TxnType.GAME_REWARD, reserve, reason="Rummy deal cancelled",
-                    request_id=f"rummy_reserve_refund:{round_id}:{s['user_id']}")
+                    request_id=f"rummy_reserve_refund:{round_id_seed}:{s['user_id']}")
         raise DomainError("Not enough players had funds to deal")
 
-    n = len(funded)
-    server_seed, nonce = rng.new_seed(), rng.new_nonce()
-    base = _base_shoe()
-    shoe = rng.shuffled_list(base, server_seed, nonce)  # LOCKED before any deal
-    commit = rng.commit_hash(server_seed, shoe)
-    cards = {f"c{i}": _mk_card(i, code) for i, code in enumerate(shoe)}
-
-    hands: dict[str, list[str]] = {}
-    for k, s in enumerate(funded):
-        hands[s["user_id"]] = [f"c{i}" for i in range(k * HAND_SIZE, (k + 1) * HAND_SIZE)]
-
-    wild_id = f"c{len(shoe) - 1}"  # last card = wild indicator (set aside)
-    wild_card = cards[wild_id]
-    wild_rank = "A" if wild_card["printed_joker"] else wild_card["rank"]
-
-    rest = [f"c{i}" for i in range(n * HAND_SIZE, len(shoe) - 1)]
-    open_pile = [rest[0]]
-    closed_pile = rest[1:]
-
-    turn_order = [s["user_id"] for s in funded]
-    players = [{
-        "user_id": s["user_id"], "display_name": s.get("display_name", "Player"), "seat": k,
-        "status": "active", "has_ever_drawn": False, "timeouts": 0,
-        "drop_points": None, "points": None, "delta": None,
-        "last_seen": _iso(_now()),
-    } for k, s in enumerate(funded)]
-
-    round_doc = {
-        "id": round_id, "table_id": table_id, "game_type": t["game_type"],
-        "round_no": t["round_no"] + 1, "phase": "PLAYING", "is_practice": practice, "rev": 0,
-        "config": {"point_value": point_value, "rake_pct": int(cfg.get("rake_pct", 70)),
-                   "rake_cap": int(cfg.get("rake_cap", 10_000_000)),
-                   "turn_seconds": int(cfg.get("turn_seconds", 30)),
-                   "max_timeouts": int(cfg.get("max_timeouts", 3)), "reserve": reserve},
-        "rng": {"commit_hash": commit, "nonce": nonce, "server_seed": server_seed,
-                "revealed": False},
-        "wild": {"card_id": wild_id, "code": wild_card["code"], "rank": wild_rank},
-        "cards": cards, "hands": hands, "open_pile": open_pile, "closed_pile": closed_pile,
-        "players": players, "turn_order": turn_order,
-        "turn": {"user_id": turn_order[0], "draw_done": False, "seq": 1,
-                 "deadline": _iso(_now() + timedelta(seconds=int(cfg.get("turn_seconds", 30))))},
-        "result": None, "created_at": _iso(_now()),
-    }
+    round_no = t["round_no"] + 1
+    round_doc = _deal_round_doc(t, funded, round_no, "points", None, reserve)
     await db.casino_rounds.insert_one(round_doc)
     await db.casino_tables.update_one(
         {"id": table_id},
-        {"$set": {"round_no": round_doc["round_no"], "current_round_id": round_id, "status": "RUNNING"}})
+        {"$set": {"round_no": round_no, "current_round_id": round_doc["id"], "status": "RUNNING"}})
     return await get_state(table_id, actor_id)
+
+
+async def _start_match(t: dict, actor_id: str, variant: str) -> dict:
+    """Begin a Pool/Deals match: charge the fixed entry ONCE, seed the match
+    state on the table, then deal the first deal (no per-deal escrow)."""
+    cfg = t["config"]
+    practice = t.get("is_practice", False)
+    entry = max(1, int(cfg.get("entry_fee", 100)))
+    match_id = str(uuid.uuid4())
+
+    funded: list[dict] = []
+    for s in t["seats"]:
+        try:
+            if practice:
+                await practice_service.debit(s["user_id"], entry)
+            else:
+                await bonus_service.debit_playable(
+                    s["user_id"], TxnType.GAME_ENTRY, entry, reason="Rummy match entry",
+                    request_id=f"rummy_match_entry:{match_id}:{s['user_id']}")
+            funded.append(s)
+        except (wallet_service.InsufficientFunds, practice_service.InsufficientChips):
+            continue
+    if len(funded) < 2:
+        for s in funded:
+            if practice:
+                await practice_service.credit(s["user_id"], entry)
+            else:
+                await wallet_service.credit(
+                    s["user_id"], TxnType.GAME_REWARD, entry, reason="Rummy match cancelled",
+                    request_id=f"rummy_match_refund:{match_id}:{s['user_id']}")
+        raise DomainError("Not enough players had funds to start the match")
+
+    collected = entry * len(funded)
+    rake = 0 if practice else min(collected * int(cfg.get("rake_pct", 70)) // 100,
+                                  int(cfg.get("rake_cap", 10_000_000)))
+    prize_pool = collected - rake
+
+    if not practice:  # loyalty XP + bonus playthrough on the entry risked (idempotent)
+        for s in funded:
+            await progression_service.add_wager_xp(
+                s["user_id"], entry, source="rummy",
+                request_id=f"xp:rummy_match:{match_id}:{s['user_id']}")
+            await bonus_service.record_wager(s["user_id"], entry)
+
+    participants = [{"user_id": s["user_id"], "display_name": s.get("display_name", "Player")}
+                    for s in funded]
+    match = {
+        "id": match_id, "variant": variant, "status": "RUNNING",
+        "entry_fee": entry, "collected": collected, "rake": rake, "prize_pool": prize_pool,
+        "pool_limit": int(cfg["pool_type"]) if variant == "pool" else None,
+        "num_deals": int(cfg["num_deals"]) if variant == "deals" else None,
+        "deals_played": 0,
+        "participants": participants,
+        "scores": {p["user_id"]: 0 for p in participants},
+        "eliminated": [], "winner_user_id": None, "standings": None,
+        "reason": None, "created_at": _iso(_now()),
+    }
+
+    round_no = t["round_no"] + 1
+    round_doc = _deal_round_doc(t, funded, round_no, variant, match_id, reserve=0)
+    await db.casino_rounds.insert_one(round_doc)
+    await db.casino_tables.update_one(
+        {"id": t["id"]},
+        {"$set": {"round_no": round_no, "current_round_id": round_doc["id"],
+                  "status": "RUNNING", "match": match}})
+    return await get_state(t["id"], actor_id)
 
 
 # ---------------------------------------------------------------------------
@@ -371,24 +465,35 @@ async def declare(table_id: str, uid: str, groups: list[list[str]]) -> dict:
 # ---------------------------------------------------------------------------
 # Settlement.
 # ---------------------------------------------------------------------------
-async def _settle(r: dict, winner_id: str | None, reason: str) -> dict:
-    cfg = r["config"]
-    pv = cfg["point_value"]
-    reserve = cfg["reserve"]
-    practice = r["is_practice"]
+def _score_players(r: dict, winner_id: str | None) -> None:
+    """Assign each player their deal points (winner 0, dropped=drop points,
+    wrong-declare=80, otherwise best-deadwood of the remaining hand)."""
     wild = r["wild"]["rank"]
-
-    # Score every non-winner.
     for p in r["players"]:
         if p["user_id"] == winner_id:
             p["points"] = 0
-            continue
-        if p["status"] == "dropped":
+        elif p["status"] == "dropped":
             p["points"] = p["drop_points"]
         elif p["status"] == "eliminated":
             p["points"] = rummy.MAX_POINTS
         else:  # still active but didn't win
             p["points"] = rummy.best_deadwood(_resolve(r, r["hands"][p["user_id"]]), wild)
+
+
+async def _settle(r: dict, winner_id: str | None, reason: str) -> dict:
+    """Dispatch to the Points (single-deal coin) or Pool/Deals (match) settler."""
+    if r["config"].get("variant", "points") == "points":
+        return await _settle_points(r, winner_id, reason)
+    return await _settle_deal_multi(r, winner_id, reason)
+
+
+async def _settle_points(r: dict, winner_id: str | None, reason: str) -> dict:
+    cfg = r["config"]
+    pv = cfg["point_value"]
+    reserve = cfg["reserve"]
+    practice = r["is_practice"]
+
+    _score_players(r, winner_id)
 
     collected = 0
     for p in r["players"]:
@@ -444,6 +549,124 @@ async def _settle(r: dict, winner_id: str | None, reason: str) -> dict:
     return r
 
 
+async def _settle_deal_multi(r: dict, winner_id: str | None, reason: str) -> dict:
+    """Settle one deal of a Pool/Deals match: no per-deal coin movement — the
+    deal's points accumulate on the match, then we either eliminate/advance or
+    end the match and pay out the prize pool."""
+    _score_players(r, winner_id)
+    r["phase"] = "SETTLED"
+    r["rng"]["revealed"] = True
+    winner = _player(r, winner_id) if winner_id else None
+    r["result"] = {
+        "winner_user_id": winner_id,
+        "winner_display_name": winner["display_name"] if winner else None,
+        "reason": reason, "variant": r["config"]["variant"], "pot": 0, "rake": 0, "payout": 0,
+        "players": [{
+            "user_id": p["user_id"], "display_name": p["display_name"],
+            "status": p["status"] if p["user_id"] != winner_id else "won",
+            "points": p["points"], "delta": None,
+            "declaration": p.get("declaration"), "error": p.get("declaration_error"),
+        } for p in r["players"]],
+    }
+    await _save(r)
+
+    t = await _get(r["table_id"])
+    match = t.get("match")
+    if not match or match.get("id") != r["config"].get("match_id") or match.get("status") != "RUNNING":
+        # Match already ended/inconsistent — just release the table.
+        await db.casino_tables.update_one(
+            {"id": r["table_id"]}, {"$set": {"status": "WAITING", "current_round_id": None}})
+        return r
+
+    # Accumulate this deal's points onto the match totals.
+    for p in r["players"]:
+        match["scores"][p["user_id"]] = int(match["scores"].get(p["user_id"], 0)) + int(p["points"])
+    match["deals_played"] = int(match.get("deals_played", 0)) + 1
+    all_ids = [pp["user_id"] for pp in match["participants"]]
+
+    if match["variant"] == "pool":
+        limit = int(match["pool_limit"])
+        for pid in all_ids:
+            if match["scores"].get(pid, 0) >= limit and pid not in match["eliminated"]:
+                match["eliminated"].append(pid)
+        remaining = [pid for pid in all_ids if pid not in match["eliminated"]]
+        if len(remaining) <= 1:
+            winner_pid = remaining[0] if remaining else min(match["scores"], key=match["scores"].get)
+            await _end_match(t, match, winner_pid, "Last player standing")
+        else:
+            await _start_next_deal(t, match, remaining)
+    else:  # deals — everyone plays a fixed number of deals; lowest total wins.
+        if match["deals_played"] >= int(match["num_deals"]):
+            winner_pid = min(match["scores"], key=match["scores"].get)
+            await _end_match(t, match, winner_pid, "Most chips after all deals")
+        else:
+            await _start_next_deal(t, match, all_ids)
+    return r
+
+
+async def _start_next_deal(t: dict, match: dict, participant_ids: list[str]) -> None:
+    """Deal the next deal of a running match to the given participants and
+    persist the updated match totals on the table."""
+    ids = set(participant_ids)
+    parts = [pp for pp in match["participants"] if pp["user_id"] in ids]
+    round_no = t["round_no"] + 1
+    rd = _deal_round_doc(t, parts, round_no, match["variant"], match["id"], reserve=0)
+    await db.casino_rounds.insert_one(rd)
+    await db.casino_tables.update_one(
+        {"id": t["id"]},
+        {"$set": {"round_no": round_no, "current_round_id": rd["id"],
+                  "status": "RUNNING", "match": match}})
+
+
+async def _end_match(t: dict, match: dict, winner_id: str | None, reason: str) -> None:
+    """Pay the prize pool to the match winner, record rake, freeze final
+    standings and release the table."""
+    practice = t.get("is_practice", False)
+    prize = int(match["prize_pool"])
+    if winner_id and prize > 0:
+        if practice:
+            await practice_service.credit(winner_id, prize)
+        else:
+            await wallet_service.credit(
+                winner_id, TxnType.GAME_REWARD, prize, reason="Rummy match prize",
+                request_id=f"rummy_match_payout:{match['id']}:{winner_id}")
+    if not practice and int(match["rake"]) > 0 and winner_id:
+        await _record_match_rake(t, match, winner_id)
+
+    ordered = sorted(match["participants"], key=lambda pp: match["scores"].get(pp["user_id"], 0))
+    match["status"] = "ENDED"
+    match["winner_user_id"] = winner_id
+    match["reason"] = reason
+    match["ended_at"] = _iso(_now())
+    match["standings"] = [{
+        "user_id": pp["user_id"], "display_name": pp["display_name"],
+        "score": match["scores"].get(pp["user_id"], 0),
+        "eliminated": pp["user_id"] in match["eliminated"],
+        "won": pp["user_id"] == winner_id,
+    } for pp in ordered]
+    await db.casino_tables.update_one(
+        {"id": t["id"]},
+        {"$set": {"status": "WAITING", "current_round_id": None, "match": match}})
+
+
+async def _record_match_rake(t: dict, match: dict, winner_id: str) -> None:
+    admin = await db.player_assignments.find_one({"player_id": winner_id}, {"_id": 0, "admin_id": 1})
+    admin_id = (admin or {}).get("admin_id")
+    pct = await revenue_service._admin_split_pct(admin_id) if admin_id else 0
+    rake = int(match["rake"])
+    sa_share = int(round(rake * pct / 100))
+    doc = {
+        "round_id": f"match:{match['id']}", "table_id": t["id"], "game_type": t["game_type"],
+        "winner_user_id": winner_id, "admin_id": admin_id, "pot": int(match["collected"]),
+        "rake": rake, "split_pct_super_admin": pct, "super_admin_share": sa_share,
+        "admin_share": rake - sa_share, "created_at": _iso(_now()),
+    }
+    try:
+        await db.casino_rake_ledger.insert_one(doc)
+    except Exception:
+        pass  # idempotent (unique round_id)
+
+
 async def _record_rake(r: dict, winner_id: str, pot: int, rake: int) -> None:
     admin = await db.player_assignments.find_one({"player_id": winner_id}, {"_id": 0, "admin_id": 1})
     admin_id = (admin or {}).get("admin_id")
@@ -469,9 +692,38 @@ def _pub_card(c: dict) -> dict:
             "joker": c["printed_joker"]}
 
 
+def _match_public(m: dict, user_id: str) -> dict:
+    """Public view of a Pool/Deals match: variant, limits, live totals and (once
+    ended) the final standings + prize."""
+    scores = m.get("scores", {})
+    return {
+        "id": m["id"], "variant": m["variant"], "status": m["status"],
+        "entry_fee": m["entry_fee"], "prize_pool": m["prize_pool"],
+        "pool_limit": m.get("pool_limit"), "num_deals": m.get("num_deals"),
+        "deals_played": m.get("deals_played", 0),
+        "eliminated": m.get("eliminated", []),
+        "scores": scores,
+        "winner_user_id": m.get("winner_user_id"),
+        "reason": m.get("reason"),
+        "your_score": scores.get(user_id, 0),
+        "you_eliminated": user_id in m.get("eliminated", []),
+        "players": [{
+            "user_id": pp["user_id"], "display_name": pp["display_name"],
+            "score": scores.get(pp["user_id"], 0),
+            "eliminated": pp["user_id"] in m.get("eliminated", []),
+            "is_you": pp["user_id"] == user_id,
+        } for pp in m.get("participants", [])],
+        "standings": m.get("standings"),
+    }
+
+
 async def get_state(table_id: str, user_id: str) -> dict:
     t = await _get(table_id)
     base = _table_public(t)
+    if t.get("match"):
+        base["match"] = _match_public(t["match"], user_id)
+    else:
+        base["match"] = None
     r = await _active_round(t)
     if r and r["phase"] != "SETTLED":
         r = await _maybe_autoplay(r)
@@ -498,7 +750,8 @@ async def get_state(table_id: str, user_id: str) -> dict:
         "id": r["id"], "phase": r["phase"], "round_no": r["round_no"],
         "is_practice": r["is_practice"], "commit_hash": r["rng"]["commit_hash"],
         "config": {"point_value": r["config"]["point_value"], "rake_pct": r["config"]["rake_pct"],
-                   "turn_seconds": r["config"]["turn_seconds"]},
+                   "turn_seconds": r["config"]["turn_seconds"],
+                   "variant": r["config"].get("variant", "points")},
         "wild": {"code": wild["code"], "rank": wild["rank"]},
         "your_hand": your_hand,
         "open_top": _pub_card(r["cards"][open_top]) if open_top else None,

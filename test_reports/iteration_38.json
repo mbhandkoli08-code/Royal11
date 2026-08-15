@@ -1,0 +1,61 @@
+{
+  "summary": "Iter38 — Pool & Deals Rummy variants + AAA visual redesign + mobile immersive layout: ALL review bullets PASS. Backend: created new pytest /app/backend/tests/test_rummy_variants_api.py driving the real HTTP API with player1 + casino_p2 (is_practice:true). (1) Pool Rummy — POST /api/casino/tables {rummy_pool, pool_type:101, entry_fee:100} + both /join + /start returned 200; GET /rummy/tables/{id}/state returns match with variant='pool', pool_limit=101, status='RUNNING', deals_played=0, prize_pool=200 (practice → no rake), round.config.variant='pool', 13-card your_hand. (2) Deals Rummy — {rummy_deals, num_deals:2, entry_fee:100} → match.variant='deals', num_deals=2, prize_pool=200. (3) Points Rummy regression — state.match is null, round.phase=='PLAYING', 13-card hand. (4) Turn gating — non-turn player POST /draw returns 400; turn player /draw then /discard both return 200. 4/4 pytest cases pass. Frontend: (a) /casino lobby shows all three rummy tiles (casino-game-rummy_points/pool/deals); selecting Pool exposes rummy-variant-config with pool-type-101/201 + entry-fee-50/100/250/500; selecting Deals exposes num-deals-2/num-deals-3. (b) Running Pool table (desktop 1920) renders full AAA chrome: rummy-match-hud (\"101 POOL · Prize 200 · Deal 1\") with match-score-<uid> x2, rummy-backwall reads 'POOL RUMMY', DRAW/DISCARD/JOKER pile labels, rummy-turn-indicator present. (c) Mobile 390x844: body.rummy-immersive class applied, no left sidenav visible, chatbot-launcher present but visible=false (hidden by CSS), rummy-discard/rummy-declare/rummy-drop all present & visible at bottom of the overlay (not covered by BottomNav — RummyTable is a fixed inset-0 z-[70] overlay above nav).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "detailed_results": {
+    "backend_pytest": {
+      "file": "/app/backend/tests/test_rummy_variants_api.py",
+      "junit": "/app/test_reports/pytest/iter38_rummy_variants.xml",
+      "results": "4 passed in 3.58s",
+      "cases": [
+        "test_pool_rummy_match_lifecycle — variant=pool, pool_limit=101, status=RUNNING, deals_played=0, prize_pool=200, round.config.variant=pool, 13-card hand",
+        "test_deals_rummy_match — variant=deals, num_deals=2, prize_pool=200",
+        "test_points_rummy_no_match_object — match is null, phase=PLAYING, 13-card hand",
+        "test_turn_gating_non_turn_player_400 — non-turn draw=400; turn draw+discard=200"
+      ]
+    },
+    "frontend_lobby_desktop": {
+      "casino-game-rummy_points/pool/deals": "ALL FOUND",
+      "rummy-variant-config": "FOUND on pool select",
+      "pool-type-101/201": "FOUND",
+      "entry-fee-50/100/250/500": "FOUND",
+      "num-deals-2/num-deals-3": "FOUND on deals select"
+    },
+    "frontend_pool_table_desktop_1920": {
+      "rummy-match-hud": "FOUND — text '101 POOL / Prize 200 · Deal 1 / Rahul Sharma (You) 0 pts / Casino P2 0 pts'",
+      "match-score-<uid>": "2 elements (both players)",
+      "rummy-backwall": "'POOL RUMMY'",
+      "pile-labels": "['DRAW 77','DISCARD','JOKER']",
+      "rummy-turn-indicator": "FOUND"
+    },
+    "frontend_mobile_390x844": {
+      "body.rummy-immersive": "APPLIED",
+      "left_sidenav_visible": "false (no bounding box)",
+      "chatbot-launcher": "present in DOM, visible=false (CSS hides during immersive mode)",
+      "rummy-discard/declare/drop": "all FOUND & visible (y=964 — below fold; user scrolls within overlay to reach; not covered by BottomNav which sits at y=772-844 under the fixed inset-0 z-[70] overlay)",
+      "header_overflow": "no overflow — controls collapse to icons"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_rummy_variants_api.py",
+    "/app/test_reports/pytest/iter38_rummy_variants.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "RummyTable is a fixed inset-0 z-[70] overlay. The app's BottomNav still renders (present in DOM at y=772-844 on mobile) but is covered by the overlay — functionally fine. If we want cleaner DOM/perf we could conditionally unmount BottomNav when body.rummy-immersive is set.",
+    "Action buttons rummy-discard/declare/drop mount at y≈964 on iPhone-13 viewport (below 844 fold) — user must scroll within the overlay to reach them. Consider a sticky bottom action bar in the overlay so the primary CTAs stay always-visible on small phones.",
+    "Practice mode returns prize_pool = entry_fee × players with NO rake deducted (matches review expectation). Cash mode is validated in tests/test_rummy_match.py where rake=70% is applied (200→60). Behavior is correct; documenting for context.",
+    "CasinoPage persists the active table id in localStorage — great for reload, but if the table is destroyed server-side (or the player is not seated), RummyTable will keep polling. Consider clearing the key on any 404/403 from state polling.",
+    "Draw endpoint accepts source ∈ {closed, open} — public credentials note said 'deck' which is stale; ensure frontend/docs use closed/open consistently."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_rummy_variants_api.py (new)"
+  ],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% of review bullets"},
+  "test_credentials": "player1@royal11.com / ChangeMe123! and casino_p2@royal11.com / ChangeMe123! (both worked; practice mode used throughout to avoid draining real chips).",
+  "seed_data_creation": "Created 1 running Pool Rummy practice table (tid persisted in /tmp/tid.txt during the run) via API to open in the browser for AAA HUD verification. No permanent seed data added.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "1) Draw endpoint expects source ∈ {'closed','open'} (NOT 'deck'). 2) Discard endpoint expects {card_id: <id>} not {card: {...}}. 3) Round schema: turn user is at rnd['turn']['user_id'] (not rnd['turn_user_id']). 4) To open a specific RummyTable in the browser, set localStorage.royal11_casino_table = <tid> and localStorage.royal11_casino_game = 'rummy_pool'|'rummy_deals'|'rummy_points' before navigating to /casino — CasinoPage restores it directly into <RummyTable/>. 5) Splash overlay: use the 'Skip' text button, then click auth-submit-btn via data-testid (get_by_role name='Log in' matches 2 elements). 6) Practice mode does NOT deduct rake — prize_pool = entry_fee × players; test_rummy_match.py covers the cash 70%-rake path.",
+  "rca of the issue": "No issues found. Initial pytest failures were purely test-harness mistakes: (a) using os.environ['REACT_APP_BACKEND_URL'] instead of reading /app/frontend/.env, (b) sending source='deck' (server enforces regex ^(closed|open)$), (c) sending {card: {...}} instead of {card_id: <id>}, (d) reading rnd['turn_user_id'] instead of rnd['turn']['user_id']. All fixed; suite now green."
+}

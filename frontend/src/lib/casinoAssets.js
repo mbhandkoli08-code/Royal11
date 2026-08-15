@@ -24,4 +24,9 @@ export const CARD_BACK_V2 =
 export const ROYAL_HOST_V2 =
   "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/4175b03ae48aeb3455db5b63393d6ce1d0a4c3da7d808b33b399ae0dddd89d9c.jpeg";
 
+// AAA "host-visible" room variant — the same ornate room with an elegant host
+// baked into the left edge presenting the table (no transparency artefacts).
+export const AAA_ROOM_HOST =
+  "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/01175f0f01e250298f4a3d68752f16c96fe446879bf2c0113f1430c9befe5121.jpeg";
+
 

@@ -43,4 +43,32 @@ GAMES: dict[str, dict] = {
                             "turn_seconds": 30, "max_timeouts": 3},
         "settle": None,
     },
+    "rummy_pool": {
+        "label": "Pool Rummy",
+        "category": "rummy",
+        "min_players": 2,
+        "max_players": 6,
+        "cards_per_player": 13,
+        "has_turns": True,  # served by games.rummy_engine (multi-deal match)
+        # Fixed entry charged ONCE at match start; players accumulate deal points
+        # and are eliminated on reaching the pool limit (101 or 201). Last player
+        # standing wins the whole prize pool. rake = house cut of the entry pot.
+        "default_config": {"pool_type": 101, "entry_fee": 100, "rake_pct": 70,
+                            "rake_cap": 10_000_000, "turn_seconds": 30, "max_timeouts": 3},
+        "settle": None,
+    },
+    "rummy_deals": {
+        "label": "Deals Rummy",
+        "category": "rummy",
+        "min_players": 2,
+        "max_players": 6,
+        "cards_per_player": 13,
+        "has_turns": True,  # served by games.rummy_engine (multi-deal match)
+        # Fixed entry charged ONCE at match start; a set number of deals is
+        # played (2 or 3). Deal points accumulate; the LOWEST total after all
+        # deals wins the prize pool. rake = house cut of the entry pot.
+        "default_config": {"num_deals": 2, "entry_fee": 100, "rake_pct": 70,
+                            "rake_cap": 10_000_000, "turn_seconds": 30, "max_timeouts": 3},
+        "settle": None,
+    },
 }
