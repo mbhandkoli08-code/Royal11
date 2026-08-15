@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, Wifi, WifiOff, AlertTriangle, Coins, Gift, Crown } from "lucide-react";
+import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, AlertTriangle, Coins, Gift, Crown, Plus, Settings, ArrowDownUp } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useWallet } from "@/context/WalletContext";
 import { classifyGroup, evaluateHand, provisionalDeadwood } from "@/lib/rummy";
@@ -92,6 +92,9 @@ export default function RummyTable({ tableId, onLeave }) {
   };
   const [celebOpen, setCelebOpen] = useState(true);
   const [showLowChips, setShowLowChips] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showHelper, setShowHelper] = useState(false); // Declare Helper collapsed by default
+  const [handSorted, setHandSorted] = useState(true);   // SORT button toggles suit-sort of the tray
   const [theme, setTheme] = useState(() => user?.rummy_theme || localStorage.getItem("royal11_rummy_theme") || "luxury");
   const th = THEMES[theme] || THEMES.luxury;
   const changeTheme = (key) => {
@@ -249,46 +252,56 @@ export default function RummyTable({ tableId, onLeave }) {
       style={{ background: th.bg, "--r-gold": th.gold, "--r-felt": th.felt, WebkitOverflowScrolling: "touch" }}>
       <RummyAmbiance />
       <div className="relative z-10 mx-auto max-w-3xl px-3 pb-32 pt-4 sm:px-4 sm:pt-5 lg:max-w-5xl">
-        {/* Header */}
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl border border-[var(--r-gold)]/40 bg-white/5 text-[var(--r-gold)]"><Layers className="h-5 w-5" /></span>
-            <div>
-              <p className="font-display text-lg font-extrabold tracking-tight">{state.name}</p>
-              <p className="flex items-center gap-2 text-[11px] text-white/50">
-                <span data-testid="rummy-variant-label">{variant === "points" ? `Points Rummy · ${round?.config?.point_value ?? state.config?.point_value ?? 1}/pt`
-                  : variant === "pool" ? `Pool Rummy · ${match?.pool_limit ?? state.config?.pool_type ?? 101} pool · ${entryFeeCfg} entry`
-                  : `Deals Rummy · ${match?.num_deals ?? state.config?.num_deals ?? 2} deals · ${entryFeeCfg} entry`}</span>
-                <span data-testid="rummy-room-code" className="rounded-full bg-white/10 px-2 py-0.5 font-mono font-bold text-white/70">#{String(state.id || "").slice(-7).toUpperCase()}</span>
-                {(state.is_practice || round?.is_practice) && <span className="rounded-full bg-amber-500/20 px-2 py-0.5 font-black uppercase text-amber-300" data-testid="rummy-practice-tag">Practice</span>}
-              </p>
-            </div>
+        {/* Header — ROYAL 11 wordmark · coins+add · text links · icon row (VIP/Rewards/Sound/Settings) */}
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p data-testid="rummy-wordmark" className="font-display text-2xl font-black leading-none tracking-tight text-[var(--r-gold)] sm:text-3xl" style={{ textShadow: "0 2px 12px rgba(233,198,103,0.35)" }}>
+              ROYAL <span className="text-white">11</span>
+            </p>
+            <p className="mt-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/55 sm:text-[11px]">
+              <span data-testid="rummy-variant-label">{variantLabel}</span>
+              <span data-testid="rummy-room-code" className="font-mono text-white/45">#{String(state.id || "").slice(-7).toUpperCase()}</span>
+              {(state.is_practice || round?.is_practice) && <span data-testid="rummy-practice-tag" className="rounded-full bg-amber-500/20 px-2 py-0.5 font-black text-amber-300">Practice</span>}
+            </p>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-1.5">
-            <button data-testid="rummy-info-btn" onClick={() => setShowInfo(true)}
-              className="hidden items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white/60 hover:bg-white/5 sm:inline-flex" title="Table info">ⓘ Info</button>
-            <button data-testid="rummy-fullscreen-btn" onClick={toggleFullscreen}
-              className="hidden items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white/60 hover:bg-white/5 sm:inline-flex" title="Fullscreen">⛶ Fullscreen</button>
-            {/* Theme picker (cosmetic — hidden on small screens to free space) */}
-            <button data-testid="rummy-host-toggle" onClick={toggleHost} title={hostOn ? "Hide host" : "Show host"}
-              className={`hidden items-center gap-1 rounded-full border px-2.5 py-1.5 text-[11px] font-semibold sm:inline-flex ${hostOn ? "border-[var(--r-gold)]/50 bg-[var(--r-gold)]/10 text-[var(--r-gold)]" : "border-white/15 text-white/50 hover:bg-white/5"}`}>
-              <Crown className="h-3.5 w-3.5" /> Host
-            </button>
-            <div className="hidden items-center gap-1 rounded-full border border-white/10 bg-black/20 p-1 sm:flex" data-testid="rummy-theme-picker">
-              {Object.entries(THEMES).map(([key, t]) => (
-                <button key={key} data-testid={`rummy-theme-${key}`} onClick={() => changeTheme(key)} title={t.label}
-                  className={`h-6 w-6 rounded-full border-2 transition-transform hover:scale-110 ${theme === key ? "border-[var(--r-gold)]" : "border-white/20"}`}
-                  style={{ background: t.swatch }} />
-              ))}
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex items-center gap-2">
+              <button data-testid="rummy-info-btn" onClick={() => setShowInfo(true)} className="hidden text-[10px] font-black uppercase tracking-wider text-white/50 hover:text-white sm:inline">ⓘ Info</button>
+              <button data-testid="rummy-fullscreen-btn" onClick={toggleFullscreen} className="hidden text-[10px] font-black uppercase tracking-wider text-white/50 hover:text-white sm:inline">⛶ Fullscreen</button>
+              <span data-testid="rummy-coin-balance" className="inline-flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-sm font-black text-[var(--r-gold)] ring-1 ring-[var(--r-gold)]/40">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ background: "radial-gradient(circle at 35% 30%, #fff7dd, #e9c667 70%, #b9882a)" }} />
+                {balance.toLocaleString("en-IN")}
+              </span>
+              <button data-testid="rummy-add-coins" onClick={() => setShowAddCoins(true)} title="Add coins"
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500 text-white shadow-lg ring-2 ring-emerald-300/40 transition-transform hover:scale-105 active:scale-95"><Plus className="h-4 w-4" strokeWidth={3} /></button>
             </div>
-            <span className="hidden sm:block"><RummyMusic /></span>
-            <span data-testid="rummy-conn" className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${conn ? "bg-emerald-500/15 text-emerald-300" : "bg-rose-500/20 text-rose-300 animate-pulse"}`}>
-              {conn ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}<span className="hidden sm:inline">{conn ? "Live" : "Reconnecting"}</span>
-            </span>
-            <button data-testid="rummy-rewards-btn" onClick={() => setShowRewards(true)}
-              className="inline-flex items-center gap-1 rounded-full border border-[var(--r-gold)]/40 bg-[var(--r-gold)]/10 px-2.5 py-1.5 text-xs font-semibold text-[var(--r-gold)] hover:bg-[var(--r-gold)]/20"><Gift className="h-3.5 w-3.5" /><span className="hidden sm:inline"> Rewards</span></button>
-            <button data-testid="rummy-leave" onClick={doLeave} disabled={busy || playing}
-              className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-xs font-semibold text-white/70 hover:bg-white/5 disabled:opacity-40"><LogOut className="h-3.5 w-3.5" /><span className="hidden sm:inline"> Leave</span></button>
+            <div className="flex items-center gap-1.5" data-testid="rummy-icon-row">
+              <button data-testid="rummy-vip-btn" onClick={() => setShowRewards(true)} title="VIP" className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-black/20 text-[var(--r-gold)] transition-colors hover:bg-white/5"><Crown className="h-4 w-4" /></button>
+              <button data-testid="rummy-rewards-btn" onClick={() => setShowRewards(true)} title="Rewards" className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-black/20 text-[var(--r-gold)] transition-colors hover:bg-white/5"><Gift className="h-4 w-4" /></button>
+              <span data-testid="rummy-sound"><RummyMusic /></span>
+              <div className="relative">
+                <button data-testid="rummy-settings-btn" onClick={() => setShowSettings((s) => !s)} title="Settings" className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-black/20 text-white/70 transition-colors hover:bg-white/5"><Settings className="h-4 w-4" /></button>
+                {showSettings && (
+                  <div data-testid="rummy-settings-menu" className="absolute right-0 top-10 z-30 w-56 rounded-2xl border border-white/10 bg-[#1a1210] p-3 shadow-2xl">
+                    <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-white/40">Table Settings</p>
+                    <button data-testid="rummy-host-toggle" onClick={toggleHost} className="mb-1 flex w-full items-center justify-between rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">
+                      <span className="flex items-center gap-2"><Crown className="h-3.5 w-3.5 text-[var(--r-gold)]" /> Host character</span>
+                      <span className={hostOn ? "text-emerald-300" : "text-white/40"}>{hostOn ? "On" : "Off"}</span>
+                    </button>
+                    <div className="mb-1 flex items-center justify-between rounded-xl px-2 py-2 text-xs font-bold">
+                      <span>Theme</span>
+                      <div className="flex gap-1">{Object.entries(THEMES).map(([key, t]) => (
+                        <button key={key} data-testid={`rummy-theme-${key}`} onClick={() => changeTheme(key)} title={t.label}
+                          className={`h-5 w-5 rounded-full border-2 ${theme === key ? "border-[var(--r-gold)]" : "border-white/20"}`} style={{ background: t.swatch }} />
+                      ))}</div>
+                    </div>
+                    <button onClick={() => { setShowSettings(false); toggleFullscreen(); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">⛶ Fullscreen</button>
+                    <button onClick={() => { setShowSettings(false); setShowInfo(true); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">ⓘ Table info</button>
+                    <button data-testid="rummy-leave" onClick={doLeave} disabled={busy || playing} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/10 disabled:opacity-40"><LogOut className="h-3.5 w-3.5" /> Leave table</button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -353,25 +366,24 @@ export default function RummyTable({ tableId, onLeave }) {
           <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 select-none font-display text-xs font-black uppercase tracking-[0.35em] text-[var(--r-gold)]/45 sm:text-sm" data-testid="rummy-backwall">{variantLabel}</span>
           <div className="vegas-felt vegas-felt--red vegas-felt--aaa relative overflow-hidden p-4 pt-5 shadow-2xl">
           <div className="vegas-spotlight" />
-          <div className="relative z-10 mb-3 flex flex-wrap items-start justify-center gap-4" data-testid="rummy-players">
+          <div className="relative z-10 mb-3 flex flex-wrap items-start justify-center gap-6" data-testid="rummy-players">
             {players.map((p) => {
               const isTurn = round?.turn?.user_id === p.user_id && playing;
+              const coinText = settled && p.points != null ? `${p.points} pts` : (p.is_you ? balance.toLocaleString("en-IN") : null);
               return (
                 <div key={p.user_id} data-testid={`rummy-seat-${p.user_id}`}
-                  className="flex flex-col items-center gap-1">
+                  className="flex flex-col items-center gap-1.5">
                   <div className={`vegas-ring ${isTurn ? "vegas-ring--active" : ""}`}>
-                    <span className="relative block rounded-full ring-1 ring-black/30">
-                      <PlayerAvatar seed={p.user_id} name={p.display_name} size={40} />
-                      <span className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full ring-2 ring-black/50 ${p.status === "active" || p.status === "seated" ? "bg-emerald-400" : p.status === "dropped" ? "bg-amber-400" : "bg-rose-400"}`} />
+                    <span className="block rounded-full ring-1 ring-black/30">
+                      <PlayerAvatar seed={p.user_id} name={p.display_name} size={44} />
                     </span>
                   </div>
-                  <span className="max-w-[92px] truncate text-[11px] font-bold text-white drop-shadow">{p.display_name}{p.is_you ? " (You)" : ""}</span>
-                  <span className="vegas-balance flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black">
-                    {settled && p.points != null
-                      ? <span className="text-[var(--r-gold)]">{p.points} pts</span>
-                      : <>{p.is_you ? balance.toLocaleString("en-IN") : (p.card_count != null ? `${p.card_count} cards` : "seated")}</>}
-                    {isTurn && <Timer deadline={round?.turn?.deadline} active />}
-                  </span>
+                  {coinText != null && (
+                    <span data-testid={`rummy-seat-coins-${p.user_id}`} className="inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-0.5 text-[11px] font-black text-[var(--r-gold)] ring-1 ring-[var(--r-gold)]/30">
+                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: "radial-gradient(circle at 35% 30%, #fff7dd, #e9c667 70%, #b9882a)" }} />
+                      {coinText}
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -431,57 +443,70 @@ export default function RummyTable({ tableId, onLeave }) {
           </button>
         )}
 
-        {/* Meld-assist checklist */}
+        {/* Play area — clean by default: hand tray + 6-button action bar.
+            The declare-validation aids live in an optional collapsible helper. */}
         {playing && (
           <div className="mt-5">
-            <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-bold" data-testid="rummy-checklist">
-              <Chip ok={evalResult.checklist.pure} label="Pure Sequence" />
-              <Chip ok={evalResult.checklist.twoSeq} label="2 Sequences" />
-              <Chip ok={evalResult.checklist.allGrouped} label={`All 13 grouped (${evalResult.grouped}/13)`} />
-              <span className="ml-auto rounded-full bg-white/5 px-3 py-1 text-white/60">Est. deadwood: <b className="text-[var(--r-gold)]">{provisional}</b></span>
-            </div>
-
-            {/* Group lanes */}
-            <div className="space-y-2" data-testid="rummy-groups">
-              {groups.map((g, gi) => {
-                const info = groupInfos[gi];
-                const color = info.type === "pure_seq" ? "text-emerald-300 border-emerald-400/40" : info.type === "impure_seq" ? "text-sky-300 border-sky-400/40" : info.type === "set" ? "text-violet-300 border-violet-400/40" : "text-rose-300 border-rose-400/40";
-                return (
-                  <div key={gi} className={`rounded-2xl border bg-white/[0.03] p-2 ${color}`} data-testid={`rummy-group-${gi}`}>
-                    <div className="mb-1.5 flex items-center justify-between px-1 text-[11px] font-black">
-                      <span className="inline-flex items-center gap-1">{info.valid ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />} {info.label}</span>
-                      <button onClick={() => addTo(gi)} disabled={!selected.length} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/70 disabled:opacity-30">+ add</button>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5">
-                      {g.map((id) => byId[id] && <RCard key={id} card={byId[id]} small onClick={() => pullOut(id)} />)}
-                    </div>
-                  </div>
-                );
-              })}
-              <button data-testid="rummy-new-group" onClick={newGroup} disabled={!selected.length}
-                className="w-full rounded-2xl border border-dashed border-white/15 py-2 text-xs font-bold text-white/50 hover:bg-white/5 disabled:opacity-30">+ New group from selected ({selected.length})</button>
-            </div>
-
-            {/* Hand tray — suit-sorted, glossy */}
-            <div className="mt-4 rounded-2xl border border-[var(--r-gold)]/20 bg-black/40 p-3 shadow-inner" data-testid="rummy-hand-tray">
-              <p className="mb-2 text-[11px] font-bold text-[var(--r-gold)]/70">Your hand · tap to select, then group</p>
+            {/* Hand tray — fanned, glossy */}
+            <div className="rounded-2xl border border-[var(--r-gold)]/20 bg-black/40 p-3 shadow-inner" data-testid="rummy-hand-tray">
               <div className="flex flex-wrap items-end gap-1.5">
-                {trayCards.length ? bySuit(trayCards).map((c) => (
+                {trayCards.length ? (handSorted ? bySuit(trayCards) : trayCards).map((c) => (
                   <RCard key={c.id} card={c} rich selected={selected.includes(c.id)} onClick={() => toggle(c.id)} />
                 )) : <span className="text-xs text-white/30">All cards grouped</span>}
               </div>
             </div>
 
-            {/* Action bar */}
-            <div className="mt-4 grid grid-cols-3 gap-2">
+            {/* Action bar — DRAW / DISCARD / SORT / GROUP / DROP / DECLARE */}
+            <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6" data-testid="rummy-action-bar">
+              <button data-testid="rummy-draw" onClick={() => doDraw("closed")} disabled={!myTurn || drawDone || busy}
+                className="flex items-center justify-center gap-1.5 rounded-2xl bg-emerald-600 py-3 text-sm font-black text-white ring-1 ring-emerald-300/30 transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Layers className="h-4 w-4" /> Draw</button>
               <button data-testid="rummy-discard" onClick={doDiscard} disabled={!myTurn || !drawDone || selected.length !== 1 || busy}
-                className="flex items-center justify-center gap-1.5 rounded-2xl bg-[#6b0f1a] py-3 text-sm font-bold text-white ring-1 ring-[var(--r-gold)]/30 disabled:opacity-40"><Hand className="h-4 w-4" /> Discard</button>
-              <button data-testid="rummy-declare" onClick={doDeclare} disabled={!myTurn || !drawDone || !evalResult.canDeclare || busy}
-                className="flex items-center justify-center gap-1.5 rounded-2xl bg-[var(--r-gold)] py-3 text-sm font-black text-black disabled:opacity-40"><Trophy className="h-4 w-4" /> Declare</button>
+                className="flex items-center justify-center gap-1.5 rounded-2xl bg-[#6b0f1a] py-3 text-sm font-bold text-white ring-1 ring-[var(--r-gold)]/30 transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Hand className="h-4 w-4" /> Discard</button>
+              <button data-testid="rummy-sort" onClick={() => setHandSorted((s) => !s)} disabled={busy}
+                className="flex items-center justify-center gap-1.5 rounded-2xl bg-white/10 py-3 text-sm font-bold text-white/80 ring-1 ring-white/10 transition-transform hover:-translate-y-0.5 disabled:opacity-40"><ArrowDownUp className="h-4 w-4" /> Sort</button>
+              <button data-testid="rummy-group" onClick={() => { setShowHelper(true); newGroup(); }} disabled={!selected.length || busy}
+                className="flex items-center justify-center gap-1.5 rounded-2xl bg-white/10 py-3 text-sm font-bold text-white/80 ring-1 ring-white/10 transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Layers className="h-4 w-4" /> Group</button>
               <button data-testid="rummy-drop" onClick={() => setShowDrop(true)} disabled={!myTurn || drawDone || busy}
-                className="flex items-center justify-center gap-1.5 rounded-2xl bg-white/10 py-3 text-sm font-bold text-amber-300 disabled:opacity-40"><Flag className="h-4 w-4" /> Drop</button>
+                className="flex items-center justify-center gap-1.5 rounded-2xl bg-white/10 py-3 text-sm font-bold text-amber-300 ring-1 ring-white/10 transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Flag className="h-4 w-4" /> Drop</button>
+              <button data-testid="rummy-declare" onClick={doDeclare} disabled={!myTurn || !drawDone || !evalResult.canDeclare || busy}
+                className="flex items-center justify-center gap-1.5 rounded-2xl bg-[var(--r-gold)] py-3 text-sm font-black text-black transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Trophy className="h-4 w-4" /> Declare</button>
             </div>
             {!myTurn && <p className="mt-2 text-center text-xs text-white/40" data-testid="rummy-wait-turn">Waiting for your turn…</p>}
+
+            {/* Optional Declare Helper (collapsed by default) */}
+            <button data-testid="rummy-helper-toggle" onClick={() => setShowHelper((s) => !s)}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2 text-[11px] font-bold uppercase tracking-widest text-white/50 hover:bg-white/5">
+              <Layers className="h-3.5 w-3.5" /> {showHelper ? "Hide" : "Show"} Declare Helper
+            </button>
+            {showHelper && (
+              <div className="mt-3" data-testid="rummy-declare-helper">
+                <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-bold" data-testid="rummy-checklist">
+                  <Chip ok={evalResult.checklist.pure} label="Pure Sequence" />
+                  <Chip ok={evalResult.checklist.twoSeq} label="2 Sequences" />
+                  <Chip ok={evalResult.checklist.allGrouped} label={`All 13 grouped (${evalResult.grouped}/13)`} />
+                  <span className="ml-auto rounded-full bg-white/5 px-3 py-1 text-white/60">Est. deadwood: <b className="text-[var(--r-gold)]">{provisional}</b></span>
+                </div>
+                <div className="space-y-2" data-testid="rummy-groups">
+                  {groups.map((g, gi) => {
+                    const info = groupInfos[gi];
+                    const color = info.type === "pure_seq" ? "text-emerald-300 border-emerald-400/40" : info.type === "impure_seq" ? "text-sky-300 border-sky-400/40" : info.type === "set" ? "text-violet-300 border-violet-400/40" : "text-rose-300 border-rose-400/40";
+                    return (
+                      <div key={gi} className={`rounded-2xl border bg-white/[0.03] p-2 ${color}`} data-testid={`rummy-group-${gi}`}>
+                        <div className="mb-1.5 flex items-center justify-between px-1 text-[11px] font-black">
+                          <span className="inline-flex items-center gap-1">{info.valid ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />} {info.label}</span>
+                          <button onClick={() => addTo(gi)} disabled={!selected.length} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/70 disabled:opacity-30">+ add</button>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {g.map((id) => byId[id] && <RCard key={id} card={byId[id]} small onClick={() => pullOut(id)} />)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button data-testid="rummy-new-group" onClick={newGroup} disabled={!selected.length}
+                    className="w-full rounded-2xl border border-dashed border-white/15 py-2 text-xs font-bold text-white/50 hover:bg-white/5 disabled:opacity-30">+ New group from selected ({selected.length})</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -554,19 +579,20 @@ export default function RummyTable({ tableId, onLeave }) {
         </div>
       )}
 
-      {/* Persistent HUD: Daily Bonus (bottom-left) + Emoji-only badge (bottom-right).
-          Hidden while a hand is in play so it never covers the action buttons. */}
-      {!playing && (
-        <div className="fixed bottom-4 left-4 z-[75] hidden sm:block">
-          <DailyBonusWidget onClaimed={refreshWallet} />
-        </div>
-      )}
-      {!playing && (
-        <div data-testid="emoji-only-badge"
-          className="fixed bottom-4 right-4 z-[75] hidden items-center gap-1.5 rounded-full border border-[var(--r-gold)]/40 bg-black/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--r-gold)] backdrop-blur-md sm:inline-flex">
+      {/* Persistent HUD: Daily Bonus (bottom-left) + Emoji-only badge & your own
+          round avatar (bottom-right) — always visible on the table. */}
+      <div className="fixed bottom-4 left-4 z-[75] hidden sm:block">
+        <DailyBonusWidget onClaimed={refreshWallet} />
+      </div>
+      <div className="fixed bottom-4 right-4 z-[75] hidden items-center gap-2 sm:flex">
+        <span data-testid="emoji-only-badge"
+          className="inline-flex items-center gap-1.5 rounded-full border border-[var(--r-gold)]/40 bg-black/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--r-gold)] backdrop-blur-md">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Emoji Only
-        </div>
-      )}
+        </span>
+        <span data-testid="rummy-self-avatar" className="grid place-items-center rounded-full ring-2 ring-[var(--r-gold)] ring-offset-2 ring-offset-black/40">
+          <PlayerAvatar seed={user?.id || "you"} name={user?.display_name || "You"} size={40} />
+        </span>
+      </div>
     </div>
   );
 }
