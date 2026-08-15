@@ -9,6 +9,7 @@ import { WalletProvider } from "@/context/WalletContext";
 import { BottomNav } from "@/components/BottomNav";
 import { SideNav } from "@/components/SideNav";
 import { SupportChatbot } from "@/components/SupportChatbot";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { isIndependenceWindow } from "@/lib/festive";
 import { WelcomeAgentModal } from "@/components/WelcomeAgentModal";
@@ -76,6 +77,7 @@ const ProtectedShell = () => {
       </div>
       <BottomNav />
       <SupportChatbot />
+      <InstallPrompt />
     </WalletProvider>
   );
 };

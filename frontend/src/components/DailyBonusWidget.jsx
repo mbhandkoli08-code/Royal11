@@ -10,7 +10,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // 7-day streak ladder and the next-claim time all come from the server; the
 // countdown is derived from the server clock (skew-corrected) so it can't be
 // spoofed. Day 7 pays a bigger jackpot, then the ladder loops back to Day 1.
-export const DailyBonusWidget = ({ className = "", onClaimed, compact = false }) => {
+export const DailyBonusWidget = ({ className = "", onClaimed, compact = false, reminderOnly = false }) => {
   const { token } = useAuth();
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -60,6 +60,12 @@ export const DailyBonusWidget = ({ className = "", onClaimed, compact = false })
   };
 
   if (!status || !status.enabled) return null;
+
+  // Reminder-only mode (Rummy table): stay hidden to preserve table space,
+  // and only surface in the final 10s before the bonus becomes claimable, or
+  // while it's claimable (so the player can actually tap CLAIM). Once claimed
+  // the countdown resets to ~24h so it hides itself again.
+  if (reminderOnly && !status.claimable && !(remaining > 0 && remaining <= 10)) return null;
 
   const hh = String(Math.floor(remaining / 3600)).padStart(2, "0");
   const mm = String(Math.floor((remaining % 3600) / 60)).padStart(2, "0");

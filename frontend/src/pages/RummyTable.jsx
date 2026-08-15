@@ -87,8 +87,20 @@ export default function RummyTable({ tableId, onLeave }) {
 
   const toggleFullscreen = () => {
     const el = document.documentElement;
-    if (!document.fullscreenElement) el.requestFullscreen?.().catch(() => {});
-    else document.exitFullscreen?.().catch(() => {});
+    const doc = document;
+    const isFs = doc.fullscreenElement || doc.webkitFullscreenElement || doc.webkitCurrentFullScreenElement;
+    if (!isFs) {
+      // Standard first, then WebKit (older Android Chrome / desktop Safari).
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.webkitRequestFullScreen;
+      if (req) { try { Promise.resolve(req.call(el)).catch(() => {}); } catch { /* noop */ } }
+      // Re-assert landscape lock once we're fullscreen (Android allows lock only
+      // in fullscreen); harmless where unsupported (iOS Safari).
+      const so = window.screen && window.screen.orientation;
+      if (so && typeof so.lock === "function") setTimeout(() => { try { Promise.resolve(so.lock("landscape")).catch(() => {}); } catch { /* noop */ } }, 150);
+    } else {
+      const exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.webkitCancelFullScreen;
+      if (exit) { try { Promise.resolve(exit.call(doc)).catch(() => {}); } catch { /* noop */ } }
+    }
   };
   const [celebOpen, setCelebOpen] = useState(true);
   const [showLowChips, setShowLowChips] = useState(false);
@@ -118,8 +130,20 @@ export default function RummyTable({ tableId, onLeave }) {
     if (so && typeof so.lock === "function") {
       Promise.resolve(so.lock("landscape")).catch(() => { /* unsupported / not fullscreen */ });
     }
+    // Toggle a compact single-screen LANDSCAPE layout on phones. Matches BOTH
+    // (a) a portrait phone we rotate 90° via CSS (iOS Safari), and (b) a real /
+    // OS-rotated landscape phone (Android after orientation lock). In both the
+    // action bar is pinned, the header is one thin row and clutter is hidden.
+    const mq = window.matchMedia(
+      "(orientation: portrait) and (max-width: 820px), (orientation: landscape) and (max-height: 520px)"
+    );
+    const sync = () => document.body.classList.toggle("rummy-ls", mq.matches);
+    sync();
+    mq.addEventListener?.("change", sync);
     return () => {
       document.body.classList.remove("rummy-immersive");
+      document.body.classList.remove("rummy-ls");
+      mq.removeEventListener?.("change", sync);
       if (so && typeof so.unlock === "function") { try { so.unlock(); } catch { /* noop */ } }
     };
   }, []);
@@ -153,6 +177,17 @@ export default function RummyTable({ tableId, onLeave }) {
   const loadState = useCallback(async () => {
     try {
       const { data } = await axios.get(`${API}/casino/rummy/tables/${tableId}/state`, { headers });
+      // Guard: never keep a user pinned to a table they don't have a seat at
+      // (e.g. a stale stored table id resuming into spectator mode). Bail to the
+      // lobby so they can create/join a table where they actually get a hand.
+      const seats = data.seats || [];
+      const amSeated = seats.some((s) => s.user_id === user?.id);
+      if (seats.length > 0 && !amSeated) {
+        if (pollRef.current) clearInterval(pollRef.current);
+        toast.message("You're not seated at this table — back to the lobby");
+        onLeave();
+        return;
+      }
       setState(data);
       setConn(true);
     } catch (e) {
@@ -167,7 +202,7 @@ export default function RummyTable({ tableId, onLeave }) {
       }
       setConn(false); // transient network blip — keep retrying
     }
-  }, [tableId, headers, onLeave]);
+  }, [tableId, headers, onLeave, user]);
 
   useEffect(() => {
     loadState();
@@ -246,7 +281,15 @@ export default function RummyTable({ tableId, onLeave }) {
     toast.success("Valid declaration — you win! \u{1F3C6}");
   }).catch((e) => toast.error(e.response?.data?.detail || "Invalid declaration"));
   const doDrop = () => act(async () => { setShowDrop(false); const { data } = await post("drop"); setState(data); }).catch((e) => toast.error(e.response?.data?.detail || "Couldn't drop"));
-  const doLeave = () => act(async () => { await axios.post(`${API}/casino/tables/${tableId}/leave`, {}, { headers }); onLeave(); }).catch((e) => toast.error(e.response?.data?.detail || "Couldn't leave"));
+  // Always exit to the lobby — even if the server leave fails (e.g. the user is
+  // only spectating, or a leave is restricted mid-hand). onLeave() clears the
+  // stored table id, so a user can never get stuck on a table.
+  const doLeave = async () => {
+    setBusy(true);
+    try { await axios.post(`${API}/casino/tables/${tableId}/leave`, {}, { headers }); }
+    catch { /* not seated / mid-hand — leave locally anyway */ }
+    finally { setBusy(false); onLeave(); }
+  };
   const runVerify = () => act(async () => { const { data } = await axios.get(`${API}/casino/rummy/rounds/${round.id}/verify`, { headers }); setVerify(data); }).catch(() => toast.error("Verify failed"));
 
   if (!state) return <div className="grid min-h-[60vh] place-items-center"><Loader2 className="h-7 w-7 animate-spin text-[var(--r-gold)]" /></div>;
@@ -261,9 +304,9 @@ export default function RummyTable({ tableId, onLeave }) {
       className="fixed left-0 top-0 right-0 bottom-0 z-[70] overflow-y-auto overflow-x-hidden overscroll-contain text-white"
       style={{ background: th.bg, "--r-gold": th.gold, "--r-felt": th.felt, WebkitOverflowScrolling: "touch" }}>
       <RummyAmbiance />
-      <div className="relative z-10 mx-auto max-w-3xl px-3 pb-32 pt-4 sm:px-4 sm:pt-5 lg:max-w-5xl">
+      <div className="rummy-shell relative z-10 mx-auto max-w-3xl px-3 pb-32 pt-4 sm:px-4 sm:pt-5 lg:max-w-5xl">
         {/* Header — ROYAL 11 wordmark · coins+add · text links · icon row (VIP/Rewards/Sound/Settings) */}
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="rummy-header mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p data-testid="rummy-wordmark" className="font-display text-2xl font-black leading-none tracking-tight text-[var(--r-gold)] sm:text-3xl" style={{ textShadow: "0 2px 12px rgba(233,198,103,0.35)" }}>
               ROYAL <span className="text-white">11</span>
@@ -307,7 +350,7 @@ export default function RummyTable({ tableId, onLeave }) {
                     </div>
                     <button onClick={() => { setShowSettings(false); toggleFullscreen(); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">⛶ Fullscreen</button>
                     <button onClick={() => { setShowSettings(false); setShowInfo(true); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">ⓘ Table info</button>
-                    <button data-testid="rummy-leave" onClick={doLeave} disabled={busy || playing} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/10 disabled:opacity-40"><LogOut className="h-3.5 w-3.5" /> Leave table</button>
+                    <button data-testid="rummy-leave" onClick={doLeave} disabled={busy} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/10 disabled:opacity-40"><LogOut className="h-3.5 w-3.5" /> Leave table</button>
                   </div>
                 )}
               </div>
@@ -456,7 +499,7 @@ export default function RummyTable({ tableId, onLeave }) {
         {/* Play area — clean by default: hand tray + 6-button action bar.
             The declare-validation aids live in an optional collapsible helper. */}
         {playing && (
-          <div className="mt-5">
+          <div className="rummy-playarea mt-5">
             {/* Hand tray — fanned, glossy (ungrouped cards) */}
             <div className="rounded-2xl border border-[var(--r-gold)]/20 bg-black/40 p-3 shadow-inner" data-testid="rummy-hand-tray">
               <div className="flex flex-wrap items-end gap-1.5">
@@ -595,13 +638,16 @@ export default function RummyTable({ tableId, onLeave }) {
         </div>
       )}
 
-      {/* Persistent HUD: Daily Bonus (bottom-left) + Emoji-only badge & your own
-          round avatar (bottom-right). During active play the bonus shrinks to a
-          compact pill so it never overlaps the action bar / hand. */}
-      <div className="fixed bottom-4 left-4 z-[75] hidden sm:block">
-        <DailyBonusWidget onClaimed={refreshWallet} compact={playing} />
+      {/* Daily Bonus REMINDER — hidden by default to keep the table clean; the
+          widget self-reveals only in the final 10s before it becomes claimable
+          (and while claimable) as a brief top-center pop-in, then hides again.
+          The player's coin balance always lives in the header pill. */}
+      <div className="pointer-events-none fixed left-1/2 top-16 z-[80] -translate-x-1/2">
+        <div className="pointer-events-auto">
+          <DailyBonusWidget onClaimed={refreshWallet} compact reminderOnly />
+        </div>
       </div>
-      <div className="fixed bottom-4 right-4 z-[75] hidden items-center gap-2 sm:flex">
+      <div data-testid="rummy-bottom-hud" className="fixed bottom-4 right-4 z-[75] hidden items-center gap-2 sm:flex">
         <span data-testid="emoji-only-badge"
           className="inline-flex items-center gap-1.5 rounded-full border border-[var(--r-gold)]/40 bg-black/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--r-gold)] backdrop-blur-md">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Emoji Only

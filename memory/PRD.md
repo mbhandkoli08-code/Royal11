@@ -29,6 +29,7 @@ teams, play casual games, and manage virtual coins — no real-money gambling.
 - Bottom nav (Home + Wallet functional; Sports/Fantasy/Games placeholders).
 
 ## Implemented (with dates)
+- 2026-08-15 (fork): **Rummy mobile-landscape rebuild + PWA + true Fullscreen** — Rebuilt the immersive Rummy table for phones as a fixed single-screen LANDSCAPE layout (flex column, no page scroll). Root-caused & fixed the P0 where the old "rotate a tall scrolling column" hack pushed the hand tray + 6-button action bar off-screen. Now: thin single-row header, capped elliptical table, sticky one-row 6-button action bar (Draw/Discard/Sort/Group/**Drop**/Declare all always visible), Daily Bonus is reminder-only (hidden except final 10s / when claimable). Added PWA (`manifest.json` display:standalone + Apple meta tags + `InstallPrompt` banner) and vendor-prefixed Fullscreen for chrome-free play. Verified via Playwright DOM measurements + screenshots at 390×844 (iOS rotate) and 844×390 (Android landscape). Details in test_credentials.md.
 - 2026-06: MVP Home + Wallet + bottom nav (verified 100%).
 - 2026-06: Team Builder (draft XI, 100-credit budget), Rewards Store (avatars/badges/boosts),
   Live Score Ticker.

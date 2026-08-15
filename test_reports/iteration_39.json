@@ -1,0 +1,28 @@
+{
+  "summary": "Re-verified the P0 Rummy 'stuck-spectator / stale-table-resume' fix on RummyTable.jsx. All three guards work: (1) STALE/SPECTATOR — player1 opened lobby with player2's tableId in localStorage; app bailed to the lobby and cleared royal11_casino_table. (2) DEAD-TABLE — with a bogus tableId in localStorage, /state returned 400/404, app bailed to lobby and cleared storage. (3) Leave-table — settings menu opens, rummy-leave button is visible and enabled (disabled: False), clicking it exits to lobby, clears localStorage, and a subsequent full page reload does NOT re-pin the user to the same table. Overlay data-testids (rummy-table, rummy-wordmark, rummy-variant-label, rummy-settings-btn, rummy-coin-balance, rummy-room-code, rummy-settings-menu, rummy-leave) all present. body.rummy-immersive class applied while on the table.",
+  "backend_issues": { "critical": [], "minor": [] },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "RummyTable Round-Result modal", "issues": ["When Quick Play joins a table whose previous round just SETTLED, the Round Result modal renders over the settings gear and can intercept the rummy-settings-btn click (needs to be dismissed via Continue first). Not a regression of this fix, but worth surfacing — consider making the settings gear stay above the summary modal or auto-dismissing summaries older than the current session."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "RummyTable.jsx loadState guard (lines 156-166) correctly checks seats.length>0 && !amSeated before pinning — good.",
+    "doLeave (lines 263-267) always calls onLeave() in finally — good defensive UX.",
+    "rummy-leave button (line 329) is disabled={busy} only — correct per fix.",
+    "CasinoPage.jsx loadState (67-81) also has 400/404 guard clearing localStorage — matches the RummyTable guard for High Card flow.",
+    "Minor: casino-game-rummy_points click via Playwright force=True occasionally didn't register when a prior high-card session was active in the same tab; JS-level click always worked. Not a real bug, just a test-selector observation."
+  ],
+  "updated_files": [],
+  "success_rate": { "backend": "n/a (skipped by request)", "frontend": "100% (all P0 fix scenarios verified)" },
+  "test_credentials": "player1@royal11.com / ChangeMe123!, casino_p2@royal11.com / ChangeMe123!",
+  "seed_data_creation": "None; used existing seeded users and existing practice tables.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "The stuck-spectator P0 fix (RummyTable.jsx loadState + doLeave) is verified end-to-end via the public URL. If regressing, quickest repro: login as player1, put another player's tableId into localStorage.royal11_casino_table with royal11_casino_game=rummy_points, visit /casino — should bail to lobby with toast 'You're not seated at this table' and clear localStorage. Note that the round-result summary modal can obscure the settings gear right after Quick Play joins a mid-hand table; press Continue first before opening settings.",
+  "rca of the issue": "Original bug: RummyTable auto-resumed on any stored tableId, even when the user was not among the seats — user was pinned as a spectator with a disabled Leave button. Fix (verified): loadState now bails via onLeave() when seats.length>0 && !amSeated, and also on 400/404; doLeave always calls onLeave() in the finally block; rummy-leave button is disabled only while busy. localStorage keys royal11_casino_table + royal11_casino_game are cleared by CasinoPage's effect when tableId becomes null."
+}

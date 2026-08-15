@@ -270,10 +270,13 @@
 
 /* Hide the floating support-chatbot launcher while an immersive table is open. */
 body.rummy-immersive [data-testid="chatbot-launcher"] { display: none !important; }
+body.rummy-immersive [data-testid="pwa-install-prompt"] { display: none !important; }
 
 /* Landscape lock fallback — on portrait PHONES (where the Screen Orientation
    API isn't available, e.g. iOS Safari) rotate the immersive table 90° so a
-   card game with a wide table always plays in a landscape layout. */
+   card game with a wide table always plays in a landscape layout. The inner
+   layout (see body.rummy-ls below) is a fixed single-screen composition with a
+   pinned action bar, so nothing clips off-screen after the rotation. */
 @media screen and (orientation: portrait) and (max-width: 820px) {
   body.rummy-immersive [data-testid="rummy-table"] {
     transform: rotate(90deg);
@@ -285,8 +288,91 @@ body.rummy-immersive [data-testid="chatbot-launcher"] { display: none !important
     left: 100vw;
     overflow-x: hidden;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
+
+/* ============================================================
+   COMPACT SINGLE-SCREEN LANDSCAPE GAMEPLAY (phones)
+   Applies to BOTH the CSS-rotated portrait phone AND a real /
+   OS-rotated landscape phone. Goal (per Figma "MOBILE GAME 844×390"):
+   one thin header row, elliptical table filling most of the space, a
+   single-row hand tray, and ALL SIX action buttons in ONE row pinned
+   to the very bottom edge — nothing clips or scrolls off-screen.
+
+   Implementation: the frame is a fixed-height FLEX COLUMN (no page
+   scroll). Header + table are auto-height; the play area flexes to
+   fill and scrolls internally; the action bar is sticky at its bottom
+   so Draw…Declare (incl. Drop) are ALWAYS visible & tappable.
+   ============================================================ */
+body.rummy-ls [data-testid="rummy-table"] {
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+}
+body.rummy-ls .rummy-shell {
+  max-width: none;
+  height: 100%;
+  padding: 6px 10px 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Thin single-row header: shrink the wordmark, tuck the subtitle, and hide the
+   VIP/Rewards/Sound icons (Settings gear stays so Leave is always reachable). */
+body.rummy-ls .rummy-header { flex: 0 0 auto; margin-bottom: 4px; align-items: center; }
+body.rummy-ls .rummy-header [data-testid="rummy-wordmark"] { font-size: 18px; line-height: 1; }
+body.rummy-ls .rummy-header [data-testid="rummy-coin-balance"] { padding: 3px 9px; font-size: 12px; }
+body.rummy-ls .rummy-header [data-testid="rummy-add-coins"] { height: 26px; width: 26px; }
+body.rummy-ls [data-testid="rummy-vip-btn"],
+body.rummy-ls [data-testid="rummy-rewards-btn"],
+body.rummy-ls [data-testid="rummy-sound"] { display: none !important; }
+body.rummy-ls [data-testid="rummy-icon-row"] { gap: 4px; }
+
+/* Table room: auto height but capped so it never crowds out the hand/actions. */
+body.rummy-ls [data-testid="vegas-palace"] { flex: 0 1 auto; min-height: 0; padding: 4px 8px; max-height: 46%; }
+body.rummy-ls .vegas-felt--aaa { border-width: 6px; }
+body.rummy-ls [data-testid="rummy-players"] { margin-bottom: 4px; gap: 12px; }
+
+/* Play area flexes to fill the rest and scrolls INTERNALLY (so grouped-card
+   lanes stay reachable) while the action bar stays pinned at the bottom. */
+body.rummy-ls .rummy-playarea {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin-top: 6px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  -webkit-overflow-scrolling: touch;
+}
+body.rummy-ls [data-testid="rummy-hand-tray"] { flex: 0 0 auto; padding: 6px; margin-top: 0; }
+body.rummy-ls [data-testid="rummy-hand-tray"] > div { flex-wrap: nowrap; overflow-x: auto; gap: 4px; }
+body.rummy-ls [data-testid="rummy-groups"] { flex: 0 0 auto; }
+
+/* Action bar: force all six buttons into ONE row and pin it to the bottom edge
+   of the (bounded, scrollable) play area so it is ALWAYS visible. */
+body.rummy-ls [data-testid="rummy-action-bar"] {
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  position: sticky;
+  bottom: 0;
+  margin: auto -10px 0;
+  padding: 7px 10px calc(7px + env(safe-area-inset-bottom, 0px));
+  gap: 6px;
+  background: linear-gradient(to top, rgba(0,0,0,0.94) 55%, rgba(0,0,0,0.4));
+  z-index: 45;
+}
+body.rummy-ls [data-testid="rummy-action-bar"] > button { padding: 9px 0; font-size: 12px; border-radius: 12px; }
+body.rummy-ls [data-testid="rummy-action-bar"] > button svg { height: 14px; width: 14px; }
+
+/* Hide non-essential clutter so the pinned action bar is the last element
+   (advanced tools remain on tablet/desktop). */
+body.rummy-ls [data-testid="rummy-wait-turn"],
+body.rummy-ls [data-testid="rummy-helper-toggle"],
+body.rummy-ls [data-testid="rummy-declare-helper"],
+body.rummy-ls [data-testid="rummy-fairness"],
+body.rummy-ls [data-testid="rummy-backwall"],
+body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
 
 /* Elliptical premium table: dark leather rim + antique-gold double trim + felt. */
 .vegas-felt--aaa {
