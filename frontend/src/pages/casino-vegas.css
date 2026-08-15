@@ -329,10 +329,45 @@ body.rummy-ls [data-testid="rummy-rewards-btn"],
 body.rummy-ls [data-testid="rummy-sound"] { display: none !important; }
 body.rummy-ls [data-testid="rummy-icon-row"] { gap: 4px; }
 
-/* Table room: auto height but capped so it never crowds out the hand/actions. */
-body.rummy-ls [data-testid="vegas-palace"] { flex: 0 1 auto; min-height: 0; padding: 4px 8px; max-height: 46%; }
-body.rummy-ls .vegas-felt--aaa { border-width: 6px; }
+/* Table room: GROW to fill the space between header and the hand/action area so
+   the elliptical felt is large enough for rim seating + centred piles. */
+body.rummy-ls [data-testid="vegas-palace"] { flex: 1 1 auto; min-height: 0; padding: 4px 8px; }
+body.rummy-ls .vegas-felt--aaa { border-width: 6px; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
 body.rummy-ls [data-testid="rummy-players"] { margin-bottom: 4px; gap: 12px; }
+
+/* Play area holds the hand tray + sticky action bar; capped + scrollable so it
+   never eats the table, and the action bar stays pinned at the bottom. */
+body.rummy-ls .rummy-playarea { flex: 0 0 auto; max-height: 46%; }
+
+/* Compass-point seats around the elliptical felt (Figma landscape frame):
+   the seat container overlays the felt and each seat is absolutely placed by
+   its data-slot, scaled down so it hugs the rim. Piles stay centred. */
+body.rummy-ls [data-testid="rummy-players"] {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+body.rummy-ls [data-testid="rummy-players"] > [data-testid^="rummy-seat-"] {
+  position: absolute;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(0.82);
+}
+body.rummy-ls [data-slot="top-center"]    { left: 50%; top: 7%; }
+body.rummy-ls [data-slot="top-left"]      { left: 26%; top: 10%; }
+body.rummy-ls [data-slot="top-right"]     { left: 74%; top: 10%; }
+body.rummy-ls [data-slot="left-mid"]      { left: 9%;  top: 44%; }
+body.rummy-ls [data-slot="right-mid"]     { left: 91%; top: 44%; }
+body.rummy-ls [data-slot="bottom-center"] { left: 50%; top: 94%; }
+
+/* The center turn pill is redundant in landscape (whose-turn shows via the
+   active seat glow + a compact timer in the header) — hide it to free the felt. */
+body.rummy-ls [data-testid="rummy-turn-indicator"] { display: none !important; }
+
+/* Header turn timer chip — only shown in the compact landscape layout. */
+.rummy-ls-only { display: none; }
+body.rummy-ls .rummy-ls-only { display: inline-flex; }
 
 /* Play area flexes to fill the rest and scrolls INTERNALLY (so grouped-card
    lanes stay reachable) while the action bar stays pinned at the bottom. */

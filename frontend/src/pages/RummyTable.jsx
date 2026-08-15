@@ -295,6 +295,23 @@ export default function RummyTable({ tableId, onLeave }) {
   if (!state) return <div className="grid min-h-[60vh] place-items-center"><Loader2 className="h-7 w-7 animate-spin text-[var(--r-gold)]" /></div>;
 
   const players = round?.players || state.seats?.map((s) => ({ ...s, is_you: s.user_id === user?.id, status: "seated" })) || [];
+  // Compass-point seating for the landscape frame (Figma "MOBILE GAME 844×390"):
+  // "you" always anchors the near/bottom seat; opponents fill top/left/right
+  // slots. Only takes visual effect under body.rummy-ls (see casino-vegas.css).
+  const opponents = players.filter((p) => !p.is_you);
+  const seatSlot = (p) => {
+    if (p.is_you) return "bottom-center";
+    const layouts = {
+      1: ["top-center"],
+      2: ["left-mid", "right-mid"],
+      3: ["left-mid", "top-center", "right-mid"],
+      4: ["left-mid", "top-left", "top-right", "right-mid"],
+      5: ["left-mid", "top-left", "top-center", "top-right", "right-mid"],
+    };
+    const arr = layouts[opponents.length] || layouts[5];
+    const idx = opponents.findIndex((o) => o.user_id === p.user_id);
+    return arr[idx] || "top-center";
+  };
   const playing = round?.phase === "PLAYING";
   const settled = round?.phase === "SETTLED";
   const canStart = !round || settled;
@@ -315,6 +332,13 @@ export default function RummyTable({ tableId, onLeave }) {
               <span data-testid="rummy-variant-label">{variantLabel}</span>
               <span data-testid="rummy-room-code" className="font-mono text-white/45">#{String(state.id || "").slice(-7).toUpperCase()}</span>
               {(state.is_practice || round?.is_practice) && <span data-testid="rummy-practice-tag" className="rounded-full bg-amber-500/20 px-2 py-0.5 font-black text-amber-300">Practice</span>}
+              {playing && (
+                <span data-testid="rummy-header-turn"
+                  className={`rummy-ls-only items-center gap-1 rounded-full px-2 py-0.5 normal-case tracking-normal ${myTurn ? "bg-[var(--r-gold)]/20 text-[var(--r-gold)]" : "bg-black/40 text-white/70"}`}>
+                  {myTurn ? "Your turn" : `${(players.find((p) => p.user_id === round?.turn?.user_id)?.display_name || "Opponent")}`}
+                  <Timer deadline={round?.turn?.deadline} active />
+                </span>
+              )}
             </p>
           </div>
           <div className="flex flex-col items-end gap-2">
@@ -424,7 +448,7 @@ export default function RummyTable({ tableId, onLeave }) {
               const isTurn = round?.turn?.user_id === p.user_id && playing;
               const coinText = settled && p.points != null ? `${p.points} pts` : (p.is_you ? balance.toLocaleString("en-IN") : null);
               return (
-                <div key={p.user_id} data-testid={`rummy-seat-${p.user_id}`}
+                <div key={p.user_id} data-testid={`rummy-seat-${p.user_id}`} data-slot={seatSlot(p)}
                   className="flex flex-col items-center gap-1.5">
                   <div className={`vegas-ring ${isTurn ? "vegas-ring--active" : ""}`}>
                     <span className="block rounded-full ring-1 ring-black/30">
