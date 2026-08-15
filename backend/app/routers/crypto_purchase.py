@@ -77,6 +77,8 @@ class CryptoConfigRequest(BaseModel):
     network: Optional[str] = None
     coin_rate: Optional[float] = Field(default=None, gt=0)
     min_inr: Optional[int] = Field(default=None, ge=0)
+    # SA-configurable auto-approve ceiling (USDT). Send 0 to mean unlimited.
+    auto_approve_max_usdt: Optional[float] = Field(default=None, ge=0)
 
 
 @router.get("/superadmin/crypto/config", dependencies=[Depends(require_roles(Role.SUPER_ADMIN))])

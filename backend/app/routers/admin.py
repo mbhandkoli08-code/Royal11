@@ -15,6 +15,7 @@ from ..models import (
     AdminRechargeCreate,
     AllocateToAdminRequest,
     AssignPlayerRequest,
+    AutoApproveConfigInput,
     BankAccountInput,
     WhatsappRequest,
     ConfirmDepositRequest,
@@ -618,6 +619,22 @@ async def list_players():
 # ---------------------------------------------------------------------------
 # Coin top-up / deposits (Part 1) — admin side
 # ---------------------------------------------------------------------------
+@router.get("/deposits/auto-approve-config", dependencies=[Depends(require_roles(Role.ADMIN))])
+async def get_auto_approve_config(caller: dict = Depends(get_current_user)):
+    """This Admin's opt-in for auto-crediting high-confidence deposits."""
+    return await deposit_service.get_auto_approve_config(caller["id"])
+
+
+@router.put("/deposits/auto-approve-config",
+            dependencies=[Depends(require_roles(Role.ADMIN)), Depends(require_not_suspended)])
+async def set_auto_approve_config(payload: AutoApproveConfigInput,
+                                  caller: dict = Depends(get_current_user)):
+    res = await deposit_service.set_auto_approve_config(caller["id"], payload.enabled)
+    await log_action(caller["id"], "AUTO_APPROVE_CONFIG_UPDATED", target_type="user",
+                     target_id=caller["id"], metadata={"enabled": payload.enabled})
+    return res
+
+
 @router.get("/deposits",
             dependencies=[Depends(require_roles(Role.SUPER_ADMIN, Role.MANAGER, Role.ADMIN))])
 async def list_deposits(caller: dict = Depends(get_current_user), limit: int = 100):

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, Field
 from pymongo.errors import DuplicateKeyError
 
-from .. import assignment_service, wallet_service, login_security, otp_service
+from .. import assignment_service, wallet_service, login_security, otp_service, password_reset_service
 from ..audit import log_action
 from ..constants import INACTIVITY_NUDGE_DAYS
 from ..db import db
@@ -164,8 +164,66 @@ async def login(payload: LoginRequest, request: Request):
         raise HTTPException(status.HTTP_403_FORBIDDEN,
                             "Please verify your email before logging in.")
     await login_security.clear_on_success(email, ip)
-    token = create_access_token(user["id"], user["role"])
+    token = create_access_token(user["id"], user["role"], remember=payload.remember_me)
     return TokenResponse(access_token=token, user=_to_public(user))
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+GENERIC_RESET_MSG = "If an account exists for this email, we've sent a reset code."
+
+
+@router.post("/forgot-password")
+async def forgot_password(payload: ForgotPasswordRequest):
+    """Emails a 6-digit reset code — but ALWAYS returns the same generic message
+    so callers can't probe which emails exist (anti-enumeration)."""
+    email = payload.email.strip().lower()
+    user = await db.users.find_one({"email": email}, {"_id": 0, "status": 1})
+    # Only act for real accounts that can actually sign in. Pending-verification
+    # accounts must finish registration OTP first (different flow).
+    if user and user["status"] != UserStatus.PENDING_VERIFICATION.value:
+        ok, _retry = await password_reset_service.can_resend(email)
+        if ok:
+            await password_reset_service.create_and_send(email)
+    return {"status": "ok", "message": GENERIC_RESET_MSG}
+
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=4, max_length=8)
+    new_password: str = Field(min_length=8)
+
+
+@router.post("/reset-password")
+async def reset_password(payload: ResetPasswordRequest):
+    """Verify the single-use OTP, set the new password, and stamp
+    password_changed_at so every previously-issued token is rejected going
+    forward (see deps.get_current_user)."""
+    email = payload.email.strip().lower()
+    user = await db.users.find_one({"email": email})
+    # Verify FIRST so a wrong/expired code returns the same error whether or not
+    # the account exists (still anti-enumeration on this step).
+    try:
+        await password_reset_service.verify(email, payload.code.strip())
+    except password_reset_service.OtpError as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+    if not user:
+        # Code somehow existed without a user — treat as invalid.
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid reset request.")
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"id": user["id"]}, {"$set": {
+        "password_hash": hash_password(payload.new_password),
+        "password_changed_at": now_iso,
+    }})
+    # Clear any brute-force lockout so the user can log in immediately.
+    try:
+        await login_security.clear_on_success(email, None)
+    except Exception:
+        pass
+    await log_action(user["id"], "PASSWORD_RESET", target_type="user", target_id=user["id"])
+    return {"status": "ok", "message": "Password reset. Please sign in with your new password."}
 
 
 @router.get("/me", response_model=UserPublic)

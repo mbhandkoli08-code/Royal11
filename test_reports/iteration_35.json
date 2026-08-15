@@ -1,0 +1,48 @@
+{
+  "summary": "Frontend-only E2E for ROYAL11 AUTH UX (password reveal, remember-me, forgot-password + reset) across both player app ('/') and staff console ('/console/login'). ALL 11 planned test points PASSED. No frontend or backend issues found.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "detailed_results": {
+    "player_login_page": {
+      "password_toggle_masks_and_reveals": "PASS (password -> text -> password)",
+      "remember_me_checkbox_visible_login_mode": "PASS",
+      "forgot_password_link_visible_login_mode": "PASS",
+      "remember_me_and_forgot_hidden_in_signup_mode": "PASS",
+      "login_player1_with_remember_checked": "PASS (navigated away from auth-page)"
+    },
+    "console_login_page": {
+      "password_toggle_masks_and_reveals": "PASS",
+      "remember_me_and_forgot_visible": "PASS",
+      "login_admin1_navigates_to_console": "PASS (URL=/console)"
+    },
+    "forgot_password_full_flow": {
+      "dialog_opens_from_forgot_link": "PASS",
+      "request_step_has_email_input_and_submit": "PASS",
+      "advances_to_reset_step_with_code+newpass+confirm+toggle+submit": "PASS",
+      "reset_code_retrieved_from_backend_log_via_PWRESET_OTP_DEBUG": "PASS",
+      "reset_success_closes_dialog_and_shows_toast": "PASS",
+      "login_with_NEW_password_succeeds": "PASS",
+      "seeded_admin1_password_restored_to_ChangeMe123!_after_test": "PASS (verified 200 OK via curl)"
+    },
+    "anti_enumeration": "PASS (unknown email `nobody-xyz@royal11.com` still advances to reset step with generic 'If an account exists...' toast)",
+    "password_mismatch_guard": "PASS (inline 'Passwords do not match' error shown, form NOT submitted, dialog remains open)",
+    "forgot_newpass_show_hide_toggle": "PASS (toggles both newpass and confirm inputs between password/text)"
+  },
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Auth flow is well-implemented: httpOnly usage via AuthContext, remember_me plumbed through, ForgotPasswordDialog properly reused between AuthPage and ConsoleLoginPage.",
+    "Anti-enumeration correctly implemented: backend returns generic success message and dialog always advances to reset step regardless of email existence.",
+    "Client-side password mismatch guard fires BEFORE API call (good UX + protects against wasted OTP attempts).",
+    "Both password toggles (auth-password-input and forgot-newpass-input) work as expected and have proper aria-labels.",
+    "Minor observation (non-blocking): ForgotPasswordDialog's `show` state toggles BOTH newpass and confirm fields together (both bound to same `type={show ? 'text' : 'password'}`). This is expected UX but only the newpass field has a visible eye icon; the confirm field silently follows. Acceptable, but a subtle behavior."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (skipped per request)", "frontend": "100% (11/11 test points passed)"},
+  "test_credentials": "player1@royal11.com / ChangeMe123!  and  admin1@royal11.com / ChangeMe123!  (both verified still working after tests via curl -> 200 OK)",
+  "seed_data_creation": "None. Admin1 password was temporarily reset to 'TempReset789!' then reset BACK to 'ChangeMe123!' via a second forgot-password cycle. Verified restored via API 200 OK.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All auth UX features from the review request are fully functional. PWRESET_OTP_DEBUG log lines are emitted to /var/log/supervisor/backend.err.log with format 'PWRESET_OTP_DEBUG <email> -> <code>' (OTP_DEBUG_LOG=true is enabled). Signup OTPs use 'OTP_DEBUG <email> -> <code>'. Both admin1 and player1 seeded creds confirmed working post-test. The double-reset-to-restore pattern is a reliable way to E2E test forgot-pw without needing a throwaway account.",
+  "rca of the issue": "No issue found — all tests passed."
+}

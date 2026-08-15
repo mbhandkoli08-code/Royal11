@@ -15,22 +15,27 @@ INR-equivalent of the USDT they sent; on Super-Admin confirm, coins are credited
 as `inr_equivalent * coin_rate` (both Super-Admin-configurable). There is NO
 per-admin wallet generation — one static address only.
 """
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
 from .db import db
 from .models import Role, TxnType
-from . import wallet_service, storage_service
+from . import wallet_service, storage_service, tron_service
 from .audit import log_action
 
+logger = logging.getLogger(__name__)
+
 CONFIG_ID = "crypto_purchase"
+AUTO_CHAIN_ACTOR = "SYSTEM_AUTO_CHAIN"
 DEFAULTS = {
     "usdt_address": "",          # set by Super Admin (static receiving address)
     "network": "TRC-20",
     "coin_rate": 1.5,            # coins per 1 INR-equivalent (100000 INR -> 150000 coins)
     "min_inr": 100000,           # minimum INR-equivalent per request
     "qr_path": None,             # storage path to the uploaded QR image (optional)
+    "auto_approve_max_usdt": None,  # SA-configurable cap; None/0 = unlimited (on-chain gated)
 }
 
 
@@ -86,6 +91,10 @@ async def set_config(patch: dict) -> dict:
         if m < 0:
             raise DomainError("Minimum must be 0 or more")
         allowed["min_inr"] = m
+    if "auto_approve_max_usdt" in patch:
+        v = patch["auto_approve_max_usdt"]
+        # None or 0 (or negative) => unlimited (store None). Positive => a real cap.
+        allowed["auto_approve_max_usdt"] = None if (v is None or float(v) <= 0) else float(v)
     await db.crypto_config.update_one({"_id": CONFIG_ID}, {"$set": allowed}, upsert=True)
     return await get_config()
 
@@ -130,6 +139,8 @@ async def create_purchase_request(admin: dict, *, usdt_amount: float, inr_equiva
         "screenshot_path": None,
         "status": "PENDING",
         "reason": None,
+        "auto_approved": False,
+        "chain_verification": None,
         "created_at": _now(),
         "decided_at": None,
         "decided_by": None,
@@ -146,7 +157,75 @@ async def create_purchase_request(admin: dict, *, usdt_amount: float, inr_equiva
     await log_action(actor_id=admin["id"], action="crypto_purchase.request",
                      target_id=req_id, metadata={"usdt": usdt_amount, "inr": inr_equivalent,
                                                   "sender_wallet": doc["sender_wallet"]})
-    return _public(doc)
+    doc.pop("_id", None)
+    # Blockchain-verified auto-approval. On any miss/failure this returns None and
+    # the request stays PENDING for the existing manual Super-Admin review flow.
+    approved = await _maybe_auto_approve_chain(doc, cfg)
+    if approved:
+        return approved
+    # Re-read so the response reflects any stored chain_verification verdict.
+    fresh = await db.crypto_purchase_requests.find_one({"id": req_id}, {"_id": 0})
+    return _public(fresh or doc)
+
+
+async def _tx_already_credited(tx_id: str, exclude_req_id: str) -> bool:
+    """Replay guard: has this exact tx_id already produced a CONFIRMED credit?"""
+    existing = await db.crypto_purchase_requests.find_one(
+        {"tx_id": tx_id, "status": "CONFIRMED", "id": {"$ne": exclude_req_id}},
+        {"_id": 0, "id": 1})
+    return bool(existing)
+
+
+async def _store_chain_result(req_id: str, verdict: dict) -> None:
+    await db.crypto_purchase_requests.update_one(
+        {"id": req_id}, {"$set": {"chain_verification": verdict}})
+
+
+async def _maybe_auto_approve_chain(doc: dict, cfg: dict) -> Optional[dict]:
+    """Auto-confirm + auto-credit ONLY when on-chain verification passes AND the
+    tx_id hasn't been used before AND (if the SA set a cap) the amount is within
+    it. Any miss -> None (falls back to manual review)."""
+    tx_id = (doc.get("tx_id") or "").strip()
+    to_addr = cfg.get("usdt_address")
+    if not tx_id or not to_addr:
+        return None  # nothing to verify against -> manual
+
+    cap = cfg.get("auto_approve_max_usdt")
+    if cap is not None and float(doc["usdt_amount"]) > float(cap):
+        await _store_chain_result(doc["id"], {
+            "status": "skipped", "verified": False,
+            "reason": f"Above the auto-approve cap ({cap} USDT) — manual review required"})
+        return None
+
+    if await _tx_already_credited(tx_id, doc["id"]):
+        await _store_chain_result(doc["id"], {
+            "status": "failed", "verified": False,
+            "reason": "This transaction ID was already credited"})
+        return None
+
+    verdict = await tron_service.verify_usdt_transfer(tx_id, float(doc["usdt_amount"]), to_addr)
+    await _store_chain_result(doc["id"], verdict)
+    if not verdict.get("verified"):
+        return None
+
+    try:
+        return await _auto_confirm(doc["id"])
+    except Exception as e:  # noqa: BLE001 — auto-approve must never break submission
+        logger.error(f"Crypto auto-approve failed for {doc['id']}: {type(e).__name__}")
+        return None
+
+
+async def _auto_confirm(req_id: str) -> Optional[dict]:
+    req = await db.crypto_purchase_requests.find_one({"id": req_id}, {"_id": 0})
+    if not req or req["status"] != "PENDING":
+        return None
+    coins = await _apply_confirm(req, decided_by=AUTO_CHAIN_ACTOR,
+                                 decided_by_name="System · on-chain verified",
+                                 auto_approved=True)
+    await log_action(actor_id=AUTO_CHAIN_ACTOR, action="crypto_purchase.auto_confirm",
+                     target_id=req_id, metadata={"coins": coins, "admin_id": req["admin_id"],
+                                                 "inr": req["inr_equivalent"], "tx_id": req.get("tx_id")})
+    return _public(await db.crypto_purchase_requests.find_one({"id": req_id}, {"_id": 0}))
 
 
 async def list_my_purchases(admin_id: str, limit: int = 50) -> list[dict]:
@@ -231,24 +310,34 @@ async def confirm(req_id: str, super_admin_id: str) -> dict:
         raise DomainError("Purchase request not found")
     if req["status"] != "PENDING":
         raise DomainError(f"Request already {req['status'].lower()}")
+    coins = await _apply_confirm(req, decided_by=super_admin_id,
+                                 decided_by_name=await _actor_name(super_admin_id),
+                                 auto_approved=False)
+    await log_action(actor_id=super_admin_id, action="crypto_purchase.confirm",
+                     target_id=req_id, metadata={"coins": coins, "admin_id": req["admin_id"],
+                                                 "inr": req["inr_equivalent"]})
+    return _public(await db.crypto_purchase_requests.find_one({"id": req_id}, {"_id": 0}))
+
+
+async def _apply_confirm(req: dict, *, decided_by: str, decided_by_name: Optional[str],
+                         auto_approved: bool) -> int:
+    """Shared crediting core for manual confirm and on-chain auto-confirm.
+    Idempotent on the request id via the wallet request_id. Returns coins credited."""
     cfg = await get_config()
     # Use the rate captured at submit time for fairness/audit clarity.
     rate = req.get("coin_rate_at_submit") or cfg["coin_rate"]
     coins = int(round(req["inr_equivalent"] * rate))
     await wallet_service.credit(
         req["admin_id"], TxnType.CRYPTO_PURCHASE, coins,
-        actor_id=super_admin_id,
+        actor_id=decided_by,
         reason=f"USDT purchase — {req['usdt_amount']} USDT (₹{req['inr_equivalent']:,} @ {rate})",
-        request_id=f"crypto_purchase:{req_id}")
+        request_id=f"crypto_purchase:{req['id']}")
     await db.crypto_purchase_requests.update_one(
-        {"id": req_id, "status": "PENDING"},
+        {"id": req["id"], "status": "PENDING"},
         {"$set": {"status": "CONFIRMED", "coins_credited": coins,
-                  "decided_at": _now(), "decided_by": super_admin_id,
-                  "decided_by_name": await _actor_name(super_admin_id)}})
-    await log_action(actor_id=super_admin_id, action="crypto_purchase.confirm",
-                     target_id=req_id, metadata={"coins": coins, "admin_id": req["admin_id"],
-                                                 "inr": req["inr_equivalent"]})
-    return _public(await db.crypto_purchase_requests.find_one({"id": req_id}, {"_id": 0}))
+                  "decided_at": _now(), "decided_by": decided_by,
+                  "decided_by_name": decided_by_name, "auto_approved": auto_approved}})
+    return coins
 
 
 async def reject(req_id: str, super_admin_id: str, reason: Optional[str]) -> dict:

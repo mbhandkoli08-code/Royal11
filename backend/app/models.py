@@ -97,6 +97,7 @@ class RegisterRequest(BaseModel):
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str
+    remember_me: bool = False
 
 
 class UserPublic(BaseModel):
@@ -298,6 +299,10 @@ class AdminRechargeCreate(BaseModel):
 
 class RejectDepositRequest(BaseModel):
     reason: str = Field(min_length=1, max_length=200)
+
+
+class AutoApproveConfigInput(BaseModel):
+    enabled: bool
 
 
 # ---------------------------------------------------------------------------

@@ -1,20 +1,33 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Mail, Lock, User as UserIcon, ArrowRight, Loader2, ShieldCheck, Gift, KeyRound } from "lucide-react";
+import { Mail, Lock, User as UserIcon, ArrowRight, Loader2, ShieldCheck, Gift, KeyRound, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, formatApiErrorDetail } from "@/context/AuthContext";
 import { Logo } from "@/components/Logo";
 import { LoginShowcase } from "@/components/LoginShowcase";
+import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 
-const Field = ({ icon: Icon, ...props }) => (
-  <div className="relative">
-    <Icon className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400" />
-    <input
-      {...props}
-      className="w-full rounded-2xl border-2 border-slate-100 bg-white py-3.5 pl-11 pr-4 text-sm font-medium text-slate-900 shadow-soft outline-none transition-colors placeholder:text-slate-400 focus:border-royal/40"
-    />
-  </div>
-);
+const Field = ({ icon: Icon, revealable = false, ...props }) => {
+  const [show, setShow] = useState(false);
+  const type = revealable ? (show ? "text" : "password") : props.type;
+  return (
+    <div className="relative">
+      <Icon className="pointer-events-none absolute left-4 top-1/2 h-4.5 w-4.5 -translate-y-1/2 text-slate-400" />
+      <input
+        {...props}
+        type={type}
+        className={`w-full rounded-2xl border-2 border-slate-100 bg-white py-3.5 pl-11 ${revealable ? "pr-11" : "pr-4"} text-sm font-medium text-slate-900 shadow-soft outline-none transition-colors placeholder:text-slate-400 focus:border-royal/40`}
+      />
+      {revealable && (
+        <button type="button" data-testid="password-toggle" onClick={() => setShow((s) => !s)}
+          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
+          aria-label={show ? "Hide password" : "Show password"}>
+          {show ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+        </button>
+      )}
+    </div>
+  );
+};
 
 // Branded header for a per-Admin login page. Shows the Admin's logo (if any)
 // and falls back gracefully to the ROYAL11 crest when no logo is set.
@@ -53,6 +66,8 @@ export default function AuthPage({ branding = null }) {
   const [otpEmail, setOtpEmail] = useState(""); // when set, show the OTP step
   const [otpCode, setOtpCode] = useState("");
   const [resending, setResending] = useState(false);
+  const [remember, setRemember] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const isSignup = mode === "signup";
 
@@ -78,7 +93,7 @@ export default function AuthPage({ branding = null }) {
           toast.success("Check your email", { description: "We sent a 6-digit code to verify your account." });
         }
       } else {
-        await login(email.trim(), password);
+        await login(email.trim(), password, remember);
         toast.success("Welcome back!");
       }
     } catch (err) {
@@ -231,6 +246,7 @@ export default function AuthPage({ branding = null }) {
                 <Field
                   icon={UserIcon}
                   type="text"
+                  autoComplete="name"
                   placeholder="Display name"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
@@ -264,6 +280,7 @@ export default function AuthPage({ branding = null }) {
           <Field
             icon={Mail}
             type="email"
+            autoComplete="username"
             placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -272,7 +289,8 @@ export default function AuthPage({ branding = null }) {
           />
           <Field
             icon={Lock}
-            type="password"
+            revealable
+            autoComplete={isSignup ? "new-password" : "current-password"}
             placeholder={isSignup ? "Password (min 8 characters)" : "Password"}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -281,6 +299,17 @@ export default function AuthPage({ branding = null }) {
             data-testid="auth-password-input"
           />
 
+          {!isSignup && (
+            <div className="flex items-center justify-between px-1">
+              <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600" data-testid="remember-me-label">
+                <input type="checkbox" data-testid="remember-me-checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 text-royal accent-royal" />
+                Stay signed in
+              </label>
+              <button type="button" data-testid="forgot-password-link" onClick={() => setForgotOpen(true)}
+                className="text-xs font-semibold text-royal hover:underline">Forgot password?</button>
+            </div>
+          )}
           {error && (
             <p data-testid="auth-error" className="rounded-xl bg-[#FEE2E2] px-4 py-3 text-sm font-semibold text-[#DC2626]">
               {error}
@@ -311,6 +340,8 @@ export default function AuthPage({ branding = null }) {
         </p>
       </motion.div>
       </div>
+      <ForgotPasswordDialog open={forgotOpen} onClose={() => setForgotOpen(false)} initialEmail={email}
+        onDone={(em) => { setMode("login"); setEmail(em); setPassword(""); }} />
     </div>
   );
 }

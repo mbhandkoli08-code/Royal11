@@ -431,6 +431,8 @@ async def ensure_db_indexes():
         logger.error(f"Demo fantasy seed failed: {type(e).__name__}")
     await login_security.ensure_indexes()
     await otp_service.ensure_indexes()
+    from app import password_reset_service
+    await password_reset_service.ensure_indexes()
     await casino_engine.ensure_indexes()
     from app.games import slots_service as casino_slots
     await casino_slots.ensure_indexes()

@@ -22,6 +22,19 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(bearer_
     user = await db.users.find_one({"id": payload.get("sub")}, {"_id": 0})
     if not user:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "User no longer exists")
+    # Invalidate tokens issued before the user's last password change (no
+    # revocation list needed). `iat` is epoch seconds; allow small clock skew.
+    pca = user.get("password_changed_at")
+    iat = payload.get("iat")
+    if pca and iat:
+        try:
+            from datetime import datetime
+            pca_ts = datetime.fromisoformat(pca).timestamp()
+            if float(iat) + 5 < pca_ts:
+                raise HTTPException(status.HTTP_401_UNAUTHORIZED,
+                                    "Session expired — please sign in again")
+        except (ValueError, TypeError):
+            pass
     # DISABLED accounts are fully locked out. SUSPENDED accounts may still
     # authenticate (read-only Console) — individual action endpoints guard
     # against SUSPENDED via require_not_suspended.

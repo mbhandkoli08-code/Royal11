@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Check, X, Loader2, Clock, MessageSquare, AlertTriangle, ShieldCheck, ShieldAlert, ScanLine, ImageOff, ZoomIn } from "lucide-react";
+import { Check, X, Loader2, Clock, MessageSquare, AlertTriangle, ShieldCheck, ShieldAlert, ScanLine, ImageOff, ZoomIn, Bot, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useConsoleApi, fmtCoins, fmtDate, shortId } from "./api";
 import { CARD, PanelHeader, PrimaryButton, GhostButton, StatusBadge, Modal, Field, Spinner, EmptyState } from "./primitives";
+import { Switch } from "@/components/ui/switch";
 
 // Loads a deposit's payment screenshot through the backend (auth header can't
 // be sent via <img src>), shows a thumbnail, and opens a full-size viewer.
@@ -95,28 +96,57 @@ export const DepositsPanel = ({ query = "" }) => {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [creditWarn, setCreditWarn] = useState(null);
+  const [tab, setTab] = useState("all"); // all | pending | auto
+  const [autoCfg, setAutoCfg] = useState(null); // {enabled, max_inr}
+  const [savingAuto, setSavingAuto] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const { data } = await api.get("/admin/deposits");
-      setRows(data);
+      const reqs = [api.get("/admin/deposits")];
+      if (isAdmin) reqs.push(api.get("/admin/deposits/auto-approve-config"));
+      const [dep, cfg] = await Promise.all(reqs);
+      setRows(dep.data);
+      if (cfg) setAutoCfg(cfg.data);
     } catch {
       toast.error("Couldn't load deposits");
     } finally {
       setLoading(false);
     }
-  }, [api]);
+  }, [api, isAdmin]);
 
   useEffect(() => { load(); }, [load]);
 
+  const toggleAuto = async (enabled) => {
+    if (savingAuto) return;
+    setSavingAuto(true);
+    setAutoCfg((c) => ({ ...c, enabled })); // optimistic
+    try {
+      const { data } = await api.put("/admin/deposits/auto-approve-config", { enabled });
+      setAutoCfg(data);
+      toast.success(enabled ? "Auto-approve turned on" : "Auto-approve turned off");
+    } catch (e) {
+      setAutoCfg((c) => ({ ...c, enabled: !enabled })); // revert
+      toast.error("Couldn't update setting", { description: e.response?.data?.detail || "" });
+    } finally { setSavingAuto(false); }
+  };
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((d) =>
+    let list = rows;
+    if (tab === "pending") list = list.filter((d) => d.status === "PENDING");
+    else if (tab === "auto") list = list.filter((d) => d.auto_approved);
+    if (!q) return list;
+    return list.filter((d) =>
       (d.player_name || "").toLowerCase().includes(q) ||
       (d.reference_note || "").toLowerCase().includes(q) ||
       d.id.includes(q) || (d.status || "").toLowerCase().includes(q));
-  }, [rows, query]);
+  }, [rows, query, tab]);
+
+  const counts = useMemo(() => ({
+    all: rows.length,
+    pending: rows.filter((d) => d.status === "PENDING").length,
+    auto: rows.filter((d) => d.auto_approved).length,
+  }), [rows]);
 
   const submit = async () => {
     if (busy) return;
@@ -144,10 +174,46 @@ export const DepositsPanel = ({ query = "" }) => {
 
   return (
     <div data-testid="deposits-panel">
-      <PanelHeader title="Deposits" subtitle={`${pending} pending · manual coin top-up requests from players`} />
+      <PanelHeader title="Deposits" subtitle={`${counts.pending} pending · manual coin top-up requests from players`} />
+
+      {isAdmin && autoCfg && (
+        <div className={`${CARD} mb-5 p-5`} data-testid="auto-approve-card">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-50 text-violet-600"><Bot className="h-5 w-5" /></span>
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 font-display text-base font-bold text-slate-900">
+                  Auto-approve high-confidence deposits
+                  {autoCfg.enabled && <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700"><Zap className="h-3 w-3" /> ON</span>}
+                </p>
+                <p className="mt-0.5 max-w-xl text-xs text-slate-500">
+                  When on, a deposit is auto-confirmed and coins credited instantly — but only when the screenshot OCR matches BOTH the amount and UTR, the UTR isn&apos;t a duplicate, and the amount is ₹{fmtCoins(autoCfg.max_inr)} or less. Anything else still needs your manual review.
+                </p>
+              </div>
+            </div>
+            <Switch data-testid="auto-approve-toggle" checked={!!autoCfg.enabled} disabled={savingAuto || suspended} onCheckedChange={toggleAuto} />
+          </div>
+          {suspended && <p className="mt-3 text-xs text-rose-600">Auto-approve is paused while your account is suspended.</p>}
+        </div>
+      )}
+
+      {/* Filter tabs */}
+      <div className="mb-5 flex gap-2" data-testid="deposit-tabs">
+        {[
+          { k: "all", label: "All", n: counts.all },
+          { k: "pending", label: "Pending", n: counts.pending },
+          { k: "auto", label: "Auto-approved", n: counts.auto },
+        ].map((t) => (
+          <button key={t.k} data-testid={`deposit-tab-${t.k}`} onClick={() => setTab(t.k)}
+            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${tab === t.k ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>
+            {t.k === "auto" && <Bot className="h-3.5 w-3.5" />}{t.label}
+            <span className={`rounded-full px-1.5 text-[10px] ${tab === t.k ? "bg-white/20" : "bg-slate-200 text-slate-500"}`}>{t.n}</span>
+          </button>
+        ))}
+      </div>
 
       {loading ? <Spinner label="Loading deposits…" /> : filtered.length === 0 ? (
-        <EmptyState testid="deposits-empty" title="No deposit requests" subtitle="Player top-up requests will appear here for review." />
+        <EmptyState testid="deposits-empty" title={tab === "auto" ? "No auto-approved deposits" : "No deposit requests"} subtitle={tab === "auto" ? "Deposits the system auto-credited will appear here for your spot-checks." : "Player top-up requests will appear here for review."} />
       ) : (
         <div className="space-y-4" data-testid="deposits-list">
           {filtered.map((d) => {
@@ -160,6 +226,11 @@ export const DepositsPanel = ({ query = "" }) => {
                       <span className="ml-2 font-mono text-[11px] font-normal text-slate-400">{shortId(d.id)}</span>
                     </p>
                     <p className="mt-0.5 text-xs text-slate-400">{fmtDate(d.created_at)}</p>
+                    {d.auto_approved && (
+                      <span data-testid={`deposit-auto-badge-${d.id}`} className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700">
+                        <Bot className="h-3 w-3" /> Auto-approved · no human review
+                      </span>
+                    )}
                   </div>
                   <div className="text-right">
                     <p className="font-display text-xl font-extrabold text-sky-600">₹{fmtCoins(d.amount_inr)}</p>
@@ -258,7 +329,7 @@ export const DepositsPanel = ({ query = "" }) => {
             <div className="rounded-xl bg-slate-50 p-3"><p className="text-lg font-black text-slate-900">{fmtCoins(creditWarn?.shortfall)}</p><p className="text-[11px] text-slate-500">Shortfall</p></div>
             <div className="rounded-xl bg-slate-50 p-3"><p className="text-lg font-black text-slate-900">{fmtCoins(creditWarn?.remaining_credit)}</p><p className="text-[11px] text-slate-500">Credit left</p></div>
           </div>
-          <p className="text-xs text-slate-400">Refill your float, or request more credit from your Manager under "My Credit Line", then try again.</p>
+          <p className="text-xs text-slate-400">Refill your float, or request more credit from your Manager under &quot;My Credit Line&quot;, then try again.</p>
           <PrimaryButton data-testid="credit-warn-close" onClick={() => setCreditWarn(null)} className="w-full">Got it</PrimaryButton>
         </div>
       </Modal>

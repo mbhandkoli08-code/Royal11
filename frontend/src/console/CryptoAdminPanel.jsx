@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Bitcoin, Loader2, Save, Upload, Check, X, Eye, Settings2, QrCode, Download } from "lucide-react";
+import { Bitcoin, Loader2, Save, Upload, Check, X, Eye, Settings2, QrCode, Download, Link2, ShieldCheck } from "lucide-react";
 import { useConsoleApi, fmtCoins, fmtDate } from "@/console/api";
 import { PanelHeader, Field, PrimaryButton, GhostButton, Spinner, Modal, CARD, thCls, tdCls, StatusBadge, EmptyState } from "@/console/primitives";
 import { AuthImage } from "@/console/AuthImage";
@@ -28,7 +28,9 @@ export const CryptoAdminPanel = () => {
 
   const buildQuery = useCallback(() => {
     const p = new URLSearchParams();
-    if (filter !== "ALL") p.append("status", filter);
+    // "AUTO" isn't a DB status — it's CONFIRMED rows flagged auto_approved.
+    const statusForApi = filter === "AUTO" ? "CONFIRMED" : filter;
+    if (statusForApi !== "ALL") p.append("status", statusForApi);
     if (adminFilter) p.append("admin_id", adminFilter);
     if (dateFrom) p.append("date_from", dateFrom);
     if (dateTo) p.append("date_to", dateTo);
@@ -67,6 +69,8 @@ export const CryptoAdminPanel = () => {
       const { data } = await api.put("/superadmin/crypto/config", {
         usdt_address: cfg.usdt_address, network: cfg.network,
         coin_rate: Number(cfg.coin_rate), min_inr: Math.round(Number(cfg.min_inr)),
+        auto_approve_max_usdt: cfg.auto_approve_max_usdt === "" || cfg.auto_approve_max_usdt == null
+          ? 0 : Number(cfg.auto_approve_max_usdt),
       });
       setCfg(data);
       toast.success("Settings saved");
@@ -107,6 +111,9 @@ export const CryptoAdminPanel = () => {
 
   if (loading || !cfg) return <Spinner label="Loading USDT purchases…" />;
 
+  // "Auto-approved" tab = CONFIRMED rows flagged auto_approved (client-side slice).
+  const shown = filter === "AUTO" ? requests.filter((r) => r.auto_approved) : requests;
+
   return (
     <div data-testid="crypto-admin-panel">
       <PanelHeader title="USDT Coin Purchases" subtitle="Configure your single receiving wallet and review Admin USDT top-up requests." />
@@ -136,7 +143,10 @@ export const CryptoAdminPanel = () => {
             <Field label="Network" data-testid="crypto-cfg-network" value={cfg.network || ""} onChange={(e) => setCfg((c) => ({ ...c, network: e.target.value }))} placeholder="TRC-20" />
             <Field label="Coin rate (coins per ₹1 INR-equiv)" type="number" step="0.01" data-testid="crypto-cfg-rate" value={cfg.coin_rate} onChange={(e) => setCfg((c) => ({ ...c, coin_rate: e.target.value }))} />
             <Field label="Minimum INR-equivalent per request" type="number" data-testid="crypto-cfg-min" value={cfg.min_inr} onChange={(e) => setCfg((c) => ({ ...c, min_inr: e.target.value }))} />
-            <div className="flex items-end">
+            <Field label="Auto-approve cap (USDT · 0 = unlimited)" type="number" step="0.01" data-testid="crypto-cfg-autocap"
+              value={cfg.auto_approve_max_usdt ?? ""} onChange={(e) => setCfg((c) => ({ ...c, auto_approve_max_usdt: e.target.value }))}
+              hint="On-chain-verified purchases auto-credit instantly. Set a USDT ceiling to force manual review above it; 0 = no cap." />
+            <div className="flex items-end sm:col-span-2">
               <PrimaryButton data-testid="crypto-cfg-save" onClick={saveCfg} disabled={savingCfg}>
                 {savingCfg ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} Save settings
               </PrimaryButton>
@@ -149,9 +159,9 @@ export const CryptoAdminPanel = () => {
       <PanelHeader title="Purchase history & report" subtitle="Every USDT purchase — who paid, from which wallet, how much, when and how many coins were credited." />
       <div className="mb-3 flex flex-wrap items-end gap-3" data-testid="crypto-report-filters">
         <div className="inline-flex rounded-full bg-slate-100 p-1" data-testid="crypto-filter">
-          {["PENDING", "CONFIRMED", "REJECTED", "ALL"].map((f) => (
+          {["PENDING", "CONFIRMED", "AUTO", "REJECTED", "ALL"].map((f) => (
             <button key={f} data-testid={`crypto-filter-${f.toLowerCase()}`} onClick={() => setFilter(f)}
-              className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${filter === f ? "bg-white text-sky-700 shadow-sm" : "text-slate-500"}`}>{f}</button>
+              className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${filter === f ? "bg-white text-sky-700 shadow-sm" : "text-slate-500"}`}>{f === "AUTO" ? "Auto-approved" : f}</button>
           ))}
         </div>
         <label className="block">
@@ -178,22 +188,29 @@ export const CryptoAdminPanel = () => {
       </div>
 
       <div className={`${CARD} overflow-hidden`}>
-        {requests.length === 0 ? (
-          <EmptyState title="No requests" subtitle={`No ${filter.toLowerCase()} USDT purchase requests.`} testid="crypto-empty" />
+        {shown.length === 0 ? (
+          <EmptyState title="No requests" subtitle={filter === "AUTO" ? "No blockchain auto-approved purchases yet." : `No ${filter.toLowerCase()} USDT purchase requests.`} testid="crypto-empty" />
         ) : (
           <table className="w-full text-sm">
             <thead><tr className="border-b border-slate-100 bg-slate-50/60">
               <th className={thCls}>Date</th><th className={thCls}>Admin</th><th className={thCls}>USDT</th><th className={thCls}>INR-equiv</th><th className={thCls}>Coins</th><th className={thCls}>Status</th><th className={thCls}></th>
             </tr></thead>
             <tbody>
-              {requests.map((r) => (
+              {shown.map((r) => (
                 <tr key={r.id} className="border-b border-slate-50" data-testid={`crypto-req-${r.id}`}>
                   <td className={tdCls}>{fmtDate(r.created_at)}</td>
                   <td className={`${tdCls} font-semibold text-slate-900`}>{r.admin_name || "—"}</td>
                   <td className={tdCls}>{r.usdt_amount}</td>
                   <td className={tdCls}>₹{fmtCoins(r.inr_equivalent)}</td>
                   <td className={`${tdCls} font-bold text-sky-600`}>{r.coins_credited != null ? fmtCoins(r.coins_credited) : `≈${fmtCoins(r.coins_preview)}`}</td>
-                  <td className={tdCls}><StatusBadge status={r.status} /></td>
+                  <td className={tdCls}>
+                    <div className="flex items-center gap-1.5">
+                      <StatusBadge status={r.status} />
+                      {r.auto_approved && (
+                        <span data-testid={`crypto-auto-badge-${r.id}`} className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-bold text-violet-700"><Link2 className="h-3 w-3" /> Chain-verified</span>
+                      )}
+                    </div>
+                  </td>
                   <td className={tdCls}>
                     <button data-testid={`crypto-view-${r.id}`} onClick={() => setDetail(r)} className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50"><Eye className="h-3.5 w-3.5" /> Review</button>
                   </td>
@@ -220,6 +237,18 @@ export const CryptoAdminPanel = () => {
               <div><p className="text-xs text-slate-500">Submitted</p><p className="text-xs text-slate-700">{fmtDate(detail.created_at)}</p></div>
               <div><p className="text-xs text-slate-500">{detail.status === "PENDING" ? "Decision" : "Decided"}</p><p className="text-xs text-slate-700">{detail.decided_at ? `${fmtDate(detail.decided_at)}${detail.decided_by_name ? ` · ${detail.decided_by_name}` : ""}` : "Awaiting decision"}</p></div>
             </div>
+            {detail.chain_verification && (
+              <div data-testid="crypto-chain-panel" className={`rounded-xl border p-3 ${detail.chain_verification.verified ? "border-violet-200 bg-violet-50" : "border-amber-200 bg-amber-50"}`}>
+                <div className={`flex items-center gap-1.5 text-xs font-bold ${detail.chain_verification.verified ? "text-violet-700" : "text-amber-700"}`}>
+                  {detail.chain_verification.verified ? <ShieldCheck className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
+                  {detail.chain_verification.verified ? "Blockchain-verified — auto-approved (no human review)" : "On-chain check did not auto-approve"}
+                </div>
+                <p className="mt-1 text-xs text-slate-600">{detail.chain_verification.reason}</p>
+                {detail.chain_verification.extracted?.amount_usdt != null && (
+                  <p className="mt-1 text-[11px] text-slate-500">On-chain: {detail.chain_verification.extracted.amount_usdt} USDT → {detail.chain_verification.extracted.to_address}</p>
+                )}
+              </div>
+            )}
             {detail.has_proof && (
               <div>
                 <p className="mb-1 text-xs text-slate-500">Proof screenshot</p>

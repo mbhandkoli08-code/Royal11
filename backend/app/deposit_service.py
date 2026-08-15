@@ -17,6 +17,11 @@ from .models import Role, TxnType
 
 logger = logging.getLogger(__name__)
 
+# Auto-approve (OCR high-confidence) settings. The ₹ cap is a hard safety limit
+# and intentionally NOT configurable — anything above it always needs a human.
+AUTO_APPROVE_MAX_INR = 5000
+AUTO_OCR_ACTOR = "SYSTEM_AUTO_OCR"
+
 
 class CreditLineExceededError(Exception):
     """A recharge can't be serviced: Admin float + remaining credit fall short."""
@@ -66,6 +71,17 @@ async def set_whatsapp_number(user_id: str, whatsapp_number: Optional[str]) -> d
     value = (whatsapp_number or "").strip() or None
     await db.users.update_one({"id": user_id}, {"$set": {"whatsapp_number": value}})
     return {"whatsapp_number": value}
+
+
+async def get_auto_approve_config(admin_id: str) -> dict:
+    """Per-Admin opt-in for auto-crediting high-confidence deposits."""
+    u = await db.users.find_one({"id": admin_id}, {"_id": 0, "auto_approve_deposits": 1})
+    return {"enabled": bool((u or {}).get("auto_approve_deposits")), "max_inr": AUTO_APPROVE_MAX_INR}
+
+
+async def set_auto_approve_config(admin_id: str, enabled: bool) -> dict:
+    await db.users.update_one({"id": admin_id}, {"$set": {"auto_approve_deposits": bool(enabled)}})
+    return {"enabled": bool(enabled), "max_inr": AUTO_APPROVE_MAX_INR}
 
 
 async def get_active_bank_account(admin_id: Optional[str]) -> Optional[dict]:
@@ -143,6 +159,7 @@ async def create_deposit_request(
         "screenshot_path": None,
         "has_screenshot": False,
         "ocr": None,
+        "auto_approved": False,
         "created_at": created_at,
     }
 
@@ -166,7 +183,54 @@ async def create_deposit_request(
 
     await db.deposits.insert_one(doc)
     doc.pop("_id", None)
-    return doc
+
+    # Auto-approve high-confidence deposits (Admin opt-in). On any failure or
+    # ineligibility this returns None and the deposit stays PENDING for manual review.
+    approved = await _maybe_auto_approve(doc)
+    return approved or doc
+
+
+async def _maybe_auto_approve(doc: dict) -> Optional[dict]:
+    """Auto-confirm + auto-credit ONLY when ALL hold:
+      1. OCR overall verdict == "match" (amount AND UTR matched in screenshot),
+      2. UTR is NOT a duplicate,
+      3. amount ≤ AUTO_APPROVE_MAX_INR (hard cap, non-configurable),
+      4. the target Admin has opted in (and isn't suspended).
+    Any miss → None (fall back to the unchanged manual confirm/reject flow)."""
+    admin = await db.users.find_one(
+        {"id": doc["target_admin_id"]}, {"_id": 0, "auto_approve_deposits": 1, "status": 1})
+    if not admin or not admin.get("auto_approve_deposits"):
+        return None
+    if admin.get("status") == "SUSPENDED":
+        return None
+    if doc.get("duplicate_utr"):
+        return None
+    if doc["amount_inr"] > AUTO_APPROVE_MAX_INR:
+        return None
+    ocr = doc.get("ocr") or {}
+    if (ocr.get("match") or {}).get("overall") != "match":
+        return None
+
+    try:
+        dep = await _finalize_confirmed_deposit(
+            doc, confirmed_by=AUTO_OCR_ACTOR, auto_approved=True,
+            note="Auto-approved by system: OCR matched amount + UTR, ≤ ₹5,000, no duplicate. No human reviewed this.",
+        )
+    except CreditLineExceededError:
+        return None  # Admin float/credit can't cover it → leave for manual handling
+    except Exception as e:  # noqa: BLE001 — auto-approve must never break the request
+        logger.error(f"Auto-approve failed for deposit {doc['id']}: {type(e).__name__}")
+        return None
+
+    try:
+        from .audit import log_action
+        await log_action(AUTO_OCR_ACTOR, "DEPOSIT_AUTO_APPROVED", target_type="deposit",
+                         target_id=doc["id"], metadata={"coins": doc["coins_to_credit"],
+                                                        "amount_inr": doc["amount_inr"],
+                                                        "target_admin_id": doc["target_admin_id"]})
+    except Exception:
+        pass
+    return dep
 
 
 async def confirm_deposit(deposit_id: str, admin_id: str, note: Optional[str]) -> dict:
@@ -177,6 +241,16 @@ async def confirm_deposit(deposit_id: str, admin_id: str, note: Optional[str]) -
         raise PermissionError("This deposit is not addressed to you")
     if dep["status"] != "PENDING":
         raise ValueError(f"Deposit already {dep['status'].lower()}")
+    return await _finalize_confirmed_deposit(dep, confirmed_by=admin_id, note=note, auto_approved=False)
+
+
+async def _finalize_confirmed_deposit(dep: dict, *, confirmed_by: str, note: Optional[str],
+                                      auto_approved: bool) -> dict:
+    """Shared crediting core for both manual confirm and system auto-approve.
+    `confirmed_by` is a human Admin id for manual, or AUTO_OCR_ACTOR for auto so
+    the ledger/audit trail always shows whether a human reviewed it."""
+    deposit_id = dep["id"]
+    admin_id = dep["target_admin_id"]
 
     # Retailer model: servicing a player consumes the Admin's own float. If the
     # float can't cover it, the Admin Credit Line auto-tops-up the shortfall (up
@@ -196,14 +270,15 @@ async def confirm_deposit(deposit_id: str, admin_id: str, note: Optional[str]) -
     # double-click / retry can never double-credit.
     await wallet_service.credit(
         dep["player_id"], TxnType.DEPOSIT_TOPUP, dep["coins_to_credit"],
-        actor_id=admin_id, reason=f"Coin top-up (deposit {deposit_id})",
+        actor_id=confirmed_by, reason=f"Coin top-up (deposit {deposit_id})",
         request_id=f"deposit:{deposit_id}",
     )
     await db.deposits.update_one({"id": deposit_id}, {"$set": {
         "status": "CONFIRMED",
-        "confirmed_by": admin_id,
+        "confirmed_by": confirmed_by,
         "confirmed_at": datetime.now(timezone.utc).isoformat(),
         "confirm_note": note,
+        "auto_approved": auto_approved,
     }})
 
     # Standing VIP recharge bonus — tier-based (never win-triggered). Granted as a

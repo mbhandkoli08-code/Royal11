@@ -77,14 +77,24 @@ export const AuthProvider = ({ children }) => {
     };
   }, [token, pingActivity]);
 
-  const login = useCallback(async (email, password) => {
-    const { data } = await axios.post(`${API}/auth/login`, { email, password });
+  const login = useCallback(async (email, password, remember = false) => {
+    const { data } = await axios.post(`${API}/auth/login`, { email, password, remember_me: remember });
     localStorage.setItem(TOKEN_KEY, data.access_token);
     setToken(data.access_token);
     setUser(data.user);
     if (data.user.role === "PLAYER") pingActivity(data.access_token);
     return data.user;
   }, [pingActivity]);
+
+  const forgotPassword = useCallback(async (email) => {
+    const { data } = await axios.post(`${API}/auth/forgot-password`, { email });
+    return data; // generic { status, message }
+  }, []);
+
+  const resetPassword = useCallback(async (email, code, new_password) => {
+    const { data } = await axios.post(`${API}/auth/reset-password`, { email, code, new_password });
+    return data;
+  }, []);
 
   const register = useCallback(async (email, password, display_name, referral_code) => {
     // Registration no longer logs the user in — it triggers an email OTP.
@@ -124,12 +134,14 @@ export const AuthProvider = ({ children }) => {
       loading,
       isAuthenticated: !!token && !!user,
       login,
+      forgotPassword,
+      resetPassword,
       register,
       verifyOtp,
       resendOtp,
       logout,
     }),
-    [token, user, loading, login, register, verifyOtp, resendOtp, logout]
+    [token, user, loading, login, forgotPassword, resetPassword, register, verifyOtp, resendOtp, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,9 +1,10 @@
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Crown, Mail, Lock, ArrowRight, Loader2, Users, Banknote, Scale, BarChart3, ShieldCheck } from "lucide-react";
+import { Crown, Mail, Lock, ArrowRight, Loader2, Users, Banknote, Scale, BarChart3, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth, formatApiErrorDetail } from "@/context/AuthContext";
+import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 
 const CONSOLE_ROLES = ["SUPER_ADMIN", "ZONAL_MANAGER", "MANAGER", "ADMIN", "SUPPORT_HELPER"];
 
@@ -21,6 +22,9 @@ export default function ConsoleLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [remember, setRemember] = useState(false);
+  const [showPass, setShowPass] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
   const emailRef = useRef(null);
 
   const submit = async (e) => {
@@ -28,7 +32,7 @@ export default function ConsoleLoginPage() {
     setError("");
     setBusy(true);
     try {
-      const user = await login(email.trim(), password);
+      const user = await login(email.trim(), password, remember);
       toast.success("Welcome back!");
       navigate(CONSOLE_ROLES.includes(user.role) ? "/console" : "/", { replace: true });
     } catch (err) {
@@ -108,7 +112,7 @@ export default function ConsoleLoginPage() {
               <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
                 ref={emailRef}
-                type="email" placeholder="Email address" value={email}
+                type="email" placeholder="Email address" value={email} autoComplete="username"
                 onChange={(e) => setEmail(e.target.value)} required
                 data-testid="auth-email-input"
                 className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm font-medium text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
@@ -117,11 +121,26 @@ export default function ConsoleLoginPage() {
             <div className="relative">
               <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <input
-                type="password" placeholder="Password" value={password}
+                type={showPass ? "text" : "password"} placeholder="Password" value={password} autoComplete="current-password"
                 onChange={(e) => setPassword(e.target.value)} required
                 data-testid="auth-password-input"
-                className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-4 text-sm font-medium text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-11 pr-11 text-sm font-medium text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
               />
+              <button type="button" data-testid="password-toggle" onClick={() => setShowPass((s) => !s)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600"
+                aria-label={showPass ? "Hide password" : "Show password"}>
+                {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between px-1">
+              <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-slate-600" data-testid="remember-me-label">
+                <input type="checkbox" data-testid="remember-me-checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
+                  className="h-4 w-4 rounded border-slate-300 accent-rose-600" />
+                Stay signed in
+              </label>
+              <button type="button" data-testid="forgot-password-link" onClick={() => setForgotOpen(true)}
+                className="text-xs font-semibold text-rose-600 hover:underline">Forgot password?</button>
             </div>
 
             {error && (
@@ -144,6 +163,8 @@ export default function ConsoleLoginPage() {
           </button>
         </motion.div>
       </div>
+      <ForgotPasswordDialog open={forgotOpen} onClose={() => setForgotOpen(false)} initialEmail={email}
+        onDone={(em) => { setEmail(em); setPassword(""); }} />
     </div>
   );
 }
