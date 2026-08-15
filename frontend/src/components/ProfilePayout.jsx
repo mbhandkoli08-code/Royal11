@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { X, Loader2, Landmark, ShieldCheck, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, Loader2, Landmark, ShieldCheck, CheckCircle2, AlertCircle, QrCode, Upload, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -45,6 +45,8 @@ export const ProfilePayout = ({ open, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [ifscLookup, setIfscLookup] = useState({ status: "idle", bank: "", branch: "" });
+  const [qrUrl, setQrUrl] = useState(null);
+  const [qrBusy, setQrBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -76,6 +78,46 @@ export const ProfilePayout = ({ open, onClose }) => {
     }, 450);
     return () => { cancelled = true; clearTimeout(t); };
   }, [ifsc, open]);
+
+  // Fetch the player's own UPI QR (authenticated endpoint → load as blob URL).
+  const hasQr = !!p?.has_upi_qr;
+  useEffect(() => {
+    if (!open || !hasQr) { setQrUrl(null); return; }
+    let cancelled = false;
+    let objUrl = null;
+    (async () => {
+      try {
+        const res = await axios.get(`${API}/me/profile/upi-qr`, { ...headers, responseType: "blob" });
+        if (cancelled) return;
+        objUrl = URL.createObjectURL(res.data);
+        setQrUrl(objUrl);
+      } catch { if (!cancelled) setQrUrl(null); }
+    })();
+    return () => { cancelled = true; if (objUrl) URL.revokeObjectURL(objUrl); };
+  }, [hasQr, open]);
+
+  const uploadQr = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return toast.error("Please choose an image file");
+    if (file.size > 5 * 1024 * 1024) return toast.error("Image too large (max 5MB)");
+    setQrBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const { data } = await axios.post(`${API}/me/profile/upi-qr`, fd, headers);
+      setP(data); toast.success("QR uploaded");
+    } catch (e) { toast.error(e.response?.data?.detail || "Couldn't upload QR"); }
+    setQrBusy(false);
+  };
+
+  const removeQr = async () => {
+    setQrBusy(true);
+    try {
+      const { data } = await axios.delete(`${API}/me/profile/upi-qr`, headers);
+      setP(data); setQrUrl(null); toast.success("QR removed");
+    } catch { toast.error("Couldn't remove QR"); }
+    setQrBusy(false);
+  };
 
   const setBank = (k, v) => setP({ ...p, bank: { ...(p.bank || {}), [k]: v } });
   const setConsent = (k, v) => {
@@ -152,6 +194,34 @@ export const ProfilePayout = ({ open, onClose }) => {
               </div>
 
               <Input label="UPI ID" testid="profile-upi" value={upi} onChange={(v) => setP({ ...p, upi_id: v.trim() })} placeholder="name@bank" error={upiErr} />
+
+              <div data-testid="profile-upi-qr-section">
+                <span className="mb-1.5 block text-xs font-semibold text-slate-600">UPI QR code <span className="font-normal text-slate-400">(optional)</span></span>
+                <p className="mb-2 text-xs text-slate-400">Upload a screenshot of your UPI QR as an alternative record of your payment details. This is on-file only — it doesn&apos;t change how payouts work.</p>
+                {qrUrl ? (
+                  <div className="flex items-center gap-3 rounded-2xl border border-slate-200 p-3" data-testid="profile-upi-qr-preview">
+                    <img src={qrUrl} alt="Your UPI QR" className="h-24 w-24 rounded-lg border border-slate-100 object-contain" />
+                    <div className="flex flex-col gap-2">
+                      <label data-testid="profile-upi-qr-replace" className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                        <Upload className="h-3.5 w-3.5" /> Replace
+                        <input type="file" accept="image/*" className="hidden" disabled={qrBusy} onChange={(e) => uploadQr(e.target.files?.[0])} />
+                      </label>
+                      <button type="button" data-testid="profile-upi-qr-remove" onClick={removeQr} disabled={qrBusy}
+                        className="inline-flex items-center gap-1.5 rounded-xl border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 disabled:opacity-50">
+                        <Trash2 className="h-3.5 w-3.5" /> Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label data-testid="profile-upi-qr-upload"
+                    className="flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-slate-200 py-6 text-slate-400 transition-colors hover:border-royal/40 hover:text-royal">
+                    {qrBusy ? <Loader2 className="h-5 w-5 animate-spin" /> : <QrCode className="h-6 w-6" />}
+                    <span className="text-xs font-semibold">{qrBusy ? "Uploading…" : "Tap to upload QR image"}</span>
+                    <span className="text-[11px] text-slate-400">PNG or JPG, up to 5MB</span>
+                    <input type="file" accept="image/*" className="hidden" disabled={qrBusy} onChange={(e) => uploadQr(e.target.files?.[0])} />
+                  </label>
+                )}
+              </div>
 
               <div>
                 <p className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-400">Promotional messages</p>

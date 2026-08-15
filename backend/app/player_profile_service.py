@@ -11,6 +11,7 @@ from typing import Optional
 
 from .audit import log_action
 from .db import db
+from . import storage_service
 
 
 def _now() -> str:
@@ -37,7 +38,37 @@ def _clean(doc: dict) -> dict:
 
 async def get_own(user_id: str) -> dict:
     doc = await db.player_profiles.find_one({"user_id": user_id}, {"_id": 0})
-    return doc or _empty(user_id)
+    if not doc:
+        empty = _empty(user_id)
+        empty["has_upi_qr"] = False
+        return empty
+    # Never expose the raw storage path; surface a boolean flag instead.
+    doc["has_upi_qr"] = bool(doc.get("upi_qr_path"))
+    doc.pop("upi_qr_path", None)
+    return doc
+
+
+async def set_upi_qr(user_id: str, image_bytes: bytes, content_type: Optional[str]) -> dict:
+    """Store/replace the player's optional UPI QR screenshot (data-capture only)."""
+    path = f"{storage_service.APP_NAME}/player_profiles/{user_id}/upi_qr"
+    result = await storage_service.put_object(path, image_bytes, content_type or "image/png")
+    await db.player_profiles.update_one(
+        {"user_id": user_id},
+        {"$set": {"upi_qr_path": result["path"], "updated_at": _now()}},
+        upsert=True,
+    )
+    return await get_own(user_id)
+
+
+async def get_upi_qr_path(user_id: str) -> Optional[str]:
+    doc = await db.player_profiles.find_one({"user_id": user_id}, {"_id": 0, "upi_qr_path": 1})
+    return (doc or {}).get("upi_qr_path")
+
+
+async def clear_upi_qr(user_id: str) -> dict:
+    await db.player_profiles.update_one(
+        {"user_id": user_id}, {"$set": {"upi_qr_path": None, "updated_at": _now()}}, upsert=True)
+    return await get_own(user_id)
 
 
 async def update_own(user_id: str, patch) -> dict:
