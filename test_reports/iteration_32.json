@@ -1,0 +1,24 @@
+{
+  "summary": "Frontend-only regression + additive test for the ROYAL11 USDT purchase channel (iter 32). All new UI controls verified end-to-end via Playwright against the public preview URL. Admin CryptoBuyPanel now exposes 'Your sending wallet address' input (data-testid=crypto-sender-wallet); submitting USDT=1200, INR=100000, sender=TSenderTestABC{ts}, txid=TXTEST{ts} produced a success toast and a PENDING row in crypto-my-purchases. Super Admin CryptoAdminPanel report section shows all filter controls (status pills, admin dropdown populated with 2 admins incl. Admin One, date-from/to, Export CSV). Status filter switching (ALL=11 rows, CONFIRMED=5, PENDING=2) correctly refetched. Admin filter narrowed rows. GET /api/superadmin/crypto/requests.csv returned 200 text/csv (3046 bytes, correct header row with Sender Wallet, Receiving Wallet, Decided By columns); Export CSV button triggered a browser download of usdt_purchases.csv. Detail modal (crypto-detail-modal) on the newly created PENDING row displayed the exact sender wallet TSenderTestABC1786780867 in crypto-detail-sender, plus 'Receiving wallet (at time of request)', 'Submitted', 'Decided' labels; Confirm/Reject buttons rendered. Regression: crypto-confirm-btn moved the request to CONFIRMED (count 5->6) with toast; the CONFIRMED detail modal shows 'Decided: 15 Aug 2026, 08:01 am · Super Admin' (decided_at + decided_by_name).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_32.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CryptoAdminPanel.jsx renders two adjacent labels literally as 'Decided' (line 221 ternary returns same string for both branches) — minor UX polish, consider 'Awaiting decision' for PENDING vs 'Decided' for actioned rows.",
+    "buildQuery() in CryptoAdminPanel returns a query with status omitted when filter='ALL' — verified working, but backend must default correctly (it does).",
+    "Login endpoint /api/auth/login expects JSON body (returns 422 for x-www-form-urlencoded). Non-issue for the app, just a note for future test authors."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "n/a (frontend-only per request)", "frontend": "100%"},
+  "test_credentials": "SUPER_ADMIN superadmin@royal11.com / ChangeMe123!, ADMIN admin1@royal11.com / ChangeMe123! (both work, /app/memory/test_credentials.md consulted)",
+  "seed_data_creation": "Created 1 new PENDING USDT purchase (sender=TSenderTestABC1786780867, USDT=1200, INR=100000) then confirmed it via UI as part of the regression flow — now CONFIRMED and credited to Admin One.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 5 items from review_request pass. Nav testids: nav-crypto-buy (admin), nav-crypto-admin (SA). Auth login must be JSON (Content-Type: application/json), NOT form-urlencoded — 422 otherwise. JWT via localStorage['royal11_token']. Splash has 'Skip' but /console loads through it automatically. CSV export header row confirmed: 'Request ID,Admin ID,Admin Name,Sender Wallet,Receiving Wallet,Network,USDT Amount,INR Equivalent,Coin Rate,Coins Credited,Tx ID,Status,Reason,Submitted At,Decided By'. crypto-detail-sender only present on the sender-wallet row; other detail fields located by label text.",
+  "rca of the issue": "No issue — additive iteration; every new element present with correct data-testid and integrated with backend endpoints (GET /superadmin/crypto/requests filters, /superadmin/crypto/admins, /superadmin/crypto/requests.csv, POST /admin/crypto/purchase-request with sender_wallet)."
+}

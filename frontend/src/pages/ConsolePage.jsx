@@ -6,7 +6,7 @@ import {
   Banknote, Landmark, Scale, Zap, Crown, LogOut, ExternalLink, Search, Menu, X,
   Globe2, ClipboardList, Trophy, Palette, ShieldAlert,
 } from "lucide-react";
-import { Gift, Sparkles } from "lucide-react";
+import { Gift, Sparkles, Bitcoin } from "lucide-react";
 import { LifeBuoy, Headset } from "lucide-react";
 import { SupportPanel } from "@/console/SupportPanel";
 import { SupportTeamPanel } from "@/console/SupportTeamPanel";
@@ -38,6 +38,8 @@ import { SecurityPanel } from "@/console/SecurityPanel";
 import { CasinoCommissionPanel } from "@/console/CasinoCommissionPanel";
 import { RewardsConfigPanel } from "@/console/RewardsConfigPanel";
 import { CoinSupplyPanel } from "@/console/CoinSupplyPanel";
+import { CryptoBuyPanel } from "@/console/CryptoBuyPanel";
+import { CryptoAdminPanel } from "@/console/CryptoAdminPanel";
 import { ThemeSwitcher } from "@/console/ThemeSwitcher";
 import "@/console/theme.css";
 
@@ -52,6 +54,7 @@ const NAV = {
     ] },
     { section: "Coins & Financials", items: [
       { id: "coin-supply", label: "Generate Coins", icon: Sparkles },
+      { id: "crypto-admin", label: "USDT Purchases", icon: Bitcoin },
       { id: "deposits", label: "Deposits", icon: Banknote },
       { id: "settlements", label: "Settlements", icon: Scale },
       { id: "recharge-queue", label: "Recharge Requests", icon: Zap },
@@ -116,6 +119,7 @@ const NAV = {
     { section: "Coins & Financials", items: [
       { id: "deposits", label: "Deposits", icon: Banknote },
       { id: "recharge", label: "Recharge Quota", icon: Zap },
+      { id: "crypto-buy", label: "Buy Coins (USDT)", icon: Bitcoin },
       { id: "bank-account", label: "Bank Account", icon: Landmark },
       { id: "my-transactions", label: "Transactions", icon: Receipt },
     ] },
@@ -202,6 +206,8 @@ export default function ConsolePage() {
     switch (active) {
       case "overview": return <OverviewPanel onNavigate={select} />;
       case "coin-supply": return <CoinSupplyPanel />;
+      case "crypto-admin": return <CryptoAdminPanel />;
+      case "crypto-buy": return <CryptoBuyPanel />;
       case "zonal-managers": return <ZonalManagersPanel query={query} />;
       case "managers": return <ManagersPanel query={query} />;
       case "admins": return <AdminsPanel query={query} />;

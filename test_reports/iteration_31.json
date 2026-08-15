@@ -1,0 +1,29 @@
+{
+  "summary": "Tested the new Admin -> Super Admin USDT (TRC-20) coin-purchase channel end-to-end. Backend pytest: 13/13 pass covering config get/set, QR upload+fetch, min-INR enforcement (400), submit -> PENDING with coins_preview=150000, SA confirm credits +150000 to admin wallet delta and appears in wallet history as CRYPTO_PURCHASE, idempotent re-confirm returns 400, SA reject flow with reason and no coin credit, coin-supply report exposes distinct total_crypto_purchased line, and RBAC (player + admin blocked from superadmin/crypto/*). Frontend Playwright: SA CryptoAdminPanel loads via nav-crypto-admin, cfg save toast 'Settings saved', crypto-admin-qr renders from prior upload, PENDING filter lists requests, Review modal shows detail and Confirm/Reject buttons; Admin CryptoBuyPanel loads via nav-crypto-buy, shows address/network/QR + copy button, coin preview updates live to 1,50,000 for ₹100000 @ 1.5, below-min submit blocked with 'Minimum purchase is ₹1,00,000 INR-equivalent' toast, valid submit creates PENDING row visible in crypto-my-purchases, SA confirm shows 'Confirmed — coins credited' toast, SA reject moves row to REJECTED filter with reason recorded.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_crypto_purchase_iter31.py",
+    "/app/test_reports/pytest/crypto_iter31.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "crypto_purchase_service.set_qr uses a non-f-string literal 'crypto_config/qr' — path is fine but the leading f-prefix is unnecessary; harmless.",
+    "AuthImage relies purely on axios responseType blob — no error retry; if a QR/proof fetch is transiently 401 (token refresh), the placeholder shows 'Unavailable' until manual re-render. Not blocking.",
+    "In routers/crypto_purchase.py the `status` query param on list_crypto_requests shadows the imported `fastapi.status` module. It works because the shadow is only inside the function scope, but consider renaming to `req_status` for clarity."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_crypto_purchase_iter31.py"
+  ],
+  "success_rate": {"backend": "100% (13/13)", "frontend": "100% (all critical selectors + flows)"},
+  "test_credentials": "superadmin@royal11.com / ChangeMe123!, admin1@royal11.com / ChangeMe123!, player1@royal11.com / ChangeMe123! (from problem statement)",
+  "seed_data_creation": "3 CRYPTO_PURCHASE requests created by tests (1 confirmed +150000 coins to admin1, 1 rejected, plus prior curl-created data). No cleanup performed; historical data is preserved for reporting reconciliation.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Nav testids are prefixed with 'nav-' (nav-crypto-admin, nav-crypto-buy) — the review request mentioned bare crypto-admin/crypto-buy but the actual DOM uses nav-crypto-*. Panel testids are as specified (crypto-admin-panel, crypto-buy-panel). Splash has 'Skip' button (auto-dismisses ~11s). JWT injection via localStorage['royal11_token'] works; use page.request.post to /api/auth/login to obtain access_token. QR image via AuthImage is a blob object URL that loads asynchronously — allow 500-1000ms after panel mount before asserting img presence.",
+  "rca of the issue": "N/A — feature works end-to-end. Only observation: transient false negative on crypto-qr-img presence check due to async blob load race in AuthImage; not a bug."
+}

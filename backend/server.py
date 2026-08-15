@@ -41,6 +41,7 @@ from app.routers.admin_credit import router as admin_credit_router
 from app.routers.promo import router as promo_router
 from app.routers.notifications import router as notifications_router
 from app.routers.chatbot import router as chatbot_router
+from app.routers.crypto_purchase import router as crypto_purchase_router
 from app.games import engine as casino_engine
 from app.games import progression_service as casino_progression
 
@@ -372,6 +373,7 @@ api_router.include_router(admin_credit_router)
 api_router.include_router(promo_router)
 api_router.include_router(notifications_router)
 api_router.include_router(chatbot_router)
+api_router.include_router(crypto_purchase_router)
 app.include_router(api_router)
 
 app.add_middleware(
@@ -432,6 +434,8 @@ async def ensure_db_indexes():
     await casino_progression.ensure_indexes()
     from app import chatbot_service
     await chatbot_service.ensure_indexes()
+    from app import crypto_purchase_service
+    await crypto_purchase_service.ensure_indexes()
     await bonus_service.ensure_indexes()
     await surprise_box_service.ensure_indexes()
     await support_service.ensure_support_indexes()

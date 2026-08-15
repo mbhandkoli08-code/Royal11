@@ -475,10 +475,22 @@ async def coin_supply():
         })
     recipients.sort(key=lambda r: (r["role"] != Role.ZONAL_MANAGER.value, r["name"].lower()))
 
+    # Coin-inflow channels kept distinct for reporting:
+    #  1) mint (Fund) — above; 2) player INR deposits; 3) Admin USDT purchases.
+    dep_agg = await db.ledger_transactions.aggregate([
+        {"$match": {"type": TxnType.DEPOSIT_TOPUP.value, "status": "COMPLETED"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
+    ]).to_list(1)
+    total_inr_deposits = int(dep_agg[0]["total"]) if dep_agg else 0
+    from .. import crypto_purchase_service as _crypto
+    total_crypto_purchased = await _crypto.total_confirmed_coins()
+
     return {
         "total_minted": total_minted,
         "minted_to_zonal": minted_by_type.get(TxnType.SUPER_ADMIN_TO_ZONAL.value, 0),
         "minted_to_manager": minted_by_type.get(TxnType.SUPER_ADMIN_TO_MANAGER.value, 0),
+        "total_inr_deposits": total_inr_deposits,
+        "total_crypto_purchased": total_crypto_purchased,
         "coins_in_circulation": coins_in_circulation,
         "recipients": recipients,
     }
