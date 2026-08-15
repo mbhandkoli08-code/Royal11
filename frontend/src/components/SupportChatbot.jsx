@@ -141,7 +141,7 @@ export const SupportChatbot = () => {
     try {
       const { data } = await axios.post(`${API}/chatbot/escalate`, {
         session_id: sessionId || "seed", category: escForm.category, subject: escForm.subject.trim(),
-        description: "Escalated from Shalu chat",
+        description: "Escalated from Zoya chat",
       }, { headers });
       toast.success(`Ticket ${data.ticket_no} created`, { description: "A human agent will reply — track it in Wallet › Support." });
       setShowEscalate(false); setEscForm({ category: "GENERAL", subject: "" });
@@ -164,7 +164,7 @@ export const SupportChatbot = () => {
         style={{ background: "radial-gradient(circle at 40% 30%, #3a0d10, #1a0507)" }}
         aria-label="Open support chat"
       >
-        <img src={JOKER} alt="Shalu" className="h-14 w-14 rounded-full object-cover" />
+        <img src={JOKER} alt="Zoya" className="h-14 w-14 rounded-full object-cover" />
         <span className="absolute -right-0.5 -top-0.5 grid h-5 w-5 place-items-center rounded-full bg-amber-400 text-[9px] font-black text-[#2a1503]">?</span>
       </button>
 
@@ -178,9 +178,9 @@ export const SupportChatbot = () => {
           >
             {/* Header */}
             <div className="flex items-center gap-2 border-b border-amber-300/20 bg-gradient-to-r from-[#3a0d10] to-[#1a0507] p-3">
-              <img src={JOKER} alt="Shalu" className="h-10 w-10 rounded-full object-cover ring-2 ring-amber-300/50" />
+              <img src={JOKER} alt="Zoya" className="h-10 w-10 rounded-full object-cover ring-2 ring-amber-300/50" />
               <div className="flex-1">
-                <p className="font-display text-sm font-extrabold text-amber-200">Shalu</p>
+                <p className="font-display text-sm font-extrabold text-amber-200">Zoya</p>
                 <p className="text-[11px] text-amber-100/60">Your ROYAL11 helper · read-only</p>
               </div>
               {/* Language picker */}
@@ -207,7 +207,7 @@ export const SupportChatbot = () => {
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3" data-testid="chatbot-messages">
               {messages.length === 0 && (
                 <div className="rounded-2xl bg-black/25 p-3 text-sm text-amber-100/80 ring-1 ring-amber-300/15">
-                  Hi {user?.display_name?.split(" ")[0] || "there"}! 🃏 I&apos;m Shalu. Ask me anything about coins, games, fantasy or your account.
+                  Hi {user?.display_name?.split(" ")[0] || "there"}! 🃏 I&apos;m Zoya. Ask me anything about coins, games, fantasy or your account.
                 </div>
               )}
               {messages.map((m, i) => (
@@ -264,7 +264,7 @@ export const SupportChatbot = () => {
                   <input
                     data-testid="chatbot-input" value={input} onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "Enter") send(); }}
-                    placeholder={listening ? "Listening…" : "Ask Shalu…"} disabled={busy}
+                    placeholder={listening ? "Listening…" : "Ask Zoya…"} disabled={busy}
                     className="flex-1 rounded-full bg-black/30 px-4 py-2.5 text-sm text-amber-50 outline-none ring-1 ring-amber-300/20 placeholder:text-amber-100/40"
                   />
                   <button data-testid="chatbot-send" onClick={() => send()} disabled={busy || !input.trim()}

@@ -37,4 +37,4 @@ async def get_session(session_id: str, user: dict = Depends(require_roles(Role.P
 async def escalate(payload: EscalateRequest, user: dict = Depends(require_roles(Role.PLAYER))):
     return await chatbot_service.escalate(
         user, payload.session_id, category=payload.category.value,
-        subject=payload.subject, description=payload.description or "Escalated from Shalu chat")
+        subject=payload.subject, description=payload.description or "Escalated from Zoya chat")
