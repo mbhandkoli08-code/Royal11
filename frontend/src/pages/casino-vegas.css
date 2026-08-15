@@ -272,25 +272,11 @@
 body.rummy-immersive [data-testid="chatbot-launcher"] { display: none !important; }
 body.rummy-immersive [data-testid="pwa-install-prompt"] { display: none !important; }
 
-/* Landscape lock fallback — on portrait PHONES (where the Screen Orientation
-   API isn't available, e.g. iOS Safari) rotate the immersive table 90° so a
-   card game with a wide table always plays in a landscape layout. The inner
-   layout (see body.rummy-ls below) is a fixed single-screen composition with a
-   pinned action bar, so nothing clips off-screen after the rotation. */
-@media screen and (orientation: portrait) and (max-width: 820px) {
-  body.rummy-immersive [data-testid="rummy-table"] {
-    transform: rotate(90deg);
-    transform-origin: left top;
-    width: 100vh;
-    height: 100vw;
-    position: fixed;
-    top: 0;
-    left: 100vw;
-    overflow-x: hidden;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-}
+/* NOTE: the 90° rotation for portrait phones is applied in JS (see RummyTable's
+   applyFrame) using measured visualViewport pixels — NOT CSS 100vh/100vw, which
+   real mobile Chrome/Safari compute against the URL-bar-hidden viewport and can
+   push the rotated frame off-screen (a blank table). The JS also toggles the
+   `rummy-ls` compact layout below. */
 
 /* ============================================================
    COMPACT SINGLE-SCREEN LANDSCAPE GAMEPLAY (phones)
@@ -331,7 +317,7 @@ body.rummy-ls [data-testid="rummy-icon-row"] { gap: 4px; }
 
 /* Table room: GROW to fill the space between header and the hand/action area so
    the elliptical felt is large enough for rim seating + centred piles. */
-body.rummy-ls [data-testid="vegas-palace"] { flex: 1 1 auto; min-height: 0; padding: 4px 8px; }
+body.rummy-ls [data-testid="vegas-palace"] { flex: 1 1 auto; min-height: 38%; padding: 4px 8px; }
 body.rummy-ls .vegas-felt--aaa { border-width: 6px; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
 body.rummy-ls [data-testid="rummy-players"] { margin-bottom: 4px; gap: 12px; }
 

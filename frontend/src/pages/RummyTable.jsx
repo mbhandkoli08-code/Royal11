@@ -120,33 +120,67 @@ export default function RummyTable({ tableId, onLeave }) {
   const rechargePromptedRef = useRef(false);
 
   // Immersive mode: RummyTable is a full-screen overlay — hide the app's
-  // floating chatbot launcher (z-95) while playing, and lock the card table to
-  // LANDSCAPE on phones. We try the Screen Orientation API first (Android
-  // Chrome / installed PWA); where it's unsupported (iOS Safari) a CSS rotate
-  // fallback (see .rummy-immersive rule) reflows the table to landscape.
+  // floating chatbot launcher while playing, and present the card table in
+  // LANDSCAPE on phones. On a portrait phone we rotate the frame 90°, but we
+  // size it from the *measured* visible viewport (visualViewport / innerWidth)
+  // rather than CSS 100vh/100vw — real mobile Chrome/Safari report vh/vw against
+  // the URL-bar-hidden viewport, which pushed the rotated frame off-screen (blank
+  // table). Driving it in JS keeps the frame exactly on the visible area.
+  const frameRef = useRef(null);
+  const applyFrame = useCallback(() => {
+    const el = frameRef.current;
+    if (!el) return;
+    const vv = window.visualViewport;
+    const w = Math.round((vv && vv.width) || window.innerWidth);
+    const h = Math.round((vv && vv.height) || window.innerHeight);
+    const isPhone = Math.min(w, h) <= 820;
+    const isPortrait = h >= w;
+    const compact = isPhone && (isPortrait || h <= 520);
+    document.body.classList.toggle("rummy-ls", compact);
+    if (isPhone && isPortrait) {
+      // Rotate to landscape using exact visible-viewport pixels.
+      el.style.position = "fixed";
+      el.style.top = "0px";
+      el.style.left = w + "px";
+      el.style.width = h + "px";
+      el.style.height = w + "px";
+      el.style.transformOrigin = "left top";
+      el.style.transform = "rotate(90deg)";
+    } else {
+      // Landscape phone / tablet / desktop: no manual rotation.
+      el.style.position = "";
+      el.style.top = "";
+      el.style.left = "";
+      el.style.width = "";
+      el.style.height = "";
+      el.style.transformOrigin = "";
+      el.style.transform = "";
+    }
+  }, []);
+
   useEffect(() => {
     document.body.classList.add("rummy-immersive");
-    const so = typeof window !== "undefined" && window.screen ? window.screen.orientation : null;
-    if (so && typeof so.lock === "function") {
-      Promise.resolve(so.lock("landscape")).catch(() => { /* unsupported / not fullscreen */ });
-    }
-    // Toggle a compact single-screen LANDSCAPE layout on phones. Matches BOTH
-    // (a) a portrait phone we rotate 90° via CSS (iOS Safari), and (b) a real /
-    // OS-rotated landscape phone (Android after orientation lock). In both the
-    // action bar is pinned, the header is one thin row and clutter is hidden.
-    const mq = window.matchMedia(
-      "(orientation: portrait) and (max-width: 820px), (orientation: landscape) and (max-height: 520px)"
-    );
-    const sync = () => document.body.classList.toggle("rummy-ls", mq.matches);
-    sync();
-    mq.addEventListener?.("change", sync);
+    window.addEventListener("resize", applyFrame);
+    window.addEventListener("orientationchange", applyFrame);
+    window.visualViewport?.addEventListener("resize", applyFrame);
     return () => {
       document.body.classList.remove("rummy-immersive");
       document.body.classList.remove("rummy-ls");
-      mq.removeEventListener?.("change", sync);
+      window.removeEventListener("resize", applyFrame);
+      window.removeEventListener("orientationchange", applyFrame);
+      window.visualViewport?.removeEventListener("resize", applyFrame);
+      const so = window.screen && window.screen.orientation;
       if (so && typeof so.unlock === "function") { try { so.unlock(); } catch { /* noop */ } }
     };
-  }, []);
+  }, [applyFrame]);
+
+  // Re-apply the landscape frame once the table DOM actually exists — the
+  // component renders a loading spinner until `state` arrives, so the frame ref
+  // is null on first mount. Re-running when `state` toggles from null guarantees
+  // the rotation/compact layout is applied to the real table (fixes a blank /
+  // un-rotated table on real devices where data loads after mount).
+  useEffect(() => { applyFrame(); }, [applyFrame, state]);
+
 
   // Host character is a free cosmetic (matches the "Host" tab in My Table).
   const [hostOn, setHostOn] = useState(() => (localStorage.getItem("royal11_rummy_host") ?? "on") !== "off");
@@ -317,7 +351,7 @@ export default function RummyTable({ tableId, onLeave }) {
   const canStart = !round || settled;
 
   return (
-    <div data-testid="rummy-table" data-rummy-theme={theme}
+    <div ref={frameRef} data-testid="rummy-table" data-rummy-theme={theme}
       className="fixed left-0 top-0 right-0 bottom-0 z-[70] overflow-y-auto overflow-x-hidden overscroll-contain text-white"
       style={{ background: th.bg, "--r-gold": th.gold, "--r-felt": th.felt, WebkitOverflowScrolling: "touch" }}>
       <RummyAmbiance />
