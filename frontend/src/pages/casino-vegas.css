@@ -271,6 +271,23 @@
 /* Hide the floating support-chatbot launcher while an immersive table is open. */
 body.rummy-immersive [data-testid="chatbot-launcher"] { display: none !important; }
 
+/* Landscape lock fallback — on portrait PHONES (where the Screen Orientation
+   API isn't available, e.g. iOS Safari) rotate the immersive table 90° so a
+   card game with a wide table always plays in a landscape layout. */
+@media screen and (orientation: portrait) and (max-width: 820px) {
+  body.rummy-immersive [data-testid="rummy-table"] {
+    transform: rotate(90deg);
+    transform-origin: left top;
+    width: 100vh;
+    height: 100vw;
+    position: fixed;
+    top: 0;
+    left: 100vw;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+}
+
 /* Elliptical premium table: dark leather rim + antique-gold double trim + felt. */
 .vegas-felt--aaa {
   border-radius: 46% / 34%;

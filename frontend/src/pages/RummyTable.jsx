@@ -108,10 +108,20 @@ export default function RummyTable({ tableId, onLeave }) {
   const rechargePromptedRef = useRef(false);
 
   // Immersive mode: RummyTable is a full-screen overlay — hide the app's
-  // floating chatbot launcher (z-95) while playing so it never covers the table.
+  // floating chatbot launcher (z-95) while playing, and lock the card table to
+  // LANDSCAPE on phones. We try the Screen Orientation API first (Android
+  // Chrome / installed PWA); where it's unsupported (iOS Safari) a CSS rotate
+  // fallback (see .rummy-immersive rule) reflows the table to landscape.
   useEffect(() => {
     document.body.classList.add("rummy-immersive");
-    return () => document.body.classList.remove("rummy-immersive");
+    const so = typeof window !== "undefined" && window.screen ? window.screen.orientation : null;
+    if (so && typeof so.lock === "function") {
+      Promise.resolve(so.lock("landscape")).catch(() => { /* unsupported / not fullscreen */ });
+    }
+    return () => {
+      document.body.classList.remove("rummy-immersive");
+      if (so && typeof so.unlock === "function") { try { so.unlock(); } catch { /* noop */ } }
+    };
   }, []);
 
   // Host character is a free cosmetic (matches the "Host" tab in My Table).
@@ -447,14 +457,36 @@ export default function RummyTable({ tableId, onLeave }) {
             The declare-validation aids live in an optional collapsible helper. */}
         {playing && (
           <div className="mt-5">
-            {/* Hand tray — fanned, glossy */}
+            {/* Hand tray — fanned, glossy (ungrouped cards) */}
             <div className="rounded-2xl border border-[var(--r-gold)]/20 bg-black/40 p-3 shadow-inner" data-testid="rummy-hand-tray">
               <div className="flex flex-wrap items-end gap-1.5">
                 {trayCards.length ? (handSorted ? bySuit(trayCards) : trayCards).map((c) => (
                   <RCard key={c.id} card={c} rich selected={selected.includes(c.id)} onClick={() => toggle(c.id)} />
-                )) : <span className="text-xs text-white/30">All cards grouped</span>}
+                )) : <span className="text-xs text-white/30">{groups.length ? "All cards are in groups below" : "No cards"}</span>}
               </div>
             </div>
+
+            {/* Group lanes — ALWAYS visible whenever the player has grouped cards,
+                so a player can always see & interact with every card in their hand. */}
+            {groups.length > 0 && (
+              <div className="mt-3 space-y-2" data-testid="rummy-groups">
+                {groups.map((g, gi) => {
+                  const info = groupInfos[gi];
+                  const color = info.type === "pure_seq" ? "text-emerald-300 border-emerald-400/40" : info.type === "impure_seq" ? "text-sky-300 border-sky-400/40" : info.type === "set" ? "text-violet-300 border-violet-400/40" : "text-rose-300 border-rose-400/40";
+                  return (
+                    <div key={gi} className={`rounded-2xl border bg-white/[0.03] p-2 ${color}`} data-testid={`rummy-group-${gi}`}>
+                      <div className="mb-1.5 flex items-center justify-between px-1 text-[11px] font-black">
+                        <span className="inline-flex items-center gap-1">{info.valid ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />} {info.label}</span>
+                        <button onClick={() => addTo(gi)} disabled={!selected.length} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/70 disabled:opacity-30">+ add</button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {g.map((id) => byId[id] && <RCard key={id} card={byId[id]} small onClick={() => pullOut(id)} />)}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Action bar — DRAW / DISCARD / SORT / GROUP / DROP / DECLARE */}
             <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6" data-testid="rummy-action-bar">
@@ -464,7 +496,7 @@ export default function RummyTable({ tableId, onLeave }) {
                 className="flex items-center justify-center gap-1.5 rounded-2xl bg-[#6b0f1a] py-3 text-sm font-bold text-white ring-1 ring-[var(--r-gold)]/30 transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Hand className="h-4 w-4" /> Discard</button>
               <button data-testid="rummy-sort" onClick={() => setHandSorted((s) => !s)} disabled={busy}
                 className="flex items-center justify-center gap-1.5 rounded-2xl bg-white/10 py-3 text-sm font-bold text-white/80 ring-1 ring-white/10 transition-transform hover:-translate-y-0.5 disabled:opacity-40"><ArrowDownUp className="h-4 w-4" /> Sort</button>
-              <button data-testid="rummy-group" onClick={() => { setShowHelper(true); newGroup(); }} disabled={!selected.length || busy}
+              <button data-testid="rummy-group" onClick={newGroup} disabled={!selected.length || busy}
                 className="flex items-center justify-center gap-1.5 rounded-2xl bg-white/10 py-3 text-sm font-bold text-white/80 ring-1 ring-white/10 transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Layers className="h-4 w-4" /> Group</button>
               <button data-testid="rummy-drop" onClick={() => setShowDrop(true)} disabled={!myTurn || drawDone || busy}
                 className="flex items-center justify-center gap-1.5 rounded-2xl bg-white/10 py-3 text-sm font-bold text-amber-300 ring-1 ring-white/10 transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Flag className="h-4 w-4" /> Drop</button>
@@ -473,7 +505,8 @@ export default function RummyTable({ tableId, onLeave }) {
             </div>
             {!myTurn && <p className="mt-2 text-center text-xs text-white/40" data-testid="rummy-wait-turn">Waiting for your turn…</p>}
 
-            {/* Optional Declare Helper (collapsed by default) */}
+            {/* Optional Declare Helper — validation checklist + create-group affordance
+                (collapsed by default; grouped cards themselves always show above). */}
             <button data-testid="rummy-helper-toggle" onClick={() => setShowHelper((s) => !s)}
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2 text-[11px] font-bold uppercase tracking-widest text-white/50 hover:bg-white/5">
               <Layers className="h-3.5 w-3.5" /> {showHelper ? "Hide" : "Show"} Declare Helper
@@ -486,25 +519,8 @@ export default function RummyTable({ tableId, onLeave }) {
                   <Chip ok={evalResult.checklist.allGrouped} label={`All 13 grouped (${evalResult.grouped}/13)`} />
                   <span className="ml-auto rounded-full bg-white/5 px-3 py-1 text-white/60">Est. deadwood: <b className="text-[var(--r-gold)]">{provisional}</b></span>
                 </div>
-                <div className="space-y-2" data-testid="rummy-groups">
-                  {groups.map((g, gi) => {
-                    const info = groupInfos[gi];
-                    const color = info.type === "pure_seq" ? "text-emerald-300 border-emerald-400/40" : info.type === "impure_seq" ? "text-sky-300 border-sky-400/40" : info.type === "set" ? "text-violet-300 border-violet-400/40" : "text-rose-300 border-rose-400/40";
-                    return (
-                      <div key={gi} className={`rounded-2xl border bg-white/[0.03] p-2 ${color}`} data-testid={`rummy-group-${gi}`}>
-                        <div className="mb-1.5 flex items-center justify-between px-1 text-[11px] font-black">
-                          <span className="inline-flex items-center gap-1">{info.valid ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />} {info.label}</span>
-                          <button onClick={() => addTo(gi)} disabled={!selected.length} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/70 disabled:opacity-30">+ add</button>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {g.map((id) => byId[id] && <RCard key={id} card={byId[id]} small onClick={() => pullOut(id)} />)}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  <button data-testid="rummy-new-group" onClick={newGroup} disabled={!selected.length}
-                    className="w-full rounded-2xl border border-dashed border-white/15 py-2 text-xs font-bold text-white/50 hover:bg-white/5 disabled:opacity-30">+ New group from selected ({selected.length})</button>
-                </div>
+                <button data-testid="rummy-new-group" onClick={newGroup} disabled={!selected.length}
+                  className="w-full rounded-2xl border border-dashed border-white/15 py-2 text-xs font-bold text-white/50 hover:bg-white/5 disabled:opacity-30">+ New group from selected ({selected.length})</button>
               </div>
             )}
           </div>
@@ -580,9 +596,10 @@ export default function RummyTable({ tableId, onLeave }) {
       )}
 
       {/* Persistent HUD: Daily Bonus (bottom-left) + Emoji-only badge & your own
-          round avatar (bottom-right) — always visible on the table. */}
+          round avatar (bottom-right). During active play the bonus shrinks to a
+          compact pill so it never overlaps the action bar / hand. */}
       <div className="fixed bottom-4 left-4 z-[75] hidden sm:block">
-        <DailyBonusWidget onClaimed={refreshWallet} />
+        <DailyBonusWidget onClaimed={refreshWallet} compact={playing} />
       </div>
       <div className="fixed bottom-4 right-4 z-[75] hidden items-center gap-2 sm:flex">
         <span data-testid="emoji-only-badge"

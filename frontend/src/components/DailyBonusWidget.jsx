@@ -10,7 +10,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // 7-day streak ladder and the next-claim time all come from the server; the
 // countdown is derived from the server clock (skew-corrected) so it can't be
 // spoofed. Day 7 pays a bigger jackpot, then the ladder loops back to Day 1.
-export const DailyBonusWidget = ({ className = "", onClaimed }) => {
+export const DailyBonusWidget = ({ className = "", onClaimed, compact = false }) => {
   const { token } = useAuth();
   const [status, setStatus] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -68,6 +68,25 @@ export const DailyBonusWidget = ({ className = "", onClaimed }) => {
   const len = status.streak_len || 7;
   const cur = status.streak_day || 1;
   const isJackpotDay = cur === len;
+
+  // Compact pill (used on the Rummy table during active play) — small footprint
+  // so it never overlaps the game controls, still tap-to-claim / shows countdown.
+  if (compact) {
+    return (
+      <div data-testid="daily-bonus-widget"
+        className={`flex items-center gap-2 rounded-full border border-[var(--r-gold,#c9a227)]/50 bg-black/75 px-3 py-1.5 shadow-xl backdrop-blur-md ${className}`}>
+        <Gift className="h-4 w-4 shrink-0 text-[var(--r-gold,#c9a227)]" />
+        {status.claimable ? (
+          <button data-testid="daily-bonus-claim" onClick={claim} disabled={busy}
+            className="rounded-full bg-[var(--r-gold,#c9a227)] px-2.5 py-0.5 text-[11px] font-black text-black disabled:opacity-50">
+            {busy ? "…" : `CLAIM +${status.amount}`}
+          </button>
+        ) : (
+          <span data-testid="daily-bonus-countdown" className="font-mono text-xs font-bold text-white/85">{hh}:{mm}:{ss}</span>
+        )}
+      </div>
+    );
+  }
 
   // Render the 7-day streak ladder. A day is "done" when it's before the
   // current day, or the current day once already claimed today.
