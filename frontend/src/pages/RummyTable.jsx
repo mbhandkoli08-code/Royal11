@@ -12,7 +12,7 @@ import { ReferAndEarn } from "@/components/ReferAndEarn";
 import { DailyBonusWidget } from "@/components/DailyBonusWidget";
 import { PlayingCard } from "@/components/PlayingCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
-import { PALACE_BACKDROP, ROYAL_DEALER } from "@/lib/casinoAssets";
+import { AAA_ROOM_BG, ROYAL_HOST_V2 } from "@/lib/casinoAssets";
 import { WinCelebration, Scoreboard, LowChipsPopup } from "@/components/casino/OrnatePopups";
 
 // Full-count exposure escrowed by the server per seat each deal
@@ -83,6 +83,13 @@ export default function RummyTable({ tableId, onLeave }) {
   const [showSummary, setShowSummary] = useState(false);
   const [showAddCoins, setShowAddCoins] = useState(false);
   const [showRewards, setShowRewards] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
+
+  const toggleFullscreen = () => {
+    const el = document.documentElement;
+    if (!document.fullscreenElement) el.requestFullscreen?.().catch(() => {});
+    else document.exitFullscreen?.().catch(() => {});
+  };
   const [celebOpen, setCelebOpen] = useState(true);
   const [showLowChips, setShowLowChips] = useState(false);
   const [theme, setTheme] = useState(() => user?.rummy_theme || localStorage.getItem("royal11_rummy_theme") || "luxury");
@@ -232,11 +239,16 @@ export default function RummyTable({ tableId, onLeave }) {
               <p className="font-display text-lg font-extrabold tracking-tight">{state.name}</p>
               <p className="flex items-center gap-2 text-[11px] text-white/50">
                 <span>Points Rummy · {round?.config?.point_value ?? state.config?.point_value ?? 1}/pt</span>
+                <span data-testid="rummy-room-code" className="rounded-full bg-white/10 px-2 py-0.5 font-mono font-bold text-white/70">#{String(state.id || "").slice(-7).toUpperCase()}</span>
                 {(state.is_practice || round?.is_practice) && <span className="rounded-full bg-amber-500/20 px-2 py-0.5 font-black uppercase text-amber-300" data-testid="rummy-practice-tag">Practice</span>}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button data-testid="rummy-info-btn" onClick={() => setShowInfo(true)}
+              className="hidden items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white/60 hover:bg-white/5 sm:inline-flex" title="Table info">ⓘ Info</button>
+            <button data-testid="rummy-fullscreen-btn" onClick={toggleFullscreen}
+              className="hidden items-center gap-1 rounded-full border border-white/15 px-2.5 py-1.5 text-[11px] font-semibold text-white/60 hover:bg-white/5 sm:inline-flex" title="Fullscreen">⛶ Fullscreen</button>
             {/* Theme picker */}
             <div className="flex items-center gap-1 rounded-full border border-white/10 bg-black/20 p-1" data-testid="rummy-theme-picker">
               {Object.entries(THEMES).map(([key, t]) => (
@@ -276,11 +288,12 @@ export default function RummyTable({ tableId, onLeave }) {
           </div>
         )}
 
-        {/* Royal palace room + host + table */}
-        <div className="vegas-palace p-3 sm:p-5" style={{ backgroundImage: `url(${PALACE_BACKDROP})` }} data-testid="vegas-palace">
-          <div className="mb-2 flex items-center justify-center gap-2">
-            <div className="vegas-host" data-testid="vegas-host"><img src={ROYAL_DEALER} alt="Royal host" /></div>
-          </div>
+        {/* AAA Royal Table room + host + table */}
+        <div className="vegas-palace vegas-palace--aaa relative p-3 sm:p-5" style={{ backgroundImage: `url(${AAA_ROOM_BG})` }} data-testid="vegas-palace">
+          {/* Royal Host — decorative/ambience only (host-visible variant) */}
+          <img src={ROYAL_HOST_V2} alt="Royal host" data-testid="vegas-host"
+            className="pointer-events-none absolute -bottom-2 left-0 z-20 hidden h-[92%] max-h-[560px] w-auto select-none drop-shadow-2xl xl:block" />
+          <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 select-none font-display text-xs font-black uppercase tracking-[0.35em] text-[var(--r-gold)]/40 sm:text-sm" data-testid="rummy-backwall">Points Rummy</span>
           <div className="vegas-felt vegas-felt--red relative overflow-hidden p-4 shadow-2xl">
           <div className="vegas-rail" />
           <div className="vegas-spotlight" />
@@ -447,6 +460,25 @@ export default function RummyTable({ tableId, onLeave }) {
 
       {/* Rewards modal — Refer & Earn + Promo (opened from the Rewards top-bar button) */}
       <ReferAndEarn open={showRewards} onClose={() => setShowRewards(false)} />
+
+      {/* Table info modal */}
+      {showInfo && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4" data-testid="rummy-info-modal">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowInfo(false)} />
+          <div className="relative w-full max-w-sm rounded-3xl border border-[var(--r-gold)]/40 bg-[#140406] p-6 text-white shadow-2xl">
+            <p className="font-display text-lg font-black text-[var(--r-gold)]">Table Info</p>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex justify-between"><dt className="text-white/50">Room code</dt><dd className="font-mono font-bold">#{String(state.id || "").slice(-7).toUpperCase()}</dd></div>
+              <div className="flex justify-between"><dt className="text-white/50">Mode</dt><dd className="font-bold">Points Rummy</dd></div>
+              <div className="flex justify-between"><dt className="text-white/50">Point value</dt><dd className="font-bold">{round?.config?.point_value ?? state.config?.point_value ?? 1}/pt</dd></div>
+              <div className="flex justify-between"><dt className="text-white/50">Seats</dt><dd className="font-bold">{players.length}/{state.max_players ?? state.config?.max_players ?? players.length}</dd></div>
+              <div className="flex justify-between"><dt className="text-white/50">Provably fair</dt><dd className="font-bold text-emerald-300">Server-shuffled</dd></div>
+            </dl>
+            <p className="mt-3 text-[11px] text-white/40">Cosmetics never affect gameplay. Virtual coins only · no cash value.</p>
+            <button data-testid="rummy-info-close" onClick={() => setShowInfo(false)} className="mt-4 w-full rounded-2xl bg-[var(--r-gold)] py-2.5 text-sm font-black text-black">Close</button>
+          </div>
+        </div>
+      )}
 
       {/* Persistent HUD: Daily Bonus (bottom-left) + Emoji-only badge (bottom-right) */}
       <div className="fixed bottom-4 left-4 z-40 hidden sm:block">

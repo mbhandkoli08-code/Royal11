@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
-import { Spade, Users, Coins, Loader2, ShieldCheck, Plus, LogOut, Play, Check, X, Crown, Layers, Zap, Cherry } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Spade, Users, Coins, Loader2, ShieldCheck, Plus, LogOut, Play, Check, X, Crown, Layers, Zap, Cherry, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/context/AuthContext";
 import RummyTable from "@/pages/RummyTable";
@@ -194,10 +195,16 @@ export default function CasinoPage() {
           </div>
           {practice && <p className="mb-4 rounded-xl bg-amber-400/10 px-3 py-2 text-xs font-semibold text-amber-200 ring-1 ring-amber-300/20">Practice mode — free chips, no real coins, no payouts. Learn risk-free.</p>}
           {game === "rummy_points" && (
-            <button data-testid="rummy-quick-play" onClick={quickPlay} disabled={busy}
-              className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-600 py-4 text-sm font-black text-black shadow-lift transition-transform hover:-translate-y-0.5 disabled:opacity-70">
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />} Quick Play
-            </button>
+            <>
+              <button data-testid="rummy-quick-play" onClick={quickPlay} disabled={busy}
+                className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-600 py-4 text-sm font-black text-black shadow-lift transition-transform hover:-translate-y-0.5 disabled:opacity-70">
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />} Quick Play
+              </button>
+              <Link to="/my-table" data-testid="my-table-link"
+                className="mb-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/40 bg-black/30 py-3 text-sm font-bold text-amber-100 transition-transform hover:-translate-y-0.5">
+                <Settings2 className="h-4 w-4" /> My Table · Customize (Free)
+              </Link>
+            </>
           )}
           <button data-testid="casino-create-table" onClick={createTable} disabled={busy}
             className="mb-5 flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-300/40 bg-black/40 py-4 text-sm font-bold text-amber-100 shadow-lift transition-transform hover:-translate-y-0.5 disabled:opacity-70">

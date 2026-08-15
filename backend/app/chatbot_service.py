@@ -1,4 +1,4 @@
-"""Player Support Chatbot — 'Q JOKER' self-serve assistant (READ-ONLY).
+"""Player Support Chatbot — 'Shalu' self-serve assistant (READ-ONLY).
 
 Reuses the EXISTING Emergent LLM integration (Gemini, same as the match-preview
 feature) — no new integration/key. The bot can read the player's OWN context
@@ -20,7 +20,7 @@ from . import wallet_service, bonus_service, support_service
 MAX_HISTORY = 12  # turns kept in context
 
 SYSTEM_PROMPT = (
-    "You are 'Q JOKER', the friendly in-app support assistant for ROYAL11, a virtual-coin "
+    "You are 'Shalu', the friendly in-app support assistant for ROYAL11, a virtual-coin "
     "sports, fantasy and casual-gaming app. Personality: warm, upbeat, concise, a little playful "
     "(you're the wild card that fits everywhere) but always professional.\n\n"
     "STRICT RULES:\n"
@@ -127,7 +127,13 @@ async def get_session(uid: str, session_id: str) -> dict:
     return {"session_id": session_id, "messages": doc.get("messages", [])}
 
 
-async def chat(user: dict, session_id: str, message: str) -> dict:
+LANGUAGES = {
+    "en": "English", "hi": "Hindi (हिन्दी)", "ta": "Tamil (தமிழ்)",
+    "te": "Telugu (తెలుగు)", "bn": "Bengali (বাংলা)", "mr": "Marathi (मराठी)",
+}
+
+
+async def chat(user: dict, session_id: str, message: str, language: str = "en") -> dict:
     uid = user["id"]
     session_id = (session_id or "").strip() or str(uuid.uuid4())
     session = await _get_session(uid, session_id)
@@ -136,10 +142,15 @@ async def chat(user: dict, session_id: str, message: str) -> dict:
     context = await _build_context(user)
     recent = history[-MAX_HISTORY:]
     convo = "\n".join(f"{m['role'].upper()}: {m['text']}" for m in recent)
+    lang_name = LANGUAGES.get(language, "English")
+    lang_line = (f"IMPORTANT: Reply ONLY in {lang_name}. Write the entire reply in "
+                 f"{lang_name} script, keeping product names like 'ROYAL 11', 'Shalu' "
+                 f"and coin amounts as-is.\n\n") if language != "en" else ""
     prompt = (
+        f"{lang_line}"
         f"CONTEXT (this player's own read-only data):\n{context}\n\n"
         f"CONVERSATION SO FAR:\n{convo or '(new conversation)'}\n\n"
-        f"PLAYER: {message}\n\nReply as Q JOKER (short, helpful, within the rules)."
+        f"PLAYER: {message}\n\nReply as Shalu (short, helpful, within the rules)."
     )
 
     reply_text = ("I'm having a little trouble right now — please try again, or tap "
@@ -174,12 +185,12 @@ async def escalate(user: dict, session_id: str, *, category: str, subject: str, 
     session = await _get_session(uid, session_id)
     transcript_lines = []
     for m in session.get("messages", []):
-        who = "You" if m["role"] == "user" else "Q JOKER"
+        who = "You" if m["role"] == "user" else "Shalu"
         transcript_lines.append(f"{who}: {m['text']}")
     transcript = "\n".join(transcript_lines) or "(no chat history)"
     full_desc = (
         f"{description.strip()}\n\n"
-        f"--- Chat transcript with Q JOKER ---\n{transcript}"
+        f"--- Chat transcript with Shalu ---\n{transcript}"
     )
     ticket = await support_service.create_ticket(
         user, category=category, subject=subject[:140], description=full_desc, related_ref=None)

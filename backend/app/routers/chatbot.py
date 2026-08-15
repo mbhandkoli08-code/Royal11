@@ -13,6 +13,7 @@ router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 class ChatMessageRequest(BaseModel):
     session_id: str = Field(default="", max_length=80)
     message: str = Field(min_length=1, max_length=2000)
+    language: str = Field(default="en", pattern="^(en|hi|ta|te|bn|mr)$")
 
 
 class EscalateRequest(BaseModel):
@@ -24,7 +25,7 @@ class EscalateRequest(BaseModel):
 
 @router.post("/message", dependencies=[Depends(require_roles(Role.PLAYER))])
 async def send_message(payload: ChatMessageRequest, user: dict = Depends(require_roles(Role.PLAYER))):
-    return await chatbot_service.chat(user, payload.session_id, payload.message)
+    return await chatbot_service.chat(user, payload.session_id, payload.message, payload.language)
 
 
 @router.get("/session/{session_id}", dependencies=[Depends(require_roles(Role.PLAYER))])
@@ -36,4 +37,4 @@ async def get_session(session_id: str, user: dict = Depends(require_roles(Role.P
 async def escalate(payload: EscalateRequest, user: dict = Depends(require_roles(Role.PLAYER))):
     return await chatbot_service.escalate(
         user, payload.session_id, category=payload.category.value,
-        subject=payload.subject, description=payload.description or "Escalated from Q JOKER chat")
+        subject=payload.subject, description=payload.description or "Escalated from Shalu chat")

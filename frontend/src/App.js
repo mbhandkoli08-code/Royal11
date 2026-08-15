@@ -14,6 +14,7 @@ import { isIndependenceWindow } from "@/lib/festive";
 import { WelcomeAgentModal } from "@/components/WelcomeAgentModal";
 import FantasyPage from "@/pages/FantasyPage";
 import CasinoPage from "@/pages/CasinoPage";
+import MyTable from "@/pages/MyTable";
 import { SplashScreen } from "@/components/SplashScreen";
 import HomePage from "@/pages/HomePage";
 import WalletPage from "@/pages/WalletPage";
@@ -69,6 +70,7 @@ const ProtectedShell = () => {
           <Route path="/fantasy" element={<FantasyPage />} />
           <Route path="/games" element={<Placeholder title="Games" />} />
           <Route path="/casino" element={<CasinoPage />} />
+          <Route path="/my-table" element={<MyTable />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </div>

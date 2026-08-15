@@ -148,6 +148,25 @@
   pointer-events: none;
 }
 .vegas-palace > * { position: relative; z-index: 1; }
+/* AAA photoreal room variant — frame the ornate back wall + bar shelf. */
+.vegas-palace--aaa { background-position: center 30%; }
+/* Ultrawide: expand ambient padding only; the table/cards stay capped by the
+   outer max-w container so card spacing never stretches. */
+@media (min-width: 1600px) {
+  .vegas-palace--aaa { padding-left: 3.5rem; padding-right: 3.5rem; }
+}
+
+/* Responsive: landscape phones (e.g. 844x390) — tighten vertical rhythm so the
+   table + hand + action bar fit without stretching cards. */
+@media (max-height: 480px) and (orientation: landscape) {
+  .vegas-palace { padding: 0.5rem !important; }
+  .vegas-palace--aaa { background-position: center 25%; }
+}
+/* Tablet — comfortable mid padding. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  .vegas-palace--aaa { background-position: center 32%; }
+}
+
 
 /* Host portrait in an ornate gold oval frame (crops the source cleanly). */
 .vegas-host {

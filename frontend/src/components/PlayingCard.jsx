@@ -1,5 +1,5 @@
 import "../pages/casino-vegas.css";
-import { ROYAL_JOKER_CARD } from "@/lib/casinoAssets";
+import { ROYAL_JOKER_CARD, CARD_BACK_V2 } from "@/lib/casinoAssets";
 
 const SUIT = { s: "♠", h: "♥", d: "♦", c: "♣" };
 const RED = new Set(["h", "d"]);
@@ -40,7 +40,8 @@ export function PlayingCard({ card, code, faceDown, size = "sm", selected, onCli
   if (faceDown) {
     return (
       <span className="pc pc-back" style={dim} data-testid="playing-card-back">
-        <span className="pc-back-mono" style={{ fontSize: cf * 0.5 + "rem" }}>R11</span>
+        <img src={CARD_BACK_V2} alt="" draggable="false"
+          style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, display: "block" }} />
       </span>
     );
   }

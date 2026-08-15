@@ -14,3 +14,14 @@ export const ROYAL_JOKER_CARD =
 export const ROYAL_JOKER_AVATAR =
   "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/d92c53d5408bd554d15aba521b4a17958cedca527bfe5d37a4da64b9c8337bb1.jpeg";
 
+// AAA "Royal Table Experience" (Figma phase-2). Photoreal room, V2 card back, host.
+export const AAA_ROOM_BG =
+  "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/2d99cc04193b497f0a402d61ceaa748fec25f551a0776e139de0d9bac9231dd3.jpeg";
+
+export const CARD_BACK_V2 =
+  "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/83db25390fd5a8c06a9414fabe794b57250ccc6d55fc46a320ef139a422c7946.jpeg";
+
+export const ROYAL_HOST_V2 =
+  "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/4175b03ae48aeb3455db5b63393d6ce1d0a4c3da7d808b33b399ae0dddd89d9c.jpeg";
+
+
