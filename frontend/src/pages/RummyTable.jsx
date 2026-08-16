@@ -28,15 +28,24 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 // Per-player table skins — only the felt surface + accent/background change; the
 // card art, layout and live meld-assist are identical across themes.
 const THEMES = {
-  luxury: { label: "Charcoal", gold: "#d4af37", felt: "#141110", swatch: "#1a1614",
+  luxury: { label: "Midnight Black", gold: "#e2c675", felt: "#141110", swatch: "#1a1614",
     bg: "radial-gradient(1200px 600px at 50% -10%, #221c19 0%, #141110 55%, #0c0a09 100%)",
     panel: "linear-gradient(180deg, rgba(30,25,22,.9), rgba(16,13,12,.95))" },
-  red_felt: { label: "Red Felt", gold: "#f0d68a", felt: "#5c1018", swatch: "#7a1420",
+  red_felt: { label: "Crimson", gold: "#f0d68a", felt: "#5c1018", swatch: "#7a1420",
     bg: "radial-gradient(1200px 600px at 50% -10%, #7a1420 0%, #4a0d14 55%, #2a070b 100%)",
     panel: "linear-gradient(180deg, rgba(122,20,32,.5), rgba(74,13,20,.85))" },
-  green_felt: { label: "Green Felt", gold: "#e8d59a", felt: "#0f5132", swatch: "#0f5132",
+  green_felt: { label: "Emerald Green", gold: "#e8d59a", felt: "#0f5132", swatch: "#0f5132",
     bg: "radial-gradient(1200px 600px at 50% -10%, #14663f 0%, #0c3d26 55%, #062316 100%)",
     panel: "linear-gradient(180deg, rgba(15,81,50,.5), rgba(9,48,30,.9))" },
+  royal_blue: { label: "Royal Blue", gold: "#ecc873", felt: "#122a52", swatch: "#173a6b",
+    bg: "radial-gradient(1200px 600px at 50% -10%, #1a3f78 0%, #10264c 55%, #081428 100%)",
+    panel: "linear-gradient(180deg, rgba(23,58,107,.5), rgba(12,30,60,.9))" },
+  purple_velvet: { label: "Purple Velvet", gold: "#ecc873", felt: "#3a1550", swatch: "#4a1d63",
+    bg: "radial-gradient(1200px 600px at 50% -10%, #4a1d63 0%, #2c1140 55%, #170822 100%)",
+    panel: "linear-gradient(180deg, rgba(74,29,99,.5), rgba(44,17,64,.9))" },
+  champagne: { label: "Champagne Gold", gold: "#f4e2b0", felt: "#4a3a1a", swatch: "#8a6d2f",
+    bg: "radial-gradient(1200px 600px at 50% -10%, #5a4a24 0%, #362a15 55%, #1c150a 100%)",
+    panel: "linear-gradient(180deg, rgba(90,74,36,.5), rgba(54,42,21,.9))" },
 };
 
 const RCard = ({ card, selected, onClick, small, big, plain, rich }) => {
@@ -478,7 +487,7 @@ export default function RummyTable({ tableId, onLeave }) {
       <RotateToPlay onLeave={onLeave} />
       {/* Get Coins is a self-contained responsive overlay — keep it available in
           portrait too (e.g. if the player opened it then rotated the device). */}
-      <GetCoinsDemo open={showGetCoins} onClose={() => setShowGetCoins(false)} />
+      <GetCoinsDemo open={showGetCoins} onClose={() => setShowGetCoins(false)} gold={th.gold} felt={th.felt} />
     </>
   );
   if (!state) return <div className="grid min-h-[60vh] place-items-center"><Loader2 className="h-7 w-7 animate-spin text-[var(--r-gold)]" /></div>;
@@ -963,7 +972,7 @@ export default function RummyTable({ tableId, onLeave }) {
 
       {/* Recharge sheet — top up without leaving the table */}
       <AddCoins palace open={showAddCoins} onClose={() => { setShowAddCoins(false); refreshWallet(); }} onSubmitted={refreshWallet} />
-      <GetCoinsDemo open={showGetCoins} onClose={() => setShowGetCoins(false)} />
+      <GetCoinsDemo open={showGetCoins} onClose={() => setShowGetCoins(false)} gold={th.gold} felt={th.felt} />
 
       {/* Visual-only coin-flow modals (mock display data — NOT wired to wallet). */}
       <ClaimWinModal open={showClaim} amount={claimAmount} onClose={() => setShowClaim(false)} />
