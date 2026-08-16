@@ -475,23 +475,46 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
   .vegas-palace--hosted .vegas-felt--aaa { margin-left: 16%; }
 }
 
-/* Desktop / tablet: cap the felt so the elliptical table keeps its Figma
-   proportions (a rounder ~2:1 oval) instead of stretching to fill wide
-   (1600px+) viewports. Scoped to `body:not(.rummy-ls)` so the phone
-   landscape-compact layout (which fills) is never affected. Non-hosted tables
-   centre; hosted keeps its left-offset host. */
+/* Desktop / tablet: LARGE IMMERSIVE table (per Figma R11-RMY frames 32:593 &
+   19:62) — a big ~66%-viewport oval with a ~2.2:1 rim, and the player seats
+   positioned AROUND the rim (opponent top-centre, you bottom-centre for 2P; the
+   compass slots distribute 3-6 players) so it reads like players seated across a
+   real table. Piles stay centred with the turn pill just below. Scoped to
+   `body:not(.rummy-ls)` so the confirmed mobile-landscape layout is untouched. */
 @media (min-width: 768px) {
-  body:not(.rummy-ls) .vegas-felt--aaa { max-width: 440px; }
-  body:not(.rummy-ls) .vegas-palace:not(.vegas-palace--hosted) .vegas-felt--aaa { margin-left: auto; margin-right: auto; }
-}
-@media (min-width: 1280px) {
-  body:not(.rummy-ls) .vegas-felt--aaa { max-width: 480px; }
-}
+  body:not(.rummy-ls) [data-testid="vegas-palace"] { position: relative; }
+  body:not(.rummy-ls) .vegas-felt--aaa {
+    width: min(66vw, 1040px);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+    aspect-ratio: 2.2 / 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+  /* Seat container overlays the felt; each seat placed by its data-slot. */
+  body:not(.rummy-ls) [data-testid="rummy-players"] {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    z-index: 6;
+    pointer-events: none;
+  }
+  body:not(.rummy-ls) [data-testid="rummy-players"] > [data-testid^="rummy-seat-"] {
+    position: absolute;
+    pointer-events: auto;
+    transform: translate(-50%, -50%);
+  }
+  body:not(.rummy-ls) [data-slot="top-center"]    { left: 50%; top: 10%; }
+  body:not(.rummy-ls) [data-slot="top-left"]      { left: 27%; top: 13%; }
+  body:not(.rummy-ls) [data-slot="top-right"]     { left: 73%; top: 13%; }
+  body:not(.rummy-ls) [data-slot="left-mid"]      { left: 11%; top: 44%; }
+  body:not(.rummy-ls) [data-slot="right-mid"]     { left: 89%; top: 44%; }
+  body:not(.rummy-ls) [data-slot="bottom-center"] { left: 50%; top: 88%; }
 
-/* Desktop: keep the hand row + action bar as a centred column proportional to
-   the now-compact felt above (instead of a full-width row with the 13 cards
-   huddled to the left). Scoped to `body:not(.rummy-ls)` so phones are untouched. */
-@media (min-width: 768px) {
-  body:not(.rummy-ls) .rummy-playarea { max-width: 760px; margin-left: auto; margin-right: auto; }
+  /* Hand row + action bar as a centred column proportional to the table. */
+  body:not(.rummy-ls) .rummy-playarea { max-width: 860px; margin-left: auto; margin-right: auto; }
   body:not(.rummy-ls) [data-testid="rummy-hand-tray"] > div { justify-content: center; }
 }
