@@ -134,6 +134,8 @@ export default function RummyTable({ tableId, onLeave }) {
   const [showRedeem, setShowRedeem] = useState(false);
   const [showClaim, setShowClaim] = useState(false);
   const [claimAmount, setClaimAmount] = useState(0);
+  const [winRows, setWinRows] = useState([]);
+  const [winReason, setWinReason] = useState("");
   const claimShownFor = useRef(null);
   const [showHelper, setShowHelper] = useState(false); // Declare Helper collapsed by default
   const [handSorted, setHandSorted] = useState(true);   // SORT button toggles suit-sort of the tray
@@ -225,17 +227,49 @@ export default function RummyTable({ tableId, onLeave }) {
   // Host character is a free cosmetic (matches the "Host" tab in My Table).
   const [hostOn, setHostOn] = useState(() => (localStorage.getItem("royal11_rummy_host") ?? "on") !== "off");
   const toggleHost = () => setHostOn((v) => { const nv = !v; localStorage.setItem("royal11_rummy_host", nv ? "on" : "off"); return nv; });
-  // Mobile-only optional host (cosmetic background swap). Persisted locally.
-  // Default: on for wider landscape phones (~932), off for smaller (740/844).
+  // ---- Genuine fullscreen detection (host is fullscreen-only on mobile) -----
+  const [isFs, setIsFs] = useState(false);
+  const [standalone, setStandalone] = useState(false);
+  useEffect(() => {
+    const onFs = () => setIsFs(!!(document.fullscreenElement || document.webkitFullscreenElement));
+    // iOS/Safari has no reliable element Fullscreen API — only trust an installed
+    // PWA / fullscreen display-mode signal there (never fake it from viewport).
+    const checkStandalone = () => {
+      try {
+        const dm = window.matchMedia("(display-mode: fullscreen)").matches
+          || window.matchMedia("(display-mode: standalone)").matches;
+        setStandalone(dm || window.navigator.standalone === true);
+      } catch { setStandalone(false); }
+    };
+    onFs(); checkStandalone();
+    document.addEventListener("fullscreenchange", onFs);
+    document.addEventListener("webkitfullscreenchange", onFs);
+    const mqF = window.matchMedia("(display-mode: fullscreen)");
+    const mqS = window.matchMedia("(display-mode: standalone)");
+    mqF.addEventListener?.("change", checkStandalone);
+    mqS.addEventListener?.("change", checkStandalone);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFs);
+      document.removeEventListener("webkitfullscreenchange", onFs);
+      mqF.removeEventListener?.("change", checkStandalone);
+      mqS.removeEventListener?.("change", checkStandalone);
+    };
+  }, []);
+  // Only genuine fullscreen (or an installed PWA/fullscreen display-mode) counts.
+  const fsActive = isFs || standalone;
+
+  // Mobile-only optional host — a persisted cosmetic preference. The cutout is
+  // rendered ONLY when the preference is on AND the game is in real fullscreen
+  // landscape AND there is safe space for it (never covers gameplay).
   const [mobileHost, setMobileHost] = useState(() => localStorage.getItem("royal11_mobile_host") === "on");
   const toggleMobileHost = () => setMobileHost((v) => { const nv = !v; localStorage.setItem("royal11_mobile_host", nv ? "on" : "off"); return nv; });
-  // The dedicated far-left host cutout is only rendered when the player enabled
-  // it AND the landscape screen is large enough (preference is always kept).
-  const mHostActive = isCompact && mobileHost && hostFits;
-  // Non-blocking notice when the host auto-hides on a too-small landscape screen.
+  const mHostActive = isCompact && mobileHost && fsActive && hostFits;
+  // Non-blocking notice when the host auto-hides in fullscreen on a too-small
+  // landscape screen (e.g. 740×360). Not shown when merely out of fullscreen —
+  // the Settings note covers that case.
   const notedHostHide = useRef(false);
   useEffect(() => {
-    if (isCompact && mobileHost && !hostFits) {
+    if (isCompact && mobileHost && fsActive && !hostFits) {
       if (!notedHostHide.current) {
         notedHostHide.current = true;
         toast("Host hidden for better gameplay view.", { duration: 2600 });
@@ -243,14 +277,7 @@ export default function RummyTable({ tableId, onLeave }) {
     } else {
       notedHostHide.current = false;
     }
-  }, [isCompact, mobileHost, hostFits]);
-  const [isFs, setIsFs] = useState(false);
-  useEffect(() => {
-    const onFs = () => setIsFs(!!(document.fullscreenElement || document.webkitFullscreenElement));
-    document.addEventListener("fullscreenchange", onFs);
-    document.addEventListener("webkitfullscreenchange", onFs);
-    return () => { document.removeEventListener("fullscreenchange", onFs); document.removeEventListener("webkitfullscreenchange", onFs); };
-  }, []);
+  }, [isCompact, mobileHost, fsActive, hostFits]);
 
   const round = state?.round;
   const match = state?.match;
@@ -406,10 +433,14 @@ export default function RummyTable({ tableId, onLeave }) {
   // the winnings were already credited by the server at settlement).
   useEffect(() => {
     if (round?.phase === "SETTLED" && round?.result && claimShownFor.current !== round.id) {
-      const mine = (round.result.players || []).find((p) => p.user_id === user?.id);
+      const parts = round.result.players || [];
+      const mine = parts.find((p) => p.user_id === user?.id);
       if (mine && (mine.delta || 0) > 0) {
         claimShownFor.current = round.id;
         setClaimAmount(mine.delta);
+        const nameOf = (uid) => (round.players || []).find((p) => p.user_id === uid)?.display_name || "Player";
+        setWinRows(parts.map((p) => ({ name: nameOf(p.user_id), delta: p.delta || 0, points: p.points, isYou: p.user_id === user?.id })));
+        setWinReason(round.result.reason || round.result.win_type || (round.result.declared ? "Valid declaration" : "Round won"));
         setShowClaim(true);
       }
     }
@@ -488,6 +519,9 @@ export default function RummyTable({ tableId, onLeave }) {
       {/* Get Coins is a self-contained responsive overlay — keep it available in
           portrait too (e.g. if the player opened it then rotated the device). */}
       <GetCoinsDemo open={showGetCoins} onClose={() => setShowGetCoins(false)} gold={th.gold} felt={th.felt} />
+      {/* The Royal Win result is a self-contained overlay too — keep it visible in
+          portrait so a win that settles isn't lost behind the rotate gate. */}
+      <ClaimWinModal open={showClaim} amount={claimAmount} rows={winRows} reason={winReason} gold={th.gold} felt={th.felt} onClose={() => setShowClaim(false)} />
     </>
   );
   if (!state) return <div className="grid min-h-[60vh] place-items-center"><Loader2 className="h-7 w-7 animate-spin text-[var(--r-gold)]" /></div>;
@@ -588,9 +622,15 @@ export default function RummyTable({ tableId, onLeave }) {
                       </div>
                     )}
                     <button data-testid="rummy-host-toggle" onClick={() => (isCompact ? toggleMobileHost() : toggleHost())} className="mb-1 flex w-full items-center justify-between rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">
-                      <span className="flex items-center gap-2"><Crown className="h-3.5 w-3.5 text-[var(--r-gold)]" /> {isCompact ? "Royal Host" : "Host character"}</span>
+                      <span className="flex items-center gap-2"><Crown className="h-3.5 w-3.5 text-[var(--r-gold)]" /> {isCompact ? (mobileHost ? "Hide Host" : "Show Host") : "Host character"}</span>
                       <span className={(isCompact ? mobileHost : hostOn) ? "text-emerald-300" : "text-white/40"}>{(isCompact ? mobileHost : hostOn) ? "Shown" : "Hidden"}</span>
                     </button>
+                    {isCompact && mobileHost && !fsActive && (
+                      <p data-testid="rummy-host-note" className="mb-1 px-2 text-[10px] leading-snug text-[var(--r-gold)]/70">Host appears in fullscreen landscape mode.</p>
+                    )}
+                    {isCompact && mobileHost && fsActive && !hostFits && (
+                      <p data-testid="rummy-host-note" className="mb-1 px-2 text-[10px] leading-snug text-white/50">Host hidden for better gameplay view.</p>
+                    )}
                     <button data-testid="rummy-hand-privacy-toggle"
                       onClick={toggleHidePref}
                       disabled={myTurn}
@@ -975,7 +1015,7 @@ export default function RummyTable({ tableId, onLeave }) {
       <GetCoinsDemo open={showGetCoins} onClose={() => setShowGetCoins(false)} gold={th.gold} felt={th.felt} />
 
       {/* Visual-only coin-flow modals (mock display data — NOT wired to wallet). */}
-      <ClaimWinModal open={showClaim} amount={claimAmount} onClose={() => setShowClaim(false)} />
+      <ClaimWinModal open={showClaim} amount={claimAmount} rows={winRows} reason={winReason} gold={th.gold} felt={th.felt} onClose={() => setShowClaim(false)} />
       <RedeemCoinsModal open={showRedeem} balance={balance} onClose={() => setShowRedeem(false)} />
 
       {/* Rewards modal — Refer & Earn + Promo (opened from the Rewards top-bar button) */}

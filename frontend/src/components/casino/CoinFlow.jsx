@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Coins, Crown, Gift, Palette, Shirt, Sparkles, Ticket, Check, X } from "lucide-react";
+import { Coins, Crown, Gift, Palette, Shirt, Sparkles, Ticket, Check, X, Trophy, ListChecks } from "lucide-react";
+import "./royal-vault.css";
 
 // ---------------------------------------------------------------------------
 // FRONTEND-ONLY coin flow (no real ledger movement — the server stays the sole
-// authority over balances). Covers: Claim Win → Claim Successful and
+// authority over balances). Covers: Royal Win (acknowledge-only) and
 // Redeem Coins → Redeem Confirmation → Redeem Successful. Redeem exchanges
 // virtual coins for IN-APP rewards only (themes / outfits / avatars / effects /
 // bonus entries). This is NOT a withdrawal — the label is always "Redeem Coins".
@@ -17,37 +18,67 @@ const Backdrop = ({ children, testid }) => (
   </div>
 );
 
-// ---- Claim Win -------------------------------------------------------------
-export const ClaimWinModal = ({ open, amount = 0, onClaim, onClose }) => {
-  const [done, setDone] = useState(false);
-  const [busy, setBusy] = useState(false);
+// ---- Royal Win (premium, acknowledge-only — NEVER credits coins) -----------
+export const ClaimWinModal = ({ open, amount = 0, rows = [], reason = "", gold = "#e9c667", felt = "#5c1018", onClose }) => {
+  const [ack, setAck] = useState(false);
+  const [details, setDetails] = useState(false);
   if (!open) return null;
-  const doClaim = async () => {
-    setBusy(true);
-    try { if (onClaim) await onClaim(); setDone(true); }
-    finally { setBusy(false); }
-  };
-  if (done) {
-    return (
-      <Backdrop testid="claim-success">
-        <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-emerald-500/20"><Check className="h-8 w-8 text-emerald-400" /></div>
-        <h3 className="font-display text-2xl font-black text-white">Claim Successful</h3>
-        <p className="mt-2 text-sm text-white/60">Your winnings of {amount.toLocaleString("en-IN")} were credited to your balance.</p>
-        <button data-testid="claim-close" onClick={() => { setDone(false); onClose(); }}
-          className="mt-5 w-full rounded-2xl bg-[var(--r-gold,#e9c667)] py-3 text-sm font-black text-black">Done</button>
-      </Backdrop>
-    );
-  }
+  const close = () => { setAck(false); setDetails(false); onClose?.(); };
+
   return (
-    <Backdrop testid="claim-win-modal">
-      <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-[var(--r-gold,#e9c667)]/20"><Crown className="h-8 w-8 text-[var(--r-gold,#e9c667)]" /></div>
-      <h3 className="font-display text-2xl font-black text-[var(--r-gold,#e9c667)]">Win Result</h3>
-      <p className="mt-1 text-sm text-white/60">You won this hand!</p>
-      <p className="mt-3 flex items-center justify-center gap-2 text-4xl font-black text-white"><Coins className="h-7 w-7 text-[var(--r-gold,#e9c667)]" />+{amount.toLocaleString("en-IN")}</p>
-      <button data-testid="claim-win-btn" onClick={doClaim} disabled={busy}
-        className="mt-5 w-full rounded-2xl bg-emerald-500 py-3 text-sm font-black text-black transition-transform hover:scale-[1.02] disabled:opacity-50">{busy ? "Claiming…" : "Claim Win"}</button>
-      <button data-testid="claim-later" onClick={onClose} className="mt-2 w-full py-2 text-xs font-bold text-white/40 hover:text-white/70">Maybe later</button>
-    </Backdrop>
+    <div data-testid="royal-win-modal" className="rv-overlay" style={{ "--v-gold": gold, "--v-felt": felt }}>
+      <div className="rv-modal rv-modal--win">
+        <span className="rv-sheen" aria-hidden="true" />
+        <span className="rv-innerglow" aria-hidden="true" />
+        <span className="rv-corner rv-corner--tl" aria-hidden="true" /><span className="rv-corner rv-corner--tr" aria-hidden="true" />
+        <span className="rv-corner rv-corner--bl" aria-hidden="true" /><span className="rv-corner rv-corner--br" aria-hidden="true" />
+        {/* tasteful fireworks preview */}
+        <span className="rw-fw" aria-hidden="true">{Array.from({ length: 5 }).map((_, i) => <b key={i} style={{ "--n": i }}>{Array.from({ length: 8 }).map((_, k) => <i key={k} style={{ "--k": k }} />)}</b>)}</span>
+
+        <div className="rv-header">
+          <div className="rv-brand"><Crown className="rv-brand__crown" fill="currentColor" strokeWidth={1.6} /> R11</div>
+          <span className="rv-emblem rw-emblem" aria-hidden="true"><Trophy className="rv-emblem__crown" strokeWidth={1.5} /><span className="rv-emblem__ring" /></span>
+          <h2 className="rv-title rw-title">ROYAL WIN</h2>
+          <p className="rv-sub">{reason || "You won this round"}</p>
+        </div>
+
+        <div className="rw-amount" data-testid="royal-win-amount">
+          <Coins className="h-6 w-6" strokeWidth={2.2} />
+          <span>+{Number(amount).toLocaleString("en-IN")}</span>
+          <small>virtual coins won</small>
+        </div>
+        <p className="rw-settled" data-testid="royal-win-settled">Winnings are already added by the game settlement.</p>
+
+        {details && (
+          <div className="rw-details" data-testid="royal-win-details">
+            {rows.length ? rows.map((r, i) => (
+              <div key={i} className={`rw-row ${r.isYou ? "rw-row--you" : ""}`}>
+                <span className="rw-row__name">{r.name}{r.isYou ? " (You)" : ""}</span>
+                {r.points != null && <span className="rw-row__pts">{r.points} pts</span>}
+                <span className={`rw-row__delta ${r.delta >= 0 ? "pos" : "neg"}`}>{r.delta >= 0 ? "+" : ""}{Number(r.delta).toLocaleString("en-IN")}</span>
+              </div>
+            )) : <p className="rw-row__name">Result details unavailable.</p>}
+          </div>
+        )}
+
+        <div className="rw-ack">
+          {!ack ? (
+            <button data-testid="claim-win-btn" onClick={() => setAck(true)} className="rv-btn rv-btn--primary rv-btn--wide">
+              <Check className="mr-1 inline h-4 w-4" strokeWidth={3} /> CLAIM
+            </button>
+          ) : (
+            <div data-testid="claim-ack" className="rw-ackdone"><Check className="h-4 w-4" strokeWidth={3} /> Win acknowledged · no coins added again</div>
+          )}
+        </div>
+
+        <div className="rv-actions rw-actions">
+          <button data-testid="win-details-toggle" onClick={() => setDetails((d) => !d)} className="rv-btn rv-btn--ghost">
+            <ListChecks className="mr-1 inline h-4 w-4" /> {details ? "Hide Details" : "View Groups / Result"}
+          </button>
+          <button data-testid="win-continue" onClick={close} className="rv-btn rv-btn--primary">Continue</button>
+        </div>
+      </div>
+    </div>
   );
 };
 
