@@ -626,8 +626,13 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
     overflow: visible;
     background: transparent;
     border: 0;
+    outline: none;
     box-shadow: none;
   }
+  /* No extra decorative ellipse over the room — the approved table artwork
+     already has its own antique-gold rim baked in. Hide the CSS trim ring so
+     no thin gold oval line crosses the host / seats / cards on desktop. */
+  body:not(.rummy-ls) .vegas-felt--aaa::after { display: none !important; }
   /* The AAA crimson velvet table — CSS-drawn, oversized ellipse anchored to the
      bottom that BLEEDS off the left, right and bottom edges. Bright crimson with
      a centre spotlight and a heavy ornate bronze/gold rim. Perspective tilt is

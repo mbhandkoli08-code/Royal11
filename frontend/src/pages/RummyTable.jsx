@@ -423,8 +423,8 @@ export default function RummyTable({ tableId, onLeave }) {
           </div>
           <div className="flex flex-col items-end gap-2">
             <div className="flex items-center gap-2">
-              <button data-testid="rummy-info-btn" onClick={() => setShowInfo(true)} className="hidden text-[10px] font-black uppercase tracking-wider text-white/50 hover:text-white sm:inline">ⓘ Info</button>
-              <button data-testid="rummy-fullscreen-btn" onClick={toggleFullscreen} className="hidden text-[10px] font-black uppercase tracking-wider text-white/50 hover:text-white sm:inline">⛶ Fullscreen</button>
+              <button data-testid="rummy-info-btn" onClick={() => setShowInfo(true)} className="hidden text-[11px] font-black uppercase tracking-wider text-white/60 hover:text-white sm:inline">ⓘ Info</button>
+              <button data-testid="rummy-fullscreen-btn" onClick={toggleFullscreen} className="hidden text-[11px] font-black uppercase tracking-wider text-white/60 hover:text-white sm:inline">⛶ Fullscreen</button>
               <span data-testid="rummy-coin-balance" className="inline-flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-sm font-black text-[var(--r-gold)] ring-1 ring-[var(--r-gold)]/40">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: "radial-gradient(circle at 35% 30%, #fff7dd, #e9c667 70%, #b9882a)" }} />
                 {balance.toLocaleString("en-IN")}
@@ -432,14 +432,27 @@ export default function RummyTable({ tableId, onLeave }) {
               <button data-testid="rummy-add-coins" onClick={() => setShowAddCoins(true)} title="Add coins"
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500 text-white shadow-lg ring-2 ring-emerald-300/40 transition-transform hover:scale-105 active:scale-95"><Plus className="h-4 w-4" strokeWidth={3} /></button>
             </div>
-            <div className="flex items-center gap-1.5" data-testid="rummy-icon-row">
-              <button data-testid="rummy-vip-btn" onClick={() => setShowRewards(true)} title="VIP" className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-black/20 text-[var(--r-gold)] transition-colors hover:bg-white/5"><Crown className="h-4 w-4" /></button>
-              <button data-testid="rummy-rewards-btn" onClick={() => setShowRewards(true)} title="Rewards" className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-black/20 text-[var(--r-gold)] transition-colors hover:bg-white/5"><Gift className="h-4 w-4" /></button>
-              <span data-testid="rummy-sound"><RummyMusic /></span>
-              <div className="relative">
-                <button data-testid="rummy-settings-btn" onClick={() => setShowSettings((s) => !s)} title="Settings" className="grid h-8 w-8 place-items-center rounded-full border border-white/15 bg-black/20 text-white/70 transition-colors hover:bg-white/5"><Settings className="h-4 w-4" /></button>
+            <div className="flex items-start gap-2.5" data-testid="rummy-icon-row">
+              <div className="flex flex-col items-center gap-1">
+                <button data-testid="rummy-vip-btn" onClick={() => setShowRewards(true)} title="VIP" aria-label="VIP"
+                  className="grid h-10 w-10 place-items-center rounded-full border border-[var(--r-gold)]/30 bg-black/40 text-[var(--r-gold)] transition-all hover:-translate-y-0.5 hover:bg-[var(--r-gold)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--r-gold)]/60 active:scale-95"><Crown className="h-5 w-5" /></button>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-white/65">VIP</span>
+              </div>
+              <div className="flex flex-col items-center gap-1">
+                <button data-testid="rummy-rewards-btn" onClick={() => setShowRewards(true)} title="Rewards" aria-label="Rewards"
+                  className="grid h-10 w-10 place-items-center rounded-full border border-[var(--r-gold)]/30 bg-black/40 text-[var(--r-gold)] transition-all hover:-translate-y-0.5 hover:bg-[var(--r-gold)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--r-gold)]/60 active:scale-95"><Gift className="h-5 w-5" /></button>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-white/65">Rewards</span>
+              </div>
+              <div className="flex flex-col items-center gap-1" data-testid="rummy-sound">
+                <RummyMusic />
+                <span className="text-[10px] font-bold uppercase tracking-wide text-white/65">Sound</span>
+              </div>
+              <div className="relative flex flex-col items-center gap-1">
+                <button data-testid="rummy-settings-btn" onClick={() => setShowSettings((s) => !s)} title="Settings" aria-label="Settings"
+                  className="grid h-10 w-10 place-items-center rounded-full border border-[var(--r-gold)]/30 bg-black/40 text-[var(--r-gold)] transition-all hover:-translate-y-0.5 hover:bg-[var(--r-gold)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--r-gold)]/60 active:scale-95"><Settings className="h-5 w-5" /></button>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-white/65">Settings</span>
                 {showSettings && (
-                  <div data-testid="rummy-settings-menu" className="absolute right-0 top-10 z-30 w-56 rounded-2xl border border-white/10 bg-[#1a1210] p-3 shadow-2xl">
+                  <div data-testid="rummy-settings-menu" className="absolute right-0 top-full z-30 mt-2 w-56 rounded-2xl border border-white/10 bg-[#1a1210] p-3 text-left shadow-2xl">
                     <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-white/40">Table Settings</p>
                     <button data-testid="rummy-host-toggle" onClick={toggleHost} className="mb-1 flex w-full items-center justify-between rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">
                       <span className="flex items-center gap-2"><Crown className="h-3.5 w-3.5 text-[var(--r-gold)]" /> Host character</span>

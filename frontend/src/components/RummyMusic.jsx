@@ -85,11 +85,11 @@ export const RummyMusic = () => {
       aria-pressed={on}
       onClick={toggle}
       title={on ? "Turn off lounge music" : "Turn on lounge music"}
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
-        on ? "border-[var(--r-gold)]/60 bg-[var(--r-gold)]/15 text-[var(--r-gold)]" : "border-white/15 bg-black/20 text-white/50 hover:text-white/80"
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition-all hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--r-gold)]/60 active:scale-95 ${
+        on ? "border-[var(--r-gold)]/60 bg-[var(--r-gold)]/20 text-[var(--r-gold)]" : "border-[var(--r-gold)]/30 bg-black/40 text-[var(--r-gold)]/70 hover:bg-[var(--r-gold)]/15 hover:text-[var(--r-gold)]"
       }`}
     >
-      {on ? <Music2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+      {on ? <Music2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
     </button>
   );
 };
