@@ -92,13 +92,23 @@ export function PlayingCard({ card, code, faceDown, size = "sm", selected, onCli
     const layout = PIP_LAYOUT[c.rank];
 
     if (isCourt) {
-      // Approved ROYAL 11 court-card face — single-character artwork with the
-      // rank/suit already baked into the corners. Rendered full-bleed (aspect
-      // preserved, cover-cropped ~0 since the source is a true card ratio).
+      // Approved ROYAL 11 court-card face — single-character artwork (already an
+      // ivory card with gold edge & rounded corners). We overlay a large, clear
+      // corner index (rank over suit, correct colour) so the card is instantly
+      // identifiable at gameplay size (the baked-in corner marks are too small).
+      const rf = cf * 1.18;
       inner = (
         <span className={`pc pc-courtimg${richCls}`} style={dim} data-testid="playing-card">
           <img src={COURT_CARD_SRC(c.rank, c.suit)} alt={`${rankLabel(c.rank)}${suitSym}`} draggable="false"
             style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, display: "block" }} />
+          <span className={`pc-court-idx pc-court-idx-tl ${colorCls}`}>
+            <b style={{ fontSize: rf + "rem" }}>{rankLabel(c.rank)}</b>
+            <span style={{ fontSize: cf * 0.98 + "rem" }}>{suitSym}</span>
+          </span>
+          <span className={`pc-court-idx pc-court-idx-br ${colorCls}`}>
+            <b style={{ fontSize: rf + "rem" }}>{rankLabel(c.rank)}</b>
+            <span style={{ fontSize: cf * 0.98 + "rem" }}>{suitSym}</span>
+          </span>
         </span>
       );
     } else {
