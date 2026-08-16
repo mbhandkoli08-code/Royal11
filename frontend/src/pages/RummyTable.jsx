@@ -399,8 +399,13 @@ export default function RummyTable({ tableId, onLeave }) {
       style={{ background: th.bg, "--r-gold": th.gold, "--r-felt": th.felt, WebkitOverflowScrolling: "touch" }}>
       <RummyAmbiance />
       <div className="rummy-shell relative z-10 mx-auto max-w-3xl px-3 pb-32 pt-4 sm:px-4 sm:pt-5 lg:max-w-5xl">
-        {/* Header — ROYAL 11 wordmark · coins+add · text links · icon row (VIP/Rewards/Sound/Settings) */}
-        <div className="rummy-header mb-4 flex items-start justify-between gap-3">
+        {/* Header — left: R11 RUMMY · center: variant title (canvas-centered) · right: utilities + icons */}
+        <div className="rummy-header relative mb-4 flex items-start justify-between gap-3">
+          {/* Center title — absolutely centred to the full canvas width, aligned
+              with the R11 RUMMY logo row. Hidden on compact landscape phones. */}
+          <div className="pointer-events-none absolute left-1/2 top-0 z-0 flex h-7 -translate-x-1/2 items-center sm:h-8" data-testid="rummy-center-title">
+            <span className="rummy-canvas-title">{variantLabel.toUpperCase()}</span>
+          </div>
           <div className="min-w-0">
             <p data-testid="rummy-wordmark" className="flex items-center gap-2 leading-none">
               <Crown className="h-6 w-6 shrink-0 text-[var(--r-gold)] sm:h-7 sm:w-7" style={{ filter: "drop-shadow(0 2px 8px rgba(233,198,103,0.45))" }} strokeWidth={2.25} />
@@ -537,7 +542,7 @@ export default function RummyTable({ tableId, onLeave }) {
           {/* The approved room art already contains the crimson table, so the
               CSS felt graphic is disabled here (avoids a double table). */}
           {hostOn && ROYAL_HOST_CUTOUT && <img src={ROYAL_HOST_CUTOUT} alt="" aria-hidden="true" className="rummy-host-layer pointer-events-none select-none" />}
-          <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 select-none font-display text-xs font-black uppercase tracking-[0.35em] text-[var(--r-gold)]/45 sm:text-sm" data-testid="rummy-backwall">{variantLabel}</span>
+          <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 select-none font-display text-xs font-black uppercase tracking-[0.35em] text-[var(--r-gold)]/45 sm:text-sm rummy-ls-only" data-testid="rummy-backwall">{variantLabel}</span>
           <div className="vegas-felt vegas-felt--red vegas-felt--aaa relative overflow-hidden p-4 pt-5 shadow-2xl">
           <div className="vegas-spotlight" />
           <div className="relative z-10 mb-3 flex flex-wrap items-start justify-center gap-6" data-testid="rummy-players">
@@ -636,13 +641,17 @@ export default function RummyTable({ tableId, onLeave }) {
               <div className="rummy-hand-row flex items-end gap-1.5">
                 {groups.map((g, gi) => {
                   const info = groupInfos[gi];
-                  const mod = !info.valid ? "rummy-cluster--bad" : info.type === "pure_seq" ? "rummy-cluster--pure" : "rummy-cluster--ok";
+                  const mod = info.type === "pure_seq" ? "rummy-cluster--pure"
+                    : info.type === "impure_seq" ? "rummy-cluster--seq"
+                    : info.type === "set" ? "rummy-cluster--set"
+                    : "rummy-cluster--bad";
+                  const valid = info.valid;
                   return (
                     <div key={`grp${gi}`} data-testid={`rummy-group-${gi}`} title={info.label}
                       className={`rummy-cluster ${mod}`}>
                       {info.type !== "empty" && (
                         <span className="rummy-cluster__label" data-testid={`rummy-group-badge-${gi}`}>
-                          {info.type === "pure_seq" ? <Crown className="h-2.5 w-2.5" /> : info.valid ? <Check className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
+                          {valid ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : <X className="h-2.5 w-2.5" strokeWidth={3} />}
                           {info.label.toUpperCase()}
                         </span>
                       )}
