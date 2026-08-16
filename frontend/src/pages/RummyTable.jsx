@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, AlertTriangle, Coins, Gift, Crown, Plus, Settings, ArrowDownUp } from "lucide-react";
+import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, AlertTriangle, Coins, Gift, Crown, Plus, Settings, ArrowDownUp, Hourglass } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useWallet } from "@/context/WalletContext";
-import { classifyGroup, evaluateHand, provisionalDeadwood } from "@/lib/rummy";
+import { evaluateHand, groupDisplayState, provisionalDeadwood } from "@/lib/rummy";
 import { RummyAmbiance } from "@/components/RummyAmbiance";
 import { RummyMusic } from "@/components/RummyMusic";
 import { AddCoins } from "@/components/AddCoins";
@@ -318,7 +318,7 @@ export default function RummyTable({ tableId, onLeave }) {
 
   const groupedIds = useMemo(() => new Set(groups.flat()), [groups]);
   const trayCards = hand.filter((c) => !groupedIds.has(c.id));
-  const groupInfos = groups.map((g) => classifyGroup(g.map((id) => byId[id]).filter(Boolean), wildRank));
+  const groupDisplays = groups.map((g) => groupDisplayState(g.map((id) => byId[id]).filter(Boolean), wildRank));
   const evalResult = evaluateHand(groups.map((g) => g.map((id) => byId[id]).filter(Boolean)), wildRank);
   const provisional = provisionalDeadwood(hand.map((c) => c), wildRank);
 
@@ -640,19 +640,20 @@ export default function RummyTable({ tableId, onLeave }) {
                   valid/invalid marker, so the layout height stays constant. */}
               <div className="rummy-hand-row flex items-end gap-1.5">
                 {groups.map((g, gi) => {
-                  const info = groupInfos[gi];
-                  const mod = info.type === "pure_seq" ? "rummy-cluster--pure"
-                    : info.type === "impure_seq" ? "rummy-cluster--seq"
-                    : info.type === "set" ? "rummy-cluster--set"
-                    : "rummy-cluster--bad";
-                  const valid = info.valid;
+                  const disp = groupDisplays[gi];
+                  const mod = disp.state === "incomplete" ? "rummy-cluster--incomplete"
+                    : disp.state === "invalid" ? "rummy-cluster--bad"
+                    : disp.state === "empty" ? "rummy-cluster--incomplete"
+                    : "rummy-cluster--valid";
+                  const BadgeIcon = disp.state === "incomplete" ? Hourglass
+                    : disp.state === "invalid" ? AlertTriangle : Check;
                   return (
-                    <div key={`grp${gi}`} data-testid={`rummy-group-${gi}`} title={info.label}
+                    <div key={`grp${gi}`} data-testid={`rummy-group-${gi}`} title={disp.label}
                       className={`rummy-cluster ${mod}`}>
-                      {info.type !== "empty" && (
+                      {disp.state !== "empty" && (
                         <span className="rummy-cluster__label" data-testid={`rummy-group-badge-${gi}`}>
-                          {valid ? <Check className="h-2.5 w-2.5" strokeWidth={3} /> : <X className="h-2.5 w-2.5" strokeWidth={3} />}
-                          {info.label.toUpperCase()}
+                          <BadgeIcon className="h-2.5 w-2.5" strokeWidth={2.75} />
+                          {disp.label.toUpperCase()}
                         </span>
                       )}
                       {g.map((id) => byId[id] && <RCard key={id} card={byId[id]} rich onClick={() => pullOut(id)} />)}

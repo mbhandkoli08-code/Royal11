@@ -742,56 +742,50 @@ body.rummy-ls .rummy-joker-assistant { display: none; }
   align-items: flex-end;
   gap: 3px;
   margin: 0 8px;
-  padding: 6px 5px 3px;
+  padding: 30px 5px 3px;
+  overflow: visible;
   border: 1.5px solid transparent;
   border-radius: 10px;
   transition: box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
-.rummy-cluster--pure {
+.rummy-cluster--valid {
   border-color: #34d399;
   background: rgba(52,211,153,0.16);
   box-shadow: inset 0 0 0 1px rgba(110,231,183,0.6), 0 8px 22px -8px rgba(16,185,129,0.75);
 }
-.rummy-cluster--seq {
-  border-color: #38bdf8;
-  background: rgba(56,189,248,0.14);
-  box-shadow: inset 0 0 0 1px rgba(125,211,252,0.55), 0 8px 22px -8px rgba(2,132,199,0.65);
-}
-.rummy-cluster--set {
+.rummy-cluster--incomplete {
   border-color: #e9c667;
   background: rgba(233,198,103,0.14);
-  box-shadow: inset 0 0 0 1px rgba(245,214,139,0.6), 0 8px 22px -8px rgba(180,136,66,0.65);
+  box-shadow: inset 0 0 0 1px rgba(245,214,139,0.6), 0 8px 22px -8px rgba(180,136,66,0.6);
 }
 .rummy-cluster--bad {
   border-color: rgba(244,63,94,0.85);
-  background: rgba(244,63,94,0.09);
+  background: rgba(244,63,94,0.10);
   box-shadow: inset 0 0 0 1px rgba(244,63,94,0.45);
 }
-/* Meld label chip — small, sits ON the cluster (top-centre), never its own line. */
+/* Meld label chip — sits in the reserved top row of the cluster (positive top
+   so it is NEVER clipped by the hand-tray/row overflow), above the cards. */
 .rummy-cluster__label {
   position: absolute;
-  top: -9px;
+  top: 4px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 3;
+  z-index: 20;
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 9999px;
-  font-size: 8px;
+  font-size: 9px;
   font-weight: 900;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
   box-shadow: 0 2px 6px rgba(0,0,0,0.55);
 }
-.rummy-cluster--pure .rummy-cluster__label {
+.rummy-cluster--valid .rummy-cluster__label {
   background: linear-gradient(180deg, #4ade80, #059669); color: #04120c; border: 1px solid #a7f3d0;
 }
-.rummy-cluster--seq .rummy-cluster__label {
-  background: linear-gradient(180deg, #38bdf8, #0284c7); color: #04121a; border: 1px solid #bae6fd;
-}
-.rummy-cluster--set .rummy-cluster__label {
+.rummy-cluster--incomplete .rummy-cluster__label {
   background: linear-gradient(180deg, #f5d98b, #c79a3a); color: #1a1203; border: 1px solid #f5e6b8;
 }
 .rummy-cluster--bad .rummy-cluster__label {

@@ -60,6 +60,30 @@ export const classifyGroup = (cards, wildRank) => {
   return { type: "invalid", label: "Invalid", isSequence: false, isPure: false, valid: false };
 };
 
+// DISPLAY-ONLY meld state for the live helper badges. Adds an "incomplete"
+// state (a partial group that could still become valid) so a 1–2 card group,
+// or a 3+ group still consistent with one meld type, reads as INCOMPLETE rather
+// than INVALID. Does NOT affect declare validity (that uses classifyGroup).
+// state ∈ pure | impure | set | incomplete | invalid | empty
+export const groupDisplayState = (cards, wildRank) => {
+  const info = classifyGroup(cards, wildRank);
+  if (info.type === "pure_seq") return { state: "pure", label: "Pure Sequence", valid: true };
+  if (info.type === "impure_seq") return { state: "impure", label: "Impure Sequence", valid: true };
+  if (info.type === "set") return { state: "set", label: "Valid Set", valid: true };
+  if (cards.length === 0) return { state: "empty", label: "", valid: false };
+  if (cards.length < 3) return { state: "incomplete", label: "Incomplete", valid: false };
+  // 3+ cards that aren't yet valid — could they still become valid while editing?
+  const naturals = cards.filter((c) => !isJoker(c, wildRank));
+  if (naturals.length === 0) return { state: "incomplete", label: "Incomplete", valid: false };
+  const suits = new Set(naturals.map((c) => c.suit));
+  const ranks = naturals.map((c) => c.rank);
+  const uniqueRanks = new Set(ranks).size === ranks.length;
+  const potentialSeq = suits.size <= 1 && uniqueRanks;                 // same suit, no repeats → building a run
+  const potentialSet = new Set(ranks).size <= 1 && suits.size === naturals.length && cards.length <= 4; // same rank, distinct suits → building a set
+  if (potentialSeq || potentialSet) return { state: "incomplete", label: "Incomplete", valid: false };
+  return { state: "invalid", label: "Invalid Group", valid: false };
+};
+
 // Full declaration readiness for enabling the Declare button.
 export const evaluateHand = (groups, wildRank, expected = 13) => {
   const infos = groups.map((g) => classifyGroup(g, wildRank));
