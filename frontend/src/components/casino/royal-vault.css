@@ -224,3 +224,84 @@
   .rv-card__coins { font-size: 24px; }
   .rv-art { height: 44px; width: 58px; }
 }
+
+/* ===================== ROYAL MYSTERY BONUS stage ========================= */
+.rv-mystery { position: relative; z-index: 2; margin-top: 12px; }
+.rv-myrow { display: flex; justify-content: center; align-items: center; gap: 14px; }
+.rv-mycard { position: relative; flex: 0 0 auto; width: 118px; aspect-ratio: 3 / 4;
+  border-radius: 14px; overflow: hidden; cursor: pointer;
+  background: linear-gradient(180deg, #f7efdd, #e8dcc0);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.5);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, filter 0.2s ease; }
+.rv-mycard--active { transform: translateY(-4px) scale(1.06); z-index: 3;
+  box-shadow: 0 0 0 2px var(--rv-gold), 0 14px 30px rgba(0,0,0,0.55), 0 0 26px color-mix(in srgb, var(--rv-gold) 45%, transparent); }
+.rv-mycard--dim { opacity: 0.42; filter: saturate(0.7); transform: scale(0.92); }
+.rv-mycard--minor { width: 92px; opacity: 0.8; transform: scale(0.9); }
+.rv-mycard--up { cursor: default; }
+
+/* ornate R11 card back */
+.rv-myback { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 0%, #8f1622, #5c1018 60%, #3a0a10 100%);
+}
+.rv-myback__frame { position: absolute; inset: 6px; border-radius: 9px;
+  border: 2px solid color-mix(in srgb, var(--rv-gold) 80%, transparent);
+  box-shadow: inset 0 0 0 3px rgba(0,0,0,0.25), inset 0 0 18px color-mix(in srgb, var(--rv-gold) 22%, transparent); }
+.rv-myback__crown { width: 34px; height: 34px; color: var(--rv-gold);
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.5)); }
+.rv-myback__r11 { position: absolute; bottom: 12px; font-weight: 900; letter-spacing: 0.2em;
+  font-size: 12px; color: var(--rv-gold); }
+
+/* revealed reward face (ivory) */
+.rv-myface { position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px; padding: 8px; text-align: center;
+  background: linear-gradient(180deg, #fbf5e7, #efe4cb);
+  color: #3a0a10; animation: rv-flip 0.4s ease both; }
+.rv-myface--muted { filter: saturate(0.85) brightness(0.98); }
+.rv-myface__ico { display: grid; place-items: center; height: 30px; width: 30px; color: #7a1420;
+  background: radial-gradient(circle at 35% 30%, #fff, color-mix(in srgb, var(--rv-gold) 60%, #fff) 70%);
+  border-radius: 999px; padding: 6px; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--rv-gold) 70%, transparent); }
+.rv-myface__label { font-size: 12px; font-weight: 900; line-height: 1.1; color: #4a0d14; }
+.rv-myface__sub { font-size: 8.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: #9a6a1e; }
+@keyframes rv-flip { from { transform: rotateY(90deg); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* scratch foil canvas */
+.rv-foil { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 14px;
+  touch-action: none; cursor: crosshair; z-index: 4; }
+
+/* reveal burst */
+.rv-myburst { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+.rv-myburst i { position: absolute; top: 50%; left: 50%; width: 6px; height: 6px; border-radius: 50%;
+  background: radial-gradient(circle, #fff, var(--rv-gold) 60%, transparent 70%);
+  transform: translate(-50%,-50%); animation: rv-burst 0.7s ease-out forwards;
+  transform-origin: center; }
+.rv-myburst i:nth-child(1) { --a: 0deg; } .rv-myburst i:nth-child(2) { --a: 60deg; }
+.rv-myburst i:nth-child(3) { --a: 120deg; } .rv-myburst i:nth-child(4) { --a: 180deg; }
+.rv-myburst i:nth-child(5) { --a: 240deg; } .rv-myburst i:nth-child(6) { --a: 300deg; }
+@keyframes rv-burst { from { opacity: 1; transform: translate(-50%,-50%) rotate(var(--a)) translateY(0); }
+  to { opacity: 0; transform: translate(-50%,-50%) rotate(var(--a)) translateY(-40px); } }
+
+.rv-mystery__result { margin-top: 12px; text-align: center; font-size: 12.5px; color: rgba(255,255,255,0.82); }
+.rv-mystery__result b { color: var(--rv-gold); }
+.rv-mystery__result span { color: rgba(255,255,255,0.5); font-size: 11px; }
+.rv-actions--mystery { margin-top: 12px; }
+
+.rv-confirm__bonus { margin-top: 4px; font-size: 12px; color: rgba(255,255,255,0.75); }
+.rv-confirm__bonus b { color: var(--rv-gold); }
+.rv-confirm__bonus span { color: rgba(255,255,255,0.5); }
+
+/* landscape phone: keep the mystery row compact so nothing scrolls/clips */
+@media (orientation: landscape) and (max-height: 460px) {
+  .rv-mystery { margin-top: 8px; }
+  .rv-myrow { gap: 12px; }
+  .rv-mycard { width: 96px; }
+  .rv-mystery__result { margin-top: 8px; font-size: 11.5px; }
+  .rv-actions--mystery { margin-top: 8px; }
+}
+
+/* portrait phone: horizontal row, active card large enough to scratch */
+@media (orientation: portrait) {
+  .rv-myrow { gap: 10px; }
+  .rv-mycard { width: 30%; }
+  .rv-mycard--active { transform: translateY(-4px) scale(1.08); }
+}
