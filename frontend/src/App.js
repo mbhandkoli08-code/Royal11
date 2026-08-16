@@ -16,6 +16,8 @@ import { WelcomeAgentModal } from "@/components/WelcomeAgentModal";
 import FantasyPage from "@/pages/FantasyPage";
 import CasinoPage from "@/pages/CasinoPage";
 import MyTable from "@/pages/MyTable";
+import CoinDemoPreview from "@/pages/CoinDemoPreview";
+import CourtCompare from "@/pages/CourtCompare";
 import { SplashScreen } from "@/components/SplashScreen";
 import HomePage from "@/pages/HomePage";
 import WalletPage from "@/pages/WalletPage";
@@ -137,6 +139,8 @@ const ConsoleRoute = () => {
 const AppRoutes = () => (
   <Routes>
     <Route path="/auth" element={<AuthRoute />} />
+    <Route path="/coin-demo" element={<CoinDemoPreview />} />
+    <Route path="/court-compare" element={<CourtCompare />} />
     <Route path="/login/:slug" element={<BrandedLoginRoute />} />
     <Route path="/console/login" element={<ConsoleLoginRoute />} />
     <Route path="/console" element={<ConsoleRoute />} />

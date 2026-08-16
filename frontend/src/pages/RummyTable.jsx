@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, AlertTriangle, Coins, Gift, Crown, Plus, Settings, ArrowDownUp, Hourglass } from "lucide-react";
+import { Loader2, LogOut, ShieldCheck, Check, X, Layers, Hand, Flag, Trophy, AlertTriangle, Coins, Gift, Crown, Plus, Settings, ArrowDownUp, Hourglass, Maximize, Minimize, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useWallet } from "@/context/WalletContext";
 import { evaluateHand, groupDisplayState, provisionalDeadwood } from "@/lib/rummy";
@@ -9,11 +9,12 @@ import { RummyAmbiance } from "@/components/RummyAmbiance";
 import { RotateToPlay } from "@/components/RotateToPlay";
 import { RummyMusic } from "@/components/RummyMusic";
 import { AddCoins } from "@/components/AddCoins";
+import { GetCoinsDemo } from "@/components/casino/GetCoinsDemo";
 import { ReferAndEarn } from "@/components/ReferAndEarn";
 import { DailyBonusWidget } from "@/components/DailyBonusWidget";
 import { PlayingCard } from "@/components/PlayingCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
-import { AAA_ROOM_BG, AAA_ROOM_HOST, ROYAL_HOST_CUTOUT, ROYAL_JOKER_ASSISTANT, ROYAL_JOKER_CARD_IMG } from "@/lib/casinoAssets";
+import { AAA_ROOM_BG, AAA_ROOM_HOST, ROYAL_HOST_CUTOUT, MOBILE_HOST_CUTOUT, ROYAL_JOKER_ASSISTANT, ROYAL_JOKER_CARD_IMG } from "@/lib/casinoAssets";
 import { WinCelebration, Scoreboard, LowChipsPopup } from "@/components/casino/OrnatePopups";
 import { ClaimWinModal, RedeemCoinsModal } from "@/components/casino/CoinFlow";
 
@@ -52,6 +53,14 @@ const RCard = ({ card, selected, onClick, small, big, plain, rich }) => {
 
 const SUIT_SORT = { s: 0, h: 1, c: 2, d: 3 };
 const RANK_SORT = "A23456789TJQK";
+const SUIT_SYM = { s: "\u2660", h: "\u2665", d: "\u2666", c: "\u2663" };
+// Human label for a discarded card, e.g. "7♥" / "K♠" / "Joker".
+const cardLabel = (c) => {
+  if (!c) return "";
+  if (c.joker) return "Joker";
+  const r = c.rank === "T" ? "10" : c.rank;
+  return `${r}${SUIT_SYM[c.suit] || ""}`;
+};
 // Spread the ungrouped hand by suit then rank — a tidy "fanned" reference-style row.
 const bySuit = (cards) => [...cards].sort((a, b) =>
   a.joker || b.joker ? (a.joker ? 1 : -1)
@@ -87,6 +96,7 @@ export default function RummyTable({ tableId, onLeave }) {
   const [verify, setVerify] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [showAddCoins, setShowAddCoins] = useState(false);
+  const [showGetCoins, setShowGetCoins] = useState(false);
   const [showRewards, setShowRewards] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
 
@@ -140,6 +150,9 @@ export default function RummyTable({ tableId, onLeave }) {
   const frameRef = useRef(null);
   const [needRotate, setNeedRotate] = useState(false);
   const [isCompact, setIsCompact] = useState(false);
+  // On very short landscape phones the host must auto-hide so the opponent,
+  // piles, all 13 cards and the six action buttons stay in a safe zone.
+  const [hostFits, setHostFits] = useState(true);
   const applyFrame = useCallback(() => {
     const vv = window.visualViewport;
     const w = Math.round((vv && vv.width) || window.innerWidth);
@@ -150,6 +163,9 @@ export default function RummyTable({ tableId, onLeave }) {
     const compact = isPhone && !isPortrait;  // phone landscape → dedicated mobile layout
     setNeedRotate(rotate);
     setIsCompact(compact);
+    // Enough landscape room for the host cutout without crowding gameplay.
+    // 844×390 / 932×430 → fits; 740×360 → auto-hide.
+    setHostFits(w >= 800 && h >= 372);
     document.body.classList.toggle("rummy-ls", compact);
     document.body.classList.toggle("rummy-canvas-mode", !compact && !rotate);
     document.body.classList.toggle("rummy-rotate", rotate);
@@ -200,6 +216,32 @@ export default function RummyTable({ tableId, onLeave }) {
   // Host character is a free cosmetic (matches the "Host" tab in My Table).
   const [hostOn, setHostOn] = useState(() => (localStorage.getItem("royal11_rummy_host") ?? "on") !== "off");
   const toggleHost = () => setHostOn((v) => { const nv = !v; localStorage.setItem("royal11_rummy_host", nv ? "on" : "off"); return nv; });
+  // Mobile-only optional host (cosmetic background swap). Persisted locally.
+  // Default: on for wider landscape phones (~932), off for smaller (740/844).
+  const [mobileHost, setMobileHost] = useState(() => localStorage.getItem("royal11_mobile_host") === "on");
+  const toggleMobileHost = () => setMobileHost((v) => { const nv = !v; localStorage.setItem("royal11_mobile_host", nv ? "on" : "off"); return nv; });
+  // The dedicated far-left host cutout is only rendered when the player enabled
+  // it AND the landscape screen is large enough (preference is always kept).
+  const mHostActive = isCompact && mobileHost && hostFits;
+  // Non-blocking notice when the host auto-hides on a too-small landscape screen.
+  const notedHostHide = useRef(false);
+  useEffect(() => {
+    if (isCompact && mobileHost && !hostFits) {
+      if (!notedHostHide.current) {
+        notedHostHide.current = true;
+        toast("Host hidden for better gameplay view.", { duration: 2600 });
+      }
+    } else {
+      notedHostHide.current = false;
+    }
+  }, [isCompact, mobileHost, hostFits]);
+  const [isFs, setIsFs] = useState(false);
+  useEffect(() => {
+    const onFs = () => setIsFs(!!(document.fullscreenElement || document.webkitFullscreenElement));
+    document.addEventListener("fullscreenchange", onFs);
+    document.addEventListener("webkitfullscreenchange", onFs);
+    return () => { document.removeEventListener("fullscreenchange", onFs); document.removeEventListener("webkitfullscreenchange", onFs); };
+  }, []);
 
   const round = state?.round;
   const match = state?.match;
@@ -210,6 +252,45 @@ export default function RummyTable({ tableId, onLeave }) {
   const byId = useMemo(() => Object.fromEntries(hand.map((c) => [c.id, c])), [hand]);
   const myTurn = !!round?.turn?.is_you && round?.phase === "PLAYING";
   const drawDone = !!round?.turn?.draw_done;
+
+  // ---- Optional local-player hand privacy (visual/privacy only) ------------
+  // Hiding the player's own hand faces never affects dealing/rules/RNG. It is
+  // auto-revealed the moment their turn begins and can only be re-hidden once
+  // their active turn has completed (guarded in the toggle + effect below).
+  const [handHidden, setHandHidden] = useState(false);
+  useEffect(() => { if (myTurn) setHandHidden(false); }, [myTurn]);
+
+  // ---- Opponent discard flourish (visual only) -----------------------------
+  // Detect the discard pile changing on a turn hand-off and, if it was an
+  // OPPONENT's discard, animate the card seat→pile + toast the play. Never
+  // reveals any other opponent card (only the single face-up discarded card).
+  const [flyDiscard, setFlyDiscard] = useState(null);
+  const discSnap = useRef({ openId: undefined, turnUser: undefined, seen: false });
+  useEffect(() => {
+    if (!round) return;
+    const curOpen = round.open_top?.id;
+    const curTurn = round.turn?.user_id;
+    const snap = discSnap.current;
+    // Fire only on a genuine turn hand-off where the top discard changed.
+    if (snap.seen && curOpen && curOpen !== snap.openId && curTurn !== snap.turnUser) {
+      const roster = round.players || [];
+      const discarder = roster.find((p) => p.user_id === snap.turnUser);
+      if (discarder && discarder.user_id !== user?.id) {
+        const opps = roster.filter((p) => p.user_id !== user?.id);
+        const layouts = {
+          1: ["top-center"], 2: ["left-mid", "right-mid"],
+          3: ["left-mid", "top-center", "right-mid"],
+          4: ["left-mid", "top-left", "top-right", "right-mid"],
+          5: ["left-mid", "top-left", "top-center", "top-right", "right-mid"],
+        };
+        const arr = layouts[opps.length] || layouts[5];
+        const slot = arr[opps.findIndex((o) => o.user_id === discarder.user_id)] || "top-center";
+        setFlyDiscard({ key: curOpen, card: round.open_top, slot, name: discarder.display_name });
+        toast(`${discarder.display_name} discarded ${cardLabel(round.open_top)}`, { duration: 2200 });
+      }
+    }
+    discSnap.current = { openId: curOpen, turnUser: curTurn, seen: true };
+  }, [round, user]);
 
   // Low-balance heads-up (cash tables only): a deal escrows MAX_POINTS *
   // point_value per seat, so warn when the wallet can't cover the next hand.
@@ -418,7 +499,7 @@ export default function RummyTable({ tableId, onLeave }) {
               )}
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex flex-col items-end gap-2" data-testid="rummy-header-right">
             <div className="flex items-center gap-2">
               <button data-testid="rummy-info-btn" onClick={() => setShowInfo(true)} className="hidden text-[11px] font-black uppercase tracking-wider text-white/60 hover:text-white sm:inline">ⓘ Info</button>
               <button data-testid="rummy-fullscreen-btn" onClick={toggleFullscreen} className="hidden text-[11px] font-black uppercase tracking-wider text-white/60 hover:text-white sm:inline">⛶ Fullscreen</button>
@@ -426,7 +507,7 @@ export default function RummyTable({ tableId, onLeave }) {
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: "radial-gradient(circle at 35% 30%, #fff7dd, #e9c667 70%, #b9882a)" }} />
                 {balance.toLocaleString("en-IN")}
               </span>
-              <button data-testid="rummy-add-coins" onClick={() => setShowAddCoins(true)} title="Add coins"
+              <button data-testid="rummy-add-coins" onClick={() => (isCompact ? setShowGetCoins(true) : setShowAddCoins(true))} title="Add coins"
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500 text-white shadow-lg ring-2 ring-emerald-300/40 transition-transform hover:scale-105 active:scale-95"><Plus className="h-4 w-4" strokeWidth={3} /></button>
             </div>
             <div className="flex items-start gap-2.5" data-testid="rummy-icon-row">
@@ -458,9 +539,17 @@ export default function RummyTable({ tableId, onLeave }) {
                         <div className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-bold"><span className="flex items-center gap-2">Sound</span><span className="ml-auto"><RummyMusic /></span></div>
                       </div>
                     )}
-                    <button data-testid="rummy-host-toggle" onClick={toggleHost} className="mb-1 flex w-full items-center justify-between rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">
-                      <span className="flex items-center gap-2"><Crown className="h-3.5 w-3.5 text-[var(--r-gold)]" /> Host character</span>
-                      <span className={hostOn ? "text-emerald-300" : "text-white/40"}>{hostOn ? "On" : "Off"}</span>
+                    <button data-testid="rummy-host-toggle" onClick={() => (isCompact ? toggleMobileHost() : toggleHost())} className="mb-1 flex w-full items-center justify-between rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">
+                      <span className="flex items-center gap-2"><Crown className="h-3.5 w-3.5 text-[var(--r-gold)]" /> {isCompact ? "Royal Host" : "Host character"}</span>
+                      <span className={(isCompact ? mobileHost : hostOn) ? "text-emerald-300" : "text-white/40"}>{(isCompact ? mobileHost : hostOn) ? "Shown" : "Hidden"}</span>
+                    </button>
+                    <button data-testid="rummy-hand-privacy-toggle"
+                      onClick={() => { if (handHidden) { setHandHidden(false); } else if (!myTurn) { setHandHidden(true); setShowSettings(false); } }}
+                      disabled={!handHidden && myTurn}
+                      title={!handHidden && myTurn ? "You can hide your hand after your turn" : undefined}
+                      className="mb-1 flex w-full items-center justify-between rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40">
+                      <span className="flex items-center gap-2">{handHidden ? <Eye className="h-3.5 w-3.5 text-[var(--r-gold)]" /> : <EyeOff className="h-3.5 w-3.5 text-[var(--r-gold)]" />} {handHidden ? "Show Hand" : "Hide Hand"}</span>
+                      <span className={handHidden ? "text-amber-300" : "text-white/40"}>{handHidden ? "Hidden" : (myTurn ? "Your turn" : "Visible")}</span>
                     </button>
                     <div className="mb-1 flex items-center justify-between rounded-xl px-2 py-2 text-xs font-bold">
                       <span>Theme</span>
@@ -469,7 +558,7 @@ export default function RummyTable({ tableId, onLeave }) {
                           className={`h-5 w-5 rounded-full border-2 ${theme === key ? "border-[var(--r-gold)]" : "border-white/20"}`} style={{ background: t.swatch }} />
                       ))}</div>
                     </div>
-                    <button onClick={() => { setShowSettings(false); toggleFullscreen(); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">⛶ Fullscreen</button>
+                    <button data-testid="rummy-fullscreen-menu" onClick={() => { setShowSettings(false); toggleFullscreen(); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">{isFs ? <Minimize className="h-3.5 w-3.5 text-[var(--r-gold)]" /> : <Maximize className="h-3.5 w-3.5 text-[var(--r-gold)]" />} {isFs ? "Exit Fullscreen" : "Fullscreen"}</button>
                     <button data-testid="rummy-redeem-open" onClick={() => { setShowSettings(false); setShowRedeem(true); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5"><Coins className="h-3.5 w-3.5 text-[var(--r-gold)]" /> Redeem Coins</button>
                     <button onClick={() => { setShowSettings(false); setShowInfo(true); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">ⓘ Table info</button>
                     <button data-testid="rummy-leave" onClick={doLeave} disabled={busy} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/10 disabled:opacity-40"><LogOut className="h-3.5 w-3.5" /> Leave table</button>
@@ -536,11 +625,12 @@ export default function RummyTable({ tableId, onLeave }) {
         )}
 
         {/* AAA Royal Table room + host + table */}
-        <div className={`vegas-palace vegas-palace--aaa relative p-3 sm:p-5 ${hostOn && !isCompact ? "vegas-palace--hosted" : ""}`} style={{ backgroundImage: `url(${isCompact ? AAA_ROOM_BG : (hostOn ? AAA_ROOM_HOST : AAA_ROOM_BG)})` }} data-testid="vegas-palace">
+        <div className={`vegas-palace vegas-palace--aaa relative p-3 sm:p-5 ${hostOn && !isCompact ? "vegas-palace--hosted" : ""} ${mHostActive ? "vegas-palace--mhost" : ""}`} style={{ backgroundImage: `url(${isCompact ? AAA_ROOM_BG : (hostOn ? AAA_ROOM_HOST : AAA_ROOM_BG)})` }} data-testid="vegas-palace">
           <div className="vegas-chandelier" />
           {/* The approved room art already contains the crimson table, so the
               CSS felt graphic is disabled here (avoids a double table). */}
           {hostOn && ROYAL_HOST_CUTOUT && <img src={ROYAL_HOST_CUTOUT} alt="" aria-hidden="true" className="rummy-host-layer pointer-events-none select-none" />}
+          {mHostActive && <img src={MOBILE_HOST_CUTOUT} alt="" aria-hidden="true" data-testid="rummy-mhost-cutout" className="rummy-mhost-layer pointer-events-none select-none" />}
           <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 select-none font-display text-xs font-black uppercase tracking-[0.35em] text-[var(--r-gold)]/45 sm:text-sm rummy-ls-only" data-testid="rummy-backwall">{variantLabel}</span>
           <div className="vegas-felt vegas-felt--red vegas-felt--aaa relative overflow-hidden p-4 pt-5 shadow-2xl">
           <div className="vegas-spotlight" />
@@ -592,7 +682,8 @@ export default function RummyTable({ tableId, onLeave }) {
                 <p className="pile-label">Draw {round.closed_count}</p>
               </div>
               <div className="text-center">
-                <button data-testid="rummy-draw-open" disabled={!myTurn || drawDone || busy} onClick={() => doDraw("open")} className="pile-slot pc-btn disabled:opacity-50">
+                <button data-testid="rummy-draw-open" disabled={!myTurn || drawDone || busy} onClick={() => doDraw("open")} className="pile-slot pc-btn rummy-discard-pile disabled:opacity-50">
+                  <span className="rummy-discard-stack" aria-hidden="true"><i /><i /></span>
                   <RCard card={round.open_top} plain rich />
                 </button>
                 <p className="pile-label">Discard</p>
@@ -605,6 +696,20 @@ export default function RummyTable({ tableId, onLeave }) {
               </div>
             </div>
           )}
+
+          {/* Opponent-discard flourish: the card animates from the discarder's
+              seat into the discard pile (face-up), then clears itself. Visual
+              only — never reveals any other opponent card. */}
+          {flyDiscard && (() => {
+            const off = { "top-center": [0, -118], "top-left": [-150, -104], "top-right": [150, -104], "left-mid": [-190, -8], "right-mid": [190, -8] }[flyDiscard.slot] || [0, -118];
+            return (
+              <div key={flyDiscard.key} data-testid="rummy-discard-fly" className="rummy-fly-card"
+                style={{ "--fx": `${off[0]}px`, "--fy": `${off[1]}px` }}
+                onAnimationEnd={() => setFlyDiscard(null)}>
+                <RCard card={flyDiscard.card} plain rich />
+              </div>
+            );
+          })()}
 
           {/* Turn indicator */}
           {playing && (
@@ -639,8 +744,24 @@ export default function RummyTable({ tableId, onLeave }) {
             The declare-validation aids live in an optional collapsible helper. */}
         {playing && (
           <div className="rummy-playarea relative mt-5">
+            {/* Clear YOUR TURN highlight + timer (mobile focus; desktop keeps its
+                centre turn pill). Shown only while it is the local player's turn. */}
+            {myTurn && (
+              <div data-testid="rummy-your-turn-banner" className="rummy-your-turn rummy-ls-only">
+                <span className="rummy-your-turn__dot" /> YOUR TURN
+                <Timer deadline={round?.turn?.deadline} active />
+              </div>
+            )}
             {/* Hand tray — fanned, glossy (ungrouped cards) */}
             <div className="rummy-hand-tray relative rounded-2xl border border-[var(--r-gold)]/20 bg-black/40 p-3 shadow-inner" data-testid="rummy-hand-tray">
+              {handHidden ? (
+                <button type="button" data-testid="rummy-hand-hidden-panel" onClick={() => setHandHidden(false)}
+                  className="rummy-hand-hidden">
+                  <EyeOff className="h-5 w-5 text-[var(--r-gold)]" />
+                  <span><b>{hand.length} Cards Hidden</b> — Tap to Show</span>
+                </button>
+              ) : (
+              <>
               {/* ONE row: grouped clusters + ungrouped cards. Grouping never adds a
                   second row — clusters are spaced inline with an outline + inline
                   valid/invalid marker, so the layout height stays constant. */}
@@ -678,6 +799,8 @@ export default function RummyTable({ tableId, onLeave }) {
               {/* On-demand declare helper — compact chip, never a permanent bar. */}
               <button data-testid="rummy-helper-toggle" onClick={() => setShowHelper((s) => !s)}
                 className="rummy-helper-chip">{showHelper ? "Hide helper" : "Helper"}</button>
+              </>
+              )}
             </div>
 
             {/* Action bar — DRAW / DISCARD / SORT / GROUP / DROP / DECLARE */}
@@ -801,6 +924,7 @@ export default function RummyTable({ tableId, onLeave }) {
 
       {/* Recharge sheet — top up without leaving the table */}
       <AddCoins palace open={showAddCoins} onClose={() => { setShowAddCoins(false); refreshWallet(); }} onSubmitted={refreshWallet} />
+      <GetCoinsDemo open={showGetCoins} onClose={() => setShowGetCoins(false)} />
 
       {/* Visual-only coin-flow modals (mock display data — NOT wired to wallet). */}
       <ClaimWinModal open={showClaim} amount={claimAmount} onClose={() => setShowClaim(false)} />

@@ -35,10 +35,15 @@ export const AAA_ROOM_HOST = "/assets/royal11/room-host.png";
 // One single-face character illustration per rank+suit with the correct
 // corner rank/suit baked in (red for h/d, black for s/c). Path pattern:
 // /assets/royal11/cards/{RANK}{suit}.png  e.g. Ks.png, Qh.png, Jd.png.
-export const COURT_CARD_SRC = (rank, suit) => `/assets/royal11/cards/${rank}${suit}.png`;
+export const COURT_CARD_SRC = (rank, suit) => `/assets/royal11/cards/clean/${rank}${suit}.png`;
 
 // The uploaded room-host already contains the host, so no separate cutout layer
-// is overlaid (kept null to avoid a duplicate host).
+// is overlaid on DESKTOP (kept null to avoid a duplicate host).
 export const ROYAL_HOST_CUTOUT = null;
+
+// Transparent host cutout (rembg-extracted from room-host.png) used ONLY by the
+// dedicated mobile-landscape host-enabled layout: she sits far-left over the
+// plain room background while gameplay shifts into a clear right-hand zone.
+export const MOBILE_HOST_CUTOUT = "/assets/royal11/host-cutout.png";
 
 
