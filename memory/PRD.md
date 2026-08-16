@@ -357,3 +357,57 @@ teams, play casual games, and manage virtual coins — no real-money gambling.
 
 ## RELEASE / QA CHECKLIST
 - [ ] Verify enter fullscreen, exit fullscreen, orientation change and saved Host preference on at least one real Android device and one real iPhone/iOS device.
+
+# =====================================================================
+# CHECKPOINT — ROYAL 11 RUMMY (/casino) — LOCKED 2026-08-16
+# =====================================================================
+# Rollback-safe checkpoint. STOP all Rummy visual changes here and wait
+# for the next game brief. Backend FROZEN. No real wallet credit/debit or
+# payment behavior anywhere. Do NOT delete components/assets/routes or
+# overwrite approved card/host/gameplay work.
+
+## COMPLETED AND LOCKED (do not modify)
+- Desktop Rummy gameplay layout (1440×900 uniform scaled canvas).
+- Responsive mobile landscape layouts (740×360 / 844×390 / 932×430).
+- Portrait "Rotate your phone to play" behavior (rotate-gate).
+- Approved Royal 11 playing-card deck (A–10 traditional pips).
+- Cleaned J/Q/K court cards (rembg → ivory composite; all 12).
+- Joker card + card back.
+- Emoji Only system.
+- Hand Privacy (persisted pref, new-deal preview, auto-reveal on turn,
+  re-hide after turn) + opponent discard visibility (face-up newest on
+  top, stacked older, seat→pile animation + toast; opponents' full hands
+  never revealed).
+- Optional FULLSCREEN-GATED Royal Host (genuine Fullscreen API / PWA
+  display-mode only; safe threshold ≥800×372; 740×360 auto-hide; immediate
+  hide + recenter on exit; full-head crop safety; pointer-events:none;
+  fade-above-hand; dedicated right gameplay zone).
+- Responsive host safety + saved Show Host preference (localStorage).
+- Current working VISUAL-ONLY Coin Flow prototype:
+  * ROYAL COIN VAULT (Get Coins) — theme-aware, 6 themes.
+  * ROYAL MYSTERY BONUS — 3 scratch cards, reveal, transparency.
+  * ROYAL WIN modal — acknowledge-only (never credits).
+  (Redeem/Claim-successful legacy content still present, visual-only.)
+
+## PENDING FINAL-POLISH DIRECTION (documented, NOT started)
+- New casino reference palette to apply later: CHERRY-RED / EMERALD-GREEN /
+  CHARCOAL-GREY / ANTIQUE-GOLD full-casino restyle.
+
+## DEFERRED UNTIL ALL GAMES ARE BUILT
+- Final realistic full-casino restyling of Royal Win.
+- Royal Coin Vault final design.
+- Mystery Bonus final visual polish.
+- Claim acknowledgement final design.
+- Rewards / Redeem final design.
+- Rotate screen final casino styling.
+- Cross-game theme consistency.
+- Animations, performance optimization, final audio polish.
+- Real Android / iPhone fullscreen testing (see Release/QA checklist).
+- Complete frontend/backend integration + regression testing.
+
+## KEY FILES (reference for next agent)
+- pages/RummyTable.jsx, pages/casino-vegas.css
+- components/casino/GetCoinsDemo.jsx, components/casino/royal-vault.css
+- components/casino/CoinFlow.jsx (ClaimWinModal / RedeemCoinsModal)
+- components/PlayingCard.jsx, lib/casinoAssets.js
+- public/assets/royal11/ (room-bg.png, room-host.png, host-cutout.png, cards)
