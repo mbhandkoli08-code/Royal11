@@ -490,12 +490,16 @@ export default function RummyTable({ tableId, onLeave }) {
               const coinText = settled && p.points != null ? `${p.points} pts` : (p.is_you ? balance.toLocaleString("en-IN") : null);
               return (
                 <div key={p.user_id} data-testid={`rummy-seat-${p.user_id}`} data-slot={seatSlot(p)}
-                  className="flex flex-col items-center gap-1.5">
+                  className="flex flex-col items-center gap-1">
                   <div className={`vegas-ring ${isTurn ? "vegas-ring--active" : ""}`}>
                     <span className="block rounded-full ring-1 ring-black/30">
                       <PlayerAvatar seed={p.user_id} name={p.display_name} size={44} />
                     </span>
                   </div>
+                  <span data-testid={`rummy-seat-name-${p.user_id}`}
+                    className={`max-w-[92px] truncate text-[11px] font-bold leading-none ${isTurn ? "text-[var(--r-gold)]" : "text-white/90"}`}>
+                    {p.is_you ? "You" : (p.display_name || "Player")}
+                  </span>
                   {coinText != null && (
                     <span data-testid={`rummy-seat-coins-${p.user_id}`} className="inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-0.5 text-[11px] font-black text-[var(--r-gold)] ring-1 ring-[var(--r-gold)]/30">
                       <span className="h-1.5 w-1.5 rounded-full" style={{ background: "radial-gradient(circle at 35% 30%, #fff7dd, #e9c667 70%, #b9882a)" }} />
