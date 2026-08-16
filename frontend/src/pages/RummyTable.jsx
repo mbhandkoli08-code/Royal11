@@ -525,12 +525,6 @@ export default function RummyTable({ tableId, onLeave }) {
               CSS felt graphic is disabled here (avoids a double table). */}
           {hostOn && ROYAL_HOST_CUTOUT && <img src={ROYAL_HOST_CUTOUT} alt="" aria-hidden="true" className="rummy-host-layer pointer-events-none select-none" />}
           <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 select-none font-display text-xs font-black uppercase tracking-[0.35em] text-[var(--r-gold)]/45 sm:text-sm" data-testid="rummy-backwall">{variantLabel}</span>
-          {/* Round Joker assistant — bottom-LEFT corner, kept well away from the
-              DECLARE control (which sits bottom-right). Hidden on compact. */}
-          <button type="button" data-testid="rummy-joker-assistant" onClick={() => setShowInfo(true)}
-            title="Joker Assistant" className="rummy-joker-assistant">
-            <img src={ROYAL_JOKER_ASSISTANT} alt="Joker Assistant" className="h-full w-full object-contain" />
-          </button>
           <div className="vegas-felt vegas-felt--red vegas-felt--aaa relative overflow-hidden p-4 pt-5 shadow-2xl">
           <div className="vegas-spotlight" />
           <div className="relative z-10 mb-3 flex flex-wrap items-start justify-center gap-6" data-testid="rummy-players">
@@ -779,9 +773,10 @@ export default function RummyTable({ tableId, onLeave }) {
           className="inline-flex items-center gap-1.5 rounded-full border border-[var(--r-gold)]/40 bg-black/60 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[var(--r-gold)] backdrop-blur-md">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" /> Emoji Only
         </span>
-        <span data-testid="rummy-self-avatar" className="grid place-items-center rounded-full ring-2 ring-[var(--r-gold)] ring-offset-2 ring-offset-black/40">
-          <PlayerAvatar seed={user?.id || "you"} name={user?.display_name || "You"} size={40} />
-        </span>
+        <button type="button" data-testid="rummy-joker-assistant" onClick={() => setShowInfo(true)} title="Joker Assistant"
+          className="grid h-12 w-12 place-items-center overflow-hidden rounded-full border-2 border-[var(--r-gold)]/70 bg-black/40 shadow-[0_6px_20px_rgba(0,0,0,0.5)] transition-transform hover:-translate-y-0.5 hover:scale-105">
+          <img src={ROYAL_JOKER_ASSISTANT} alt="Joker Assistant" className="h-full w-full object-contain" />
+        </button>
       </div>
     </div>
   );

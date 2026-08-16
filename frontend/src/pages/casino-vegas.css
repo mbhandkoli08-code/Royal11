@@ -160,15 +160,16 @@
   overflow: hidden;
   background-size: cover;
   background-position: center 22%;
-  box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.55), 0 16px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, 0.22), 0 16px 40px rgba(0, 0, 0, 0.4);
 }
 .vegas-palace::before {
-  /* warm vignette so the felt/cards stay readable over the busy backdrop */
+  /* light readability layer only — keeps the uploaded room/host at near-normal
+     brightness (max ~15% darkening, concentrated near the bottom hand area). */
   content: "";
   position: absolute; inset: 0;
   background:
-    radial-gradient(120% 90% at 50% 120%, rgba(0, 0, 0, 0.6), transparent 60%),
-    linear-gradient(180deg, rgba(30, 6, 6, 0.35) 0%, rgba(20, 4, 4, 0.55) 100%);
+    radial-gradient(120% 90% at 50% 124%, rgba(0, 0, 0, 0.22), transparent 58%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.02) 0%, rgba(0, 0, 0, 0.12) 100%);
   pointer-events: none;
 }
 .vegas-palace > * { position: relative; z-index: 1; }
@@ -517,6 +518,10 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
     transform: scale(var(--rummy-k, 1));
     transform-origin: center center;
     margin: 0 !important;
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
   }
   /* ===== Desktop "seated at the table" stage (Figma AAA frame 32:593) =====
      The whole immersive view is a FIXED 100dvh flex column so the header, the
@@ -528,14 +533,9 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
      the hand + action bar keep their natural height, so the controls can never
      be pushed below the fold. Scoped desktop-only; mobile-landscape untouched. */
   body:not(.rummy-ls) .rummy-shell {
-    height: 100dvh;
-    max-height: 100dvh;
-    max-width: none;
-    width: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding: 8px 0;
   }
   body:not(.rummy-ls) .rummy-header { flex: 0 0 auto; margin-bottom: 6px; padding-left: 22px; padding-right: 22px; }
   body:not(.rummy-ls) [data-testid="rummy-match-hud"],
