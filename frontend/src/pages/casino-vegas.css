@@ -485,14 +485,74 @@ body.rummy-ls .rummy-canvas-title { font-size: 13px; letter-spacing: 0.12em; }
 body.rummy-ls .rummy-cluster { padding-top: 22px; }
 body.rummy-ls .rummy-cluster__label { font-size: 8px; padding: 1px 5px; top: 3px; }
 
-/* Mobile round Joker Assistant (Emoji Only) — bottom-left, clear of DECLARE. */
+/* Compact premium table: cap the PALACE so the elliptical felt is compact and
+   the whole antique-gold rim stays inside the screen; seats then align to the
+   rim. Gentle curved perspective (not a big flat oval). */
+body.rummy-ls [data-testid="vegas-palace"] {
+  flex: 0 0 auto !important;
+  height: min(54%, 196px) !important;
+  min-height: 0 !important;
+  padding: 2px 16px !important;
+  display: flex; align-items: center; justify-content: center;
+}
+body.rummy-ls .vegas-felt--aaa {
+  flex: 0 0 auto !important;
+  width: min(100%, 600px) !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  margin: 0 auto !important;
+  border-radius: 48% / 44%;
+  border-width: 6px;
+  transform: perspective(820px) rotateX(6deg);
+  transform-origin: center 44%;
+}
+body.rummy-ls .vegas-felt--aaa::after { inset: 6px; border-radius: 46% / 42%; }
+/* Seat slots hug the compact felt rim: opponent inside the top, you at bottom. */
+body.rummy-ls [data-slot="top-center"] { top: 13%; }
+body.rummy-ls [data-slot="bottom-center"] { top: 99%; }
+
+/* Seat turn-timer chip (opponent shows it at the top-centre seat). */
+.rummy-seat__timer {
+  display: inline-flex; align-items: center;
+  margin-top: 2px; padding: 0 7px; border-radius: 9999px;
+  font-size: 10px; font-weight: 900; line-height: 1.5;
+  background: var(--r-gold, #e9c667); color: #201203;
+}
+
+/* Hide duplicate header labels on mobile (variant is centred; opp timer at seat). */
+body.rummy-ls [data-testid="rummy-header-turn"],
+body.rummy-ls [data-testid="rummy-variant-label"] { display: none !important; }
+
+/* Player hand — all 13 in ONE centred row via controlled overlap, no scroll. */
+body.rummy-ls [data-testid="rummy-hand-tray"] { padding: 5px 4px; }
+body.rummy-ls [data-testid="rummy-hand-tray"] > div {
+  flex-wrap: nowrap !important;
+  overflow: visible !important;
+  justify-content: center;
+  gap: 0 !important;
+}
+body.rummy-ls [data-testid="rummy-hand-tray"] .rummy-hand-row > * { margin-left: -7px; }
+body.rummy-ls [data-testid="rummy-hand-tray"] .rummy-hand-row > *:first-child { margin-left: 0; }
+
+/* Mobile Joker Assistant (Emoji Only) — bottom-RIGHT cluster, above the action
+   bar, clear of the cards. Label sits to the left of the round mascot. */
 .rummy-joker-mobile {
   position: fixed;
   z-index: 60;
-  left: calc(6px + env(safe-area-inset-left, 0px));
-  top: 46%;
-  transform: translateY(-50%);
-  height: 42px; width: 42px;
+  right: calc(8px + env(safe-area-inset-right, 0px));
+  bottom: calc(58px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rummy-emoji-tag {
+  font-size: 8px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--r-gold, #e9c667);
+  background: rgba(0,0,0,0.55); border: 1px solid rgba(233,198,103,0.35);
+  border-radius: 9999px; padding: 3px 7px; white-space: nowrap;
+}
+.rummy-joker-mobile-btn {
+  height: 40px; width: 40px;
   display: grid; place-items: center;
   border-radius: 9999px;
   border: 2px solid rgba(233,198,103,0.7);
@@ -500,6 +560,18 @@ body.rummy-ls .rummy-cluster__label { font-size: 8px; padding: 1px 5px; top: 3px
   box-shadow: 0 4px 14px rgba(0,0,0,0.5);
   overflow: hidden;
 }
+.rummy-emoji-panel-box {
+  position: fixed;
+  right: calc(8px + env(safe-area-inset-right, 0px));
+  bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px;
+  padding: 8px; border-radius: 16px;
+  border: 1px solid rgba(233,198,103,0.3); background: rgba(22,10,12,0.97);
+  box-shadow: 0 12px 30px rgba(0,0,0,0.6); backdrop-filter: blur(6px);
+  transform-origin: bottom right;
+  animation: emoji-panel-in 0.16s ease-out;
+}
+@keyframes emoji-panel-in { from { opacity: 0; transform: translateY(8px) scale(0.94); } to { opacity: 1; transform: none; } }
 .rummy-emoji-pop { animation: emoji-pop 3.5s ease-out forwards; }
 @keyframes emoji-pop {
   0% { opacity: 0; transform: translate(-50%, 10px) scale(0.6); }

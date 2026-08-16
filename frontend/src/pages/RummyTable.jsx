@@ -569,6 +569,11 @@ export default function RummyTable({ tableId, onLeave }) {
                     </span>
                     <span data-testid={`rummy-seat-coins-${p.user_id}`} className="rummy-seat__sub">{sub}</span>
                   </span>
+                  {isTurn && (
+                    <span data-testid={`rummy-seat-timer-${p.user_id}`} className="rummy-seat__timer">
+                      <Timer deadline={round?.turn?.deadline} active />
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -741,25 +746,29 @@ export default function RummyTable({ tableId, onLeave }) {
         </div>
       )}
 
-      {/* Mobile Joker Assistant — round mascot pinned bottom-LEFT (away from the
-          DECLARE control at bottom-right). Opens the Emoji Only panel. */}
+      {/* Mobile Joker Assistant — round mascot + EMOJI ONLY control pinned
+          bottom-RIGHT (above the action bar). Opens the Emoji panel upward. */}
       {isCompact && (
-        <button type="button" data-testid="rummy-joker-assistant-mobile" onClick={() => setShowEmoji(true)}
-          title="Emoji Only" className="rummy-joker-mobile" aria-label="Emoji Only">
-          <img src={ROYAL_JOKER_ASSISTANT} alt="Emoji Only" className="h-full w-full object-contain" draggable="false" />
-        </button>
+        <div className="rummy-joker-mobile" data-testid="rummy-joker-mobile-wrap">
+          <span className="rummy-emoji-tag">Emoji Only</span>
+          <button type="button" data-testid="rummy-joker-assistant-mobile" onClick={() => setShowEmoji((s) => !s)}
+            title="Emoji Only" className="rummy-joker-mobile-btn" aria-label="Emoji Only">
+            <img src={ROYAL_JOKER_ASSISTANT} alt="Emoji Only" className="h-full w-full object-contain" draggable="false" />
+          </button>
+        </div>
       )}
 
-      {/* Emoji Only panel — predefined reactions, no keyboard / text / voice. */}
+      {/* Emoji Only panel — opens UPWARD from the bottom-right Joker; compact,
+          never covers cards/actions; closes on select or outside tap. */}
       {showEmoji && (
-        <div className="fixed inset-0 z-[80] flex items-end justify-start" data-testid="rummy-emoji-panel">
+        <div className="fixed inset-0 z-[80]" data-testid="rummy-emoji-panel">
           <div className="absolute inset-0" onClick={() => setShowEmoji(false)} />
-          <div className="relative m-3 mb-[calc(12px+env(safe-area-inset-bottom,0px))] ml-[calc(12px+env(safe-area-inset-left,0px))] grid grid-cols-6 gap-1.5 rounded-2xl border border-[var(--r-gold)]/30 bg-[#160a0c]/95 p-2.5 shadow-2xl backdrop-blur">
+          <div className="rummy-emoji-panel-box">
             <p className="col-span-6 mb-0.5 text-[9px] font-black uppercase tracking-widest text-[var(--r-gold)]/70">Emoji Only</p>
             {["👍","👏","😄","😂","😮","😎","🤔","😢","😡","🙏","🎉","⏳"].map((e) => (
               <button key={e} type="button" data-testid={`emoji-${e}`}
                 onClick={() => { setShowEmoji(false); setFloatEmoji(e); setTimeout(() => setFloatEmoji(null), 3500); }}
-                className="grid h-9 w-9 place-items-center rounded-lg bg-white/5 text-xl transition-transform hover:scale-110 active:scale-95">{e}</button>
+                className="grid h-8 w-8 place-items-center rounded-lg bg-white/5 text-lg transition-transform hover:scale-110 active:scale-95">{e}</button>
             ))}
           </div>
         </div>
