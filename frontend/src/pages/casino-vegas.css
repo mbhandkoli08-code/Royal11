@@ -496,6 +496,57 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
 .rummy-seat__sub { font-size: 10px; font-weight: 800; color: #e9c667; white-space: nowrap; }
 
 @media (min-width: 768px) {
+  /* ===== Desktop "seated at the table" stage (Figma AAA frame 32:593) =====
+     The whole immersive view is a FIXED 100dvh flex column so the header, the
+     table, the 13-card hand and the 6-button action bar always fit WITHOUT
+     scrolling. The table region flexes/clips and the felt is anchored to the
+     BOTTOM so its near edge bleeds off-screen behind the hand tray (you are
+     seated at it); the room + chandelier stay fully visible ABOVE the table.
+     Guaranteed fit: the table region can shrink to nothing (min-height:0) while
+     the hand + action bar keep their natural height, so the controls can never
+     be pushed below the fold. Scoped desktop-only; mobile-landscape untouched. */
+  body:not(.rummy-ls) .rummy-shell {
+    height: 100dvh;
+    max-height: 100dvh;
+    max-width: min(1280px, 96vw);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  body:not(.rummy-ls) .rummy-header { flex: 0 0 auto; margin-bottom: 8px; }
+  body:not(.rummy-ls) [data-testid="rummy-match-hud"],
+  body:not(.rummy-ls) [data-testid="rummy-start"] { flex: 0 0 auto; }
+  /* Table region grows to fill the gap between header and the bottom controls;
+     the felt sits at its bottom edge and the room shows above it. */
+  body:not(.rummy-ls) .vegas-palace--aaa {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    overflow: hidden;
+    padding: 0 !important;
+  }
+  /* Host sits at the LEFT and OVERLAPS the felt's near-left (z-index:8 > felt);
+     the felt stays centred in the room so its right side is never clipped. */
+  body:not(.rummy-ls) .vegas-palace--hosted { padding-left: 0 !important; }
+  /* Hand tray + action bar: fixed-height bottom stack that OVERLAPS the felt's
+     near edge (Figma: hand y=684 over a table that runs past y=780). */
+  body:not(.rummy-ls) .rummy-playarea {
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 20;
+    margin-top: calc(-1 * min(5vh, 46px));
+    width: 100%;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  /* Provably-fair panel keeps its place below the action bar; the table region
+     (flex:1) absorbs its height so it can never push the controls off-screen. */
+  body:not(.rummy-ls) [data-testid="rummy-fairness"] { flex: 0 0 auto; margin-top: 10px; }
   body:not(.rummy-ls) [data-testid="vegas-palace"] { position: relative; }
   /* Host cutout sits IN FRONT of the enlarged felt (desktop only); mobile keeps
      its baked-in room host untouched. Also swap the desktop room to the
@@ -535,22 +586,27 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
   body:not(.rummy-ls) .rummy-seat__nm { max-width: 108px; font-size: 13px; }
   body:not(.rummy-ls) .rummy-seat__sub { font-size: 11px; color: rgba(233,198,103,0.85); }
   body:not(.rummy-ls) .vegas-felt--aaa {
-    /* One-line tunable perspective tilt for the table SURFACE (frame 32:593).
-       Dial --rummy-felt-tilt up/down to taste; 0deg = flat top-down (frame 19:62). */
-    --rummy-felt-tilt: 10deg;
-    --rummy-felt-perspective: 1500px;
-    width: min(66vw, 1040px);
+    /* One-line tunable perspective tilt + bleed for the table SURFACE (frame
+       32:593). Dial --rummy-felt-tilt / --rummy-felt-bleed to taste. */
+    --rummy-felt-tilt: 12deg;
+    --rummy-felt-perspective: 1400px;
+    --rummy-felt-bleed: min(15vh, 132px);
+    width: min(62vw, 980px);
+    height: min(52vh, 470px);
     max-width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    aspect-ratio: 2.2 / 1;
+    margin: 0;
+    /* near edge bleeds off the bottom of the table region (occluded by the hand
+       tray); padding-bottom keeps the piles + turn pill in the VISIBLE upper
+       area rather than centring them into the bled-off portion. */
+    margin-bottom: calc(-1 * var(--rummy-felt-bleed));
+    padding: 0 0 var(--rummy-felt-bleed) 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
     position: relative;
     /* felt visual moves to ::before/::after so only the SURFACE tilts */
     perspective: var(--rummy-felt-perspective);
-    perspective-origin: 50% 6%;
+    perspective-origin: 50% 8%;
     overflow: visible;
     background: transparent;
     border-color: transparent;
@@ -599,12 +655,12 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
     pointer-events: auto;
     transform: translate(-50%, -50%);
   }
-  body:not(.rummy-ls) [data-slot="top-center"]    { left: 50%; top: 10%; }
-  body:not(.rummy-ls) [data-slot="top-left"]      { left: 27%; top: 13%; }
-  body:not(.rummy-ls) [data-slot="top-right"]     { left: 73%; top: 13%; }
-  body:not(.rummy-ls) [data-slot="left-mid"]      { left: 11%; top: 44%; }
-  body:not(.rummy-ls) [data-slot="right-mid"]     { left: 89%; top: 44%; }
-  body:not(.rummy-ls) [data-slot="bottom-center"] { left: 50%; top: 88%; }
+  body:not(.rummy-ls) [data-slot="top-center"]    { left: 50%; top: 13%; }
+  body:not(.rummy-ls) [data-slot="top-left"]      { left: 27%; top: 15%; }
+  body:not(.rummy-ls) [data-slot="top-right"]     { left: 73%; top: 15%; }
+  body:not(.rummy-ls) [data-slot="left-mid"]      { left: 12%; top: 38%; }
+  body:not(.rummy-ls) [data-slot="right-mid"]     { left: 88%; top: 38%; }
+  body:not(.rummy-ls) [data-slot="bottom-center"] { left: 50%; top: 60%; }
 
   /* Hand row + action bar as a centred column proportional to the table. */
   body:not(.rummy-ls) .rummy-playarea { max-width: 860px; margin-left: auto; margin-right: auto; }
