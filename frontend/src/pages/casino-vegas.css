@@ -481,9 +481,9 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
    landscape-compact layout (which fills) is never affected. Non-hosted tables
    centre; hosted keeps its left-offset host. */
 @media (min-width: 768px) {
-  body:not(.rummy-ls) .vegas-felt--aaa { max-width: 520px; }
+  body:not(.rummy-ls) .vegas-felt--aaa { max-width: 440px; }
   body:not(.rummy-ls) .vegas-palace:not(.vegas-palace--hosted) .vegas-felt--aaa { margin-left: auto; margin-right: auto; }
 }
 @media (min-width: 1280px) {
-  body:not(.rummy-ls) .vegas-felt--aaa { max-width: 560px; }
+  body:not(.rummy-ls) .vegas-felt--aaa { max-width: 480px; }
 }
