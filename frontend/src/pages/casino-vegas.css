@@ -481,8 +481,59 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
    compass slots distribute 3-6 players) so it reads like players seated across a
    real table. Piles stay centred with the turn pill just below. Scoped to
    `body:not(.rummy-ls)` so the confirmed mobile-landscape layout is untouched. */
+/* Host cutout layer — hidden by default (mobile keeps its baked-in room host);
+   only shown on desktop in front of the enlarged felt (rule below). */
+.rummy-host-layer { display: none; }
+
+/* Seat component — base = compact vertical stack (mobile keeps this look);
+   desktop upgrades it to the Figma 190×64 seat PILL (see media block below). */
+.rummy-seat { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.rummy-seat__av { display: block; overflow: hidden; border-radius: 9999px; box-shadow: 0 0 0 2px rgba(233,198,103,0.5); }
+.rummy-seat--active .rummy-seat__av { box-shadow: 0 0 0 2px #e9c667, 0 0 14px 2px rgba(233,198,103,0.7); }
+.rummy-seat__txt { display: flex; flex-direction: column; align-items: center; line-height: 1.15; min-width: 0; }
+.rummy-seat__nm { max-width: 104px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 800; color: rgba(255,255,255,0.92); }
+.rummy-seat--active .rummy-seat__nm { color: #e9c667; }
+.rummy-seat__sub { font-size: 10px; font-weight: 800; color: #e9c667; white-space: nowrap; }
+
 @media (min-width: 768px) {
   body:not(.rummy-ls) [data-testid="vegas-palace"] { position: relative; }
+  /* Host cutout sits IN FRONT of the enlarged felt (desktop only); mobile keeps
+     its baked-in room host untouched. Also swap the desktop room to the
+     host-less variant so the host never doubles up. */
+  body:not(.rummy-ls) .vegas-palace--hosted {
+    background-image: url("https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/2d99cc04193b497f0a402d61ceaa748fec25f551a0776e139de0d9bac9231dd3.jpeg") !important;
+  }
+  body:not(.rummy-ls) .rummy-host-layer {
+    display: block;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 98%;
+    width: auto;
+    z-index: 8;
+    filter: drop-shadow(0 12px 28px rgba(0,0,0,0.55));
+  }
+  /* Seat PILL (Figma node 33:600): 190×64 dark card, gold hairline, avatar left,
+     name over a public stat line; active turn gets the gold glow. */
+  body:not(.rummy-ls) .rummy-seat {
+    flex-direction: row;
+    align-items: center;
+    gap: 9px;
+    width: 190px;
+    padding: 8px 12px 8px 8px;
+    background: linear-gradient(180deg, rgba(22,11,13,0.96), rgba(8,4,6,0.96));
+    border: 1px solid rgba(233,198,103,0.45);
+    border-radius: 15px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+  }
+  body:not(.rummy-ls) .rummy-seat--active {
+    border-color: #e9c667;
+    box-shadow: 0 0 0 1px #e9c667, 0 0 20px 3px rgba(233,198,103,0.45);
+  }
+  body:not(.rummy-ls) .rummy-seat__av { flex: 0 0 auto; box-shadow: 0 0 0 2px rgba(233,198,103,0.55); }
+  body:not(.rummy-ls) .rummy-seat__txt { align-items: flex-start; flex: 1; }
+  body:not(.rummy-ls) .rummy-seat__nm { max-width: 108px; font-size: 13px; }
+  body:not(.rummy-ls) .rummy-seat__sub { font-size: 11px; color: rgba(233,198,103,0.85); }
   body:not(.rummy-ls) .vegas-felt--aaa {
     width: min(66vw, 1040px);
     max-width: 100%;

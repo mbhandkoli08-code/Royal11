@@ -12,7 +12,7 @@ import { ReferAndEarn } from "@/components/ReferAndEarn";
 import { DailyBonusWidget } from "@/components/DailyBonusWidget";
 import { PlayingCard } from "@/components/PlayingCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
-import { AAA_ROOM_BG, AAA_ROOM_HOST } from "@/lib/casinoAssets";
+import { AAA_ROOM_BG, AAA_ROOM_HOST, ROYAL_HOST_CUTOUT } from "@/lib/casinoAssets";
 import { WinCelebration, Scoreboard, LowChipsPopup } from "@/components/casino/OrnatePopups";
 
 // Full-count exposure escrowed by the server per seat each deal
@@ -481,31 +481,35 @@ export default function RummyTable({ tableId, onLeave }) {
         {/* AAA Royal Table room + host + table */}
         <div className={`vegas-palace vegas-palace--aaa relative p-3 sm:p-5 ${hostOn ? "vegas-palace--hosted" : ""}`} style={{ backgroundImage: `url(${hostOn ? AAA_ROOM_HOST : AAA_ROOM_BG})` }} data-testid="vegas-palace">
           <div className="vegas-chandelier" />
+          {hostOn && <img src={ROYAL_HOST_CUTOUT} alt="" aria-hidden="true" className="rummy-host-layer pointer-events-none select-none" />}
           <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 select-none font-display text-xs font-black uppercase tracking-[0.35em] text-[var(--r-gold)]/45 sm:text-sm" data-testid="rummy-backwall">{variantLabel}</span>
           <div className="vegas-felt vegas-felt--red vegas-felt--aaa relative overflow-hidden p-4 pt-5 shadow-2xl">
           <div className="vegas-spotlight" />
           <div className="relative z-10 mb-3 flex flex-wrap items-start justify-center gap-6" data-testid="rummy-players">
             {players.map((p) => {
               const isTurn = round?.turn?.user_id === p.user_id && playing;
-              const coinText = settled && p.points != null ? `${p.points} pts` : (p.is_you ? balance.toLocaleString("en-IN") : null);
+              // Second line is a PUBLIC value only — never expose opponents' wallet
+              // balances. Self → wallet balance; settled → points; opponent →
+              // the table entry/stake (or point value), both public config.
+              const sub = settled && p.points != null
+                ? `${p.points} pts`
+                : p.is_you
+                  ? `${balance.toLocaleString("en-IN")} coins`
+                  : entryFeeCfg > 0
+                    ? `${entryFeeCfg.toLocaleString("en-IN")} entry`
+                    : `${pointValue}/pt`;
               return (
                 <div key={p.user_id} data-testid={`rummy-seat-${p.user_id}`} data-slot={seatSlot(p)}
-                  className="flex flex-col items-center gap-1">
-                  <div className={`vegas-ring ${isTurn ? "vegas-ring--active" : ""}`}>
-                    <span className="block rounded-full ring-1 ring-black/30">
-                      <PlayerAvatar seed={p.user_id} name={p.display_name} size={44} />
-                    </span>
-                  </div>
-                  <span data-testid={`rummy-seat-name-${p.user_id}`}
-                    className={`max-w-[92px] truncate text-[11px] font-bold leading-none ${isTurn ? "text-[var(--r-gold)]" : "text-white/90"}`}>
-                    {p.is_you ? "You" : (p.display_name || "Player")}
+                  className={`rummy-seat ${isTurn ? "rummy-seat--active" : ""}`}>
+                  <span className="rummy-seat__av">
+                    <PlayerAvatar seed={p.user_id} name={p.display_name} size={40} />
                   </span>
-                  {coinText != null && (
-                    <span data-testid={`rummy-seat-coins-${p.user_id}`} className="inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-0.5 text-[11px] font-black text-[var(--r-gold)] ring-1 ring-[var(--r-gold)]/30">
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: "radial-gradient(circle at 35% 30%, #fff7dd, #e9c667 70%, #b9882a)" }} />
-                      {coinText}
+                  <span className="rummy-seat__txt">
+                    <span data-testid={`rummy-seat-name-${p.user_id}`} className="rummy-seat__nm">
+                      {p.is_you ? "You" : (p.display_name || "Player")}
                     </span>
-                  )}
+                    <span data-testid={`rummy-seat-coins-${p.user_id}`} className="rummy-seat__sub">{sub}</span>
+                  </span>
                 </div>
               );
             })}

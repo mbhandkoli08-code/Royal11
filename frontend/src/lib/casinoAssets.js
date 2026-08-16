@@ -31,4 +31,9 @@ export const ROYAL_HOST_V2 =
 export const AAA_ROOM_HOST =
   "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/5f03b0822e1ab0563115a67540593158a56d8d04190ab6ba3ec93b5fe7edae30.jpeg";
 
+// Transparent-background CUTOUT of the same maroon-velvet host — rendered as a
+// layer IN FRONT of the enlarged felt (Figma node 32:593) so she sits AT the
+// table with her forearms over the felt, instead of being hidden behind it.
+export const ROYAL_HOST_CUTOUT = "/rummy_host_cutout.png";
+
 
