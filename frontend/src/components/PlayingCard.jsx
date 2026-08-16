@@ -1,35 +1,20 @@
 import "../pages/casino-vegas.css";
 import { ROYAL_JOKER_CARD_IMG, CARD_BACK_V2, COURT_CARD_SRC } from "@/lib/casinoAssets";
 
-const SUIT = { s: "♠", h: "♥", d: "♦", c: "♣" };
+const SUIT = { s: "\u2660", h: "\u2665", d: "\u2666", c: "\u2663" };
 const RED = new Set(["h", "d"]);
+const RED_HEX = "#c8102e";
+const BLACK_HEX = "#15151c";
 
-// px sizing per size key: [width, height, cornerFontRem]
+// px sizing per size key: [width, height]
 const SIZES = {
-  xs: [30, 42, 0.6],
-  sm: [38, 54, 0.7],
-  md: [46, 66, 0.82],
-  lg: [64, 92, 1.02],
+  xs: [30, 42],
+  sm: [38, 54],
+  md: [46, 66],
+  lg: [64, 92],
 };
 
 const rankLabel = (r) => (r === "T" ? "10" : r);
-
-// Authentic traditional pip layouts. Each pip = [xFrac, yFrac, flip].
-// Columns: L=0.30, C=0.50, R=0.70 (of the card width). Pips in the lower
-// half are rotated 180deg exactly like a real deck.
-const L = 0.3, C = 0.5, R = 0.7;
-const PIP_LAYOUT = {
-  A: [[C, 0.5, false]],
-  2: [[C, 0.2, false], [C, 0.8, true]],
-  3: [[C, 0.2, false], [C, 0.5, false], [C, 0.8, true]],
-  4: [[L, 0.2, false], [R, 0.2, false], [L, 0.8, true], [R, 0.8, true]],
-  5: [[L, 0.2, false], [R, 0.2, false], [C, 0.5, false], [L, 0.8, true], [R, 0.8, true]],
-  6: [[L, 0.2, false], [R, 0.2, false], [L, 0.5, false], [R, 0.5, false], [L, 0.8, true], [R, 0.8, true]],
-  7: [[L, 0.2, false], [R, 0.2, false], [C, 0.35, false], [L, 0.5, false], [R, 0.5, false], [L, 0.8, true], [R, 0.8, true]],
-  8: [[L, 0.2, false], [R, 0.2, false], [C, 0.35, false], [L, 0.5, false], [R, 0.5, false], [C, 0.65, true], [L, 0.8, true], [R, 0.8, true]],
-  9: [[L, 0.16, false], [R, 0.16, false], [L, 0.38, false], [R, 0.38, false], [C, 0.5, false], [L, 0.62, true], [R, 0.62, true], [L, 0.84, true], [R, 0.84, true]],
-  T: [[L, 0.16, false], [R, 0.16, false], [C, 0.3, false], [L, 0.38, false], [R, 0.38, false], [L, 0.62, true], [R, 0.62, true], [C, 0.7, true], [L, 0.84, true], [R, 0.84, true]],
-};
 
 // Normalize a code string ("As", "Th", "JK") or a card object into {rank,suit,joker}.
 function parse(card) {
@@ -44,31 +29,24 @@ function parse(card) {
   return null;
 }
 
-function CornerPip({ rank, suit, cf }) {
-  return (
-    <>
-      <span style={{ fontSize: cf + "rem", lineHeight: 0.86, fontWeight: 900 }}>{rankLabel(rank)}</span>
-      <span style={{ fontSize: cf * 0.88 + "rem", lineHeight: 0.86 }}>{SUIT[suit]}</span>
-    </>
-  );
-}
-
 /**
- * Realistic premium playing card — glossy ivory face with authentic traditional
- * pip layouts (2–10), ornate Aces, and gold court treatments for J/Q/K, plus the
- * photoreal ROYAL11 V2 back and unified Joker art. Original art only (no
- * real-world card-brand logos). Used across Rummy + High Card.
+ * Royal 11 playing card — flat ivory surface, thin antique-gold edge, one soft
+ * outer shadow. A/2–10 use ONE bold top-left rank + ONE large central suit (no
+ * pips, no mirrored index). J/Q/K use the approved single-face portrait
+ * (object-fit: contain) with a compact ivory corner index chip. Joker + card
+ * back use the approved artwork. One shared design across desktop + mobile.
  */
 export function PlayingCard({ card, code, faceDown, size = "sm", selected, onClick, plain, rich }) {
-  const [w, h, cf] = SIZES[size] || SIZES.sm;
+  const [w, h] = SIZES[size] || SIZES.sm;
   const dim = { width: w, height: h };
+  const rad = Math.max(5, Math.round(w * 0.09));
   const richCls = rich ? " pc-rich" : "";
+  const imgStyle = { width: "100%", height: "100%", objectFit: "contain", borderRadius: rad, display: "block" };
 
   if (faceDown) {
     return (
       <span className="pc pc-back" style={dim} data-testid="playing-card-back">
-        <img src={CARD_BACK_V2} alt="" draggable="false"
-          style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, display: "block" }} />
+        <img src={CARD_BACK_V2} alt="" draggable="false" style={imgStyle} />
       </span>
     );
   }
@@ -80,54 +58,40 @@ export function PlayingCard({ card, code, faceDown, size = "sm", selected, onCli
   if (c.joker) {
     inner = (
       <span className="pc pc-joker" style={dim} data-testid="playing-card">
-        <img src={ROYAL_JOKER_CARD_IMG} alt="Joker" draggable="false"
-          style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, display: "block" }} />
+        <img src={ROYAL_JOKER_CARD_IMG} alt="Joker" draggable="false" style={imgStyle} />
       </span>
     );
   } else {
-    const colorCls = RED.has(c.suit) ? "pc-red" : "pc-black";
+    const color = RED.has(c.suit) ? RED_HEX : BLACK_HEX;
     const isCourt = ["J", "Q", "K"].includes(c.rank);
     const suitSym = SUIT[c.suit];
-    const pipFont = cf * 1.02; // center pip size relative to corner
-    const layout = PIP_LAYOUT[c.rank];
 
     if (isCourt) {
-      // Approved ROYAL 11 court card: component-drawn ivory frame + gold edge,
-      // ONE compact top-left index (rank over suit, correct colour), and the
-      // approved character portrait shifted DOWN so it never overlaps the rank.
-      // No mirrored bottom-right index.
+      // Portrait (contain) + compact ivory corner index chip (thin gold outline).
       inner = (
-        <span className={`pc pc-face pc-court-card ${colorCls}${richCls}`} style={dim} data-testid="playing-card">
-          <span className="pc-court-idx">
-            <b style={{ fontSize: w * 0.26 + "px" }}>{rankLabel(c.rank)}</b>
-            <span style={{ fontSize: w * 0.2 + "px" }}>{suitSym}</span>
-          </span>
+        <span className={`pc pc-face pc-court-card${richCls}`} style={dim} data-testid="playing-card">
           <img className="pc-court-portrait" src={COURT_CARD_SRC(c.rank, c.suit)}
-            alt={`${rankLabel(c.rank)}${suitSym}`} draggable="false" />
+            alt={`${rankLabel(c.rank)}${suitSym}`} draggable="false"
+            style={{ inset: Math.max(3, Math.round(w * 0.06)), borderRadius: Math.max(3, rad - 3) }} />
+          <span className="pc-court-chip" style={{
+            top: Math.round(h * 0.045), left: Math.round(w * 0.055), color,
+            borderRadius: Math.max(3, Math.round(w * 0.11)),
+            padding: `${Math.max(1, Math.round(h * 0.015))}px ${Math.max(2, Math.round(w * 0.045))}px`,
+          }}>
+            <b style={{ fontSize: Math.round(w * 0.28) }}>{rankLabel(c.rank)}</b>
+            <span style={{ fontSize: Math.round(w * 0.22) }}>{suitSym}</span>
+          </span>
         </span>
       );
     } else {
+      // A + 2–10: bold top-left rank + ONE large central suit.
       inner = (
-        <span className={`pc pc-face ${colorCls}${richCls}`} style={dim} data-testid="playing-card">
-          <span className="pc-pip pc-pip-tl"><CornerPip rank={c.rank} suit={c.suit} cf={cf} /></span>
-          <span className="pc-pip pc-pip-br"><CornerPip rank={c.rank} suit={c.suit} cf={cf} /></span>
-
-          {c.rank === "A" ? (
-            <span className="pc-center">
-              <span className="pc-ace" style={{ fontSize: w * 0.5 + "px" }}>{suitSym}</span>
-            </span>
-          ) : (
-            <span className="pc-pipgrid">
-              {layout && layout.map(([x, y, flip], i) => (
-                <span key={i} className="pc-pipdot"
-                  style={{
-                    left: x * 100 + "%", top: y * 100 + "%",
-                    fontSize: pipFont + "rem",
-                    transform: `translate(-50%, -50%)${flip ? " rotate(180deg)" : ""}`,
-                  }}>{suitSym}</span>
-              ))}
-            </span>
-          )}
+        <span className={`pc pc-face${richCls}`} style={dim} data-testid="playing-card">
+          <span className="pc-idx" style={{ top: Math.round(h * 0.05), left: Math.round(w * 0.09), color }}>
+            <b style={{ fontSize: Math.round(w * 0.3) }}>{rankLabel(c.rank)}</b>
+            <span style={{ fontSize: Math.round(w * 0.24) }}>{suitSym}</span>
+          </span>
+          <span className="pc-bigsuit" style={{ color, fontSize: Math.round(w * 0.6) }}>{suitSym}</span>
         </span>
       );
     }

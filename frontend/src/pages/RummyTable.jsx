@@ -536,7 +536,7 @@ export default function RummyTable({ tableId, onLeave }) {
         )}
 
         {/* AAA Royal Table room + host + table */}
-        <div className={`vegas-palace vegas-palace--aaa relative p-3 sm:p-5 ${hostOn ? "vegas-palace--hosted" : ""}`} style={{ backgroundImage: `url(${hostOn ? AAA_ROOM_HOST : AAA_ROOM_BG})` }} data-testid="vegas-palace">
+        <div className={`vegas-palace vegas-palace--aaa relative p-3 sm:p-5 ${hostOn && !isCompact ? "vegas-palace--hosted" : ""}`} style={{ backgroundImage: `url(${isCompact ? AAA_ROOM_BG : (hostOn ? AAA_ROOM_HOST : AAA_ROOM_BG)})` }} data-testid="vegas-palace">
           <div className="vegas-chandelier" />
           {/* The approved room art already contains the crimson table, so the
               CSS felt graphic is disabled here (avoids a double table). */}
