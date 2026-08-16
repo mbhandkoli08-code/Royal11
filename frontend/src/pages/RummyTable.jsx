@@ -447,7 +447,7 @@ export default function RummyTable({ tableId, onLeave }) {
               <div className="relative flex flex-col items-center gap-1">
                 <button data-testid="rummy-settings-btn" onClick={() => setShowSettings((s) => !s)} title="Settings" aria-label="Settings"
                   className="grid h-10 w-10 place-items-center rounded-full border border-[var(--r-gold)]/30 bg-black/40 text-[var(--r-gold)] transition-all hover:-translate-y-0.5 hover:bg-[var(--r-gold)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--r-gold)]/60 active:scale-95"><Settings className="h-5 w-5" /></button>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-white/65">Settings</span>
+                <span className="rummy-settings-label text-[10px] font-bold uppercase tracking-wide text-white/65">Settings</span>
                 {showSettings && (
                   <div data-testid="rummy-settings-menu" className="absolute right-0 top-full z-30 mt-2 w-56 rounded-2xl border border-white/10 bg-[#1a1210] p-3 text-left shadow-2xl">
                     <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-white/40">Table Settings</p>
@@ -567,13 +567,15 @@ export default function RummyTable({ tableId, onLeave }) {
                     <span data-testid={`rummy-seat-name-${p.user_id}`} className="rummy-seat__nm">
                       {p.is_you ? "You" : (p.display_name || "Player")}
                     </span>
-                    <span data-testid={`rummy-seat-coins-${p.user_id}`} className="rummy-seat__sub">{sub}</span>
-                  </span>
-                  {isTurn && (
-                    <span data-testid={`rummy-seat-timer-${p.user_id}`} className="rummy-seat__timer">
-                      <Timer deadline={round?.turn?.deadline} active />
+                    <span className="rummy-seat__sub">
+                      <span data-testid={`rummy-seat-coins-${p.user_id}`}>{sub}</span>
+                      {isTurn && isCompact && (
+                        <span data-testid={`rummy-seat-timer-${p.user_id}`} className="rummy-seat__timer">
+                          <Timer deadline={round?.turn?.deadline} active />
+                        </span>
+                      )}
                     </span>
-                  )}
+                  </span>
                 </div>
               );
             })}

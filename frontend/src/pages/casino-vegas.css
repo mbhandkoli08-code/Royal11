@@ -326,36 +326,65 @@ body.rummy-immersive [data-testid="pwa-install-prompt"] { display: none !importa
 body.rummy-ls [data-testid="rummy-table"] {
   overflow: hidden !important;
   overscroll-behavior: contain;
+  background: #0b0405 !important;
 }
 body.rummy-ls .rummy-shell {
   max-width: none;
   height: 100%;
-  padding: 6px 10px 0;
+  padding: calc(4px + env(safe-area-inset-top, 0px)) calc(8px + env(safe-area-inset-right, 0px)) 0 calc(8px + env(safe-area-inset-left, 0px));
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-/* Thin single-row header: shrink the wordmark, tuck the subtitle, and hide the
-   VIP/Rewards/Sound icons (Settings gear stays so Leave is always reachable). */
-body.rummy-ls .rummy-header { flex: 0 0 auto; margin-bottom: 4px; align-items: center; }
-body.rummy-ls .rummy-header [data-testid="rummy-wordmark"] { font-size: 18px; line-height: 1; }
+/* Thin single-row header (≤48px): compact wordmark + tiny table id, one menu. */
+body.rummy-ls .rummy-header { flex: 0 0 auto; height: 44px; margin-bottom: 2px; align-items: center; }
+body.rummy-ls .rummy-header [data-testid="rummy-wordmark"] { font-size: 17px; line-height: 1; }
 body.rummy-ls .rummy-header [data-testid="rummy-coin-balance"] { padding: 3px 9px; font-size: 12px; }
 body.rummy-ls .rummy-header [data-testid="rummy-add-coins"] { height: 26px; width: 26px; }
 body.rummy-ls .rummy-iconitem { display: none !important; }
+body.rummy-ls .rummy-settings-label { display: none !important; }
 body.rummy-ls [data-testid="rummy-info-btn"],
 body.rummy-ls [data-testid="rummy-fullscreen-btn"] { display: none !important; }
 body.rummy-ls [data-testid="rummy-icon-row"] { gap: 4px; }
 
-/* Table room: GROW to fill the space between header and the hand/action area so
-   the elliptical felt is large enough for rim seating + centred piles. */
-body.rummy-ls [data-testid="vegas-palace"] { flex: 1 1 auto; min-height: 38%; padding: 4px 8px; }
-body.rummy-ls .vegas-felt--aaa { border-width: 6px; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: center; }
-body.rummy-ls [data-testid="rummy-players"] { margin-bottom: 4px; gap: 12px; }
+/* ===== Cropped perspective tabletop (trapezoid) — fixed 216px band ===== */
+body.rummy-ls [data-testid="vegas-palace"] {
+  flex: 0 0 auto !important;
+  height: 216px !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  position: relative;
+  background: transparent !important;
+}
+body.rummy-ls .vegas-palace--aaa { background: transparent !important; }
+body.rummy-ls .vegas-felt--aaa {
+  position: absolute !important;
+  left: 3%; right: 3%; top: 4px; bottom: 2px;
+  width: auto !important; height: auto !important;
+  flex: none !important;
+  display: flex; flex-direction: column; justify-content: center;
+  padding-top: 34px;
+  border: 0 !important;
+  border-radius: 0 !important;
+  transform: none !important;
+  /* antique-gold rim = outer fill; crimson felt drawn by ::after inset */
+  background: linear-gradient(180deg, #c59a46 0%, #a87c34 100%) !important;
+  box-shadow: 0 14px 30px rgba(0,0,0,0.5) !important;
+  clip-path: polygon(19% 0%, 81% 0%, 99% 100%, 1% 100%);
+}
+body.rummy-ls .vegas-felt--aaa::after {
+  content: "";
+  position: absolute; inset: 4px;
+  clip-path: polygon(19% 0%, 81% 0%, 99% 100%, 1% 100%);
+  background: radial-gradient(130% 100% at 50% 22%, #611523 0%, #430f1a 52%, #2c0a11 100%) !important;
+  border: 0 !important;
+  box-shadow: inset 0 12px 34px rgba(0,0,0,0.45), inset 0 -8px 24px rgba(0,0,0,0.35) !important;
+  z-index: 0;
+}
 
-/* Play area holds the hand tray + sticky action bar; capped + scrollable so it
-   never eats the table, and the action bar stays pinned at the bottom. */
-body.rummy-ls .rummy-playarea { flex: 0 0 auto; max-height: 46%; }
+/* Play area: player hand (~72px) + action bar (~46px), no scroll, pinned. */
+body.rummy-ls .rummy-playarea { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: flex-end; max-height: none; }
 
 /* Compass-point seats around the elliptical felt (Figma landscape frame):
    the seat container overlays the felt and each seat is absolutely placed by
@@ -485,37 +514,17 @@ body.rummy-ls .rummy-canvas-title { font-size: 13px; letter-spacing: 0.12em; }
 body.rummy-ls .rummy-cluster { padding-top: 22px; }
 body.rummy-ls .rummy-cluster__label { font-size: 8px; padding: 1px 5px; top: 3px; }
 
-/* Compact premium table: cap the PALACE so the elliptical felt is compact and
-   the whole antique-gold rim stays inside the screen; seats then align to the
-   rim. Gentle curved perspective (not a big flat oval). */
-body.rummy-ls [data-testid="vegas-palace"] {
-  flex: 0 0 auto !important;
-  height: min(54%, 196px) !important;
-  min-height: 0 !important;
-  padding: 2px 16px !important;
-  display: flex; align-items: center; justify-content: center;
-}
-body.rummy-ls .vegas-felt--aaa {
-  flex: 0 0 auto !important;
-  width: min(100%, 600px) !important;
-  height: 100% !important;
-  min-height: 0 !important;
-  margin: 0 auto !important;
-  border-radius: 48% / 44%;
-  border-width: 6px;
-  transform: perspective(820px) rotateX(6deg);
-  transform-origin: center 44%;
-}
-body.rummy-ls .vegas-felt--aaa::after { inset: 6px; border-radius: 46% / 42%; }
-/* Seat slots hug the compact felt rim: opponent inside the top, you at bottom. */
-body.rummy-ls [data-slot="top-center"] { top: 13%; }
-body.rummy-ls [data-slot="bottom-center"] { top: 99%; }
+/* Seat slots on the trapezoid tabletop: opponent inside the narrow back edge,
+   local player just above the front edge (above the hand). */
+body.rummy-ls [data-slot="top-center"] { top: 15%; }
+body.rummy-ls [data-slot="bottom-center"] { top: 97%; }
 
-/* Seat turn-timer chip (opponent shows it at the top-centre seat). */
-.rummy-seat__timer {
+/* Seat turn-timer chip — compact, inline inside the seat pill (mobile only). */
+body.rummy-ls .rummy-seat__sub { display: inline-flex; align-items: center; gap: 5px; }
+body.rummy-ls .rummy-seat__timer {
   display: inline-flex; align-items: center;
-  margin-top: 2px; padding: 0 7px; border-radius: 9999px;
-  font-size: 10px; font-weight: 900; line-height: 1.5;
+  padding: 0 6px; border-radius: 9999px;
+  font-size: 9px; font-weight: 900; line-height: 1.6;
   background: var(--r-gold, #e9c667); color: #201203;
 }
 
