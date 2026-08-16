@@ -508,45 +508,39 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
   body:not(.rummy-ls) .rummy-shell {
     height: 100dvh;
     max-height: 100dvh;
-    max-width: min(1280px, 96vw);
+    max-width: min(1180px, 96vw);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-top: 10px;
-    padding-bottom: 10px;
+    padding-top: 8px;
+    padding-bottom: 8px;
   }
-  body:not(.rummy-ls) .rummy-header { flex: 0 0 auto; margin-bottom: 8px; }
+  body:not(.rummy-ls) .rummy-header { flex: 0 0 auto; margin-bottom: 6px; }
   body:not(.rummy-ls) [data-testid="rummy-match-hud"],
   body:not(.rummy-ls) [data-testid="rummy-start"] { flex: 0 0 auto; }
-  /* Table region grows to fill the gap between header and the bottom controls;
-     the felt sits at its bottom edge and the room shows above it. */
+  /* Table region fills the gap between header and controls; the felt is CENTRED
+     so the room + chandelier show ABOVE it and a small gap sits below it before
+     the hand (Figma 2P frame 19:62 — NOTHING overlaps). */
   body:not(.rummy-ls) .vegas-palace--aaa {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: center;
     overflow: hidden;
     padding: 0 !important;
   }
-  /* Host sits at the LEFT and OVERLAPS the felt's near-left (z-index:8 > felt);
-     the felt stays centred in the room so its right side is never clipped. */
   body:not(.rummy-ls) .vegas-palace--hosted { padding-left: 0 !important; }
-  /* Hand tray + action bar: fixed-height bottom stack that OVERLAPS the felt's
-     near edge (Figma: hand y=684 over a table that runs past y=780). */
+  /* Controls: ONE-row hand + 6-button action bar; fixed-height bottom stack that
+     does NOT overlap the felt and leaves NO permanent chrome below it. */
   body:not(.rummy-ls) .rummy-playarea {
     flex: 0 0 auto;
     position: relative;
     z-index: 20;
-    margin-top: calc(-1 * min(5vh, 46px));
+    margin: 6px auto 0;
     width: 100%;
     max-width: 900px;
-    margin-left: auto;
-    margin-right: auto;
   }
-  /* Provably-fair panel keeps its place below the action bar; the table region
-     (flex:1) absorbs its height so it can never push the controls off-screen. */
-  body:not(.rummy-ls) [data-testid="rummy-fairness"] { flex: 0 0 auto; margin-top: 10px; }
   body:not(.rummy-ls) [data-testid="vegas-palace"] { position: relative; }
   /* Host cutout sits IN FRONT of the enlarged felt (desktop only); mobile keeps
      its baked-in room host untouched. Also swap the desktop room to the
@@ -559,7 +553,7 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
     position: absolute;
     left: 0;
     bottom: 0;
-    height: 98%;
+    height: 90%;
     width: auto;
     z-index: 8;
     filter: drop-shadow(0 12px 28px rgba(0,0,0,0.55));
@@ -586,27 +580,24 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
   body:not(.rummy-ls) .rummy-seat__nm { max-width: 108px; font-size: 13px; }
   body:not(.rummy-ls) .rummy-seat__sub { font-size: 11px; color: rgba(233,198,103,0.85); }
   body:not(.rummy-ls) .vegas-felt--aaa {
-    /* One-line tunable perspective tilt + bleed for the table SURFACE (frame
-       32:593). Dial --rummy-felt-tilt / --rummy-felt-bleed to taste. */
-    --rummy-felt-tilt: 12deg;
-    --rummy-felt-perspective: 1400px;
-    --rummy-felt-bleed: min(15vh, 132px);
-    width: min(62vw, 980px);
-    height: min(52vh, 470px);
+    /* One-line tunable perspective tilt. Felt is a FULL oval at ~56vh but CAPPED
+       so it always fits the flex column → its contents are never clipped and the
+       action bar is never pushed off-screen. NO bleed (Figma 2P frame 19:62). */
+    --rummy-felt-tilt: 13deg;
+    --rummy-felt-perspective: 1350px;
+    width: min(64vw, 1000px);
+    height: min(56vh, calc(100dvh - 300px));
+    min-height: 300px;
     max-width: 100%;
     margin: 0;
-    /* near edge bleeds off the bottom of the table region (occluded by the hand
-       tray); padding-bottom keeps the piles + turn pill in the VISIBLE upper
-       area rather than centring them into the bled-off portion. */
-    margin-bottom: calc(-1 * var(--rummy-felt-bleed));
-    padding: 0 0 var(--rummy-felt-bleed) 0;
+    padding: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
     position: relative;
     /* felt visual moves to ::before/::after so only the SURFACE tilts */
     perspective: var(--rummy-felt-perspective);
-    perspective-origin: 50% 8%;
+    perspective-origin: 50% 12%;
     overflow: visible;
     background: transparent;
     border-color: transparent;
@@ -655,14 +646,60 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
     pointer-events: auto;
     transform: translate(-50%, -50%);
   }
-  body:not(.rummy-ls) [data-slot="top-center"]    { left: 50%; top: 13%; }
-  body:not(.rummy-ls) [data-slot="top-left"]      { left: 27%; top: 15%; }
-  body:not(.rummy-ls) [data-slot="top-right"]     { left: 73%; top: 15%; }
-  body:not(.rummy-ls) [data-slot="left-mid"]      { left: 12%; top: 38%; }
-  body:not(.rummy-ls) [data-slot="right-mid"]     { left: 88%; top: 38%; }
-  body:not(.rummy-ls) [data-slot="bottom-center"] { left: 50%; top: 60%; }
+  body:not(.rummy-ls) [data-slot="top-center"]    { left: 50%; top: 5%; }
+  body:not(.rummy-ls) [data-slot="top-left"]      { left: 24%; top: 9%; }
+  body:not(.rummy-ls) [data-slot="top-right"]     { left: 76%; top: 9%; }
+  body:not(.rummy-ls) [data-slot="left-mid"]      { left: 9%; top: 46%; }
+  body:not(.rummy-ls) [data-slot="right-mid"]     { left: 91%; top: 46%; }
+  body:not(.rummy-ls) [data-slot="bottom-center"] { left: 50%; top: 95%; }
 
-  /* Hand row + action bar as a centred column proportional to the table. */
-  body:not(.rummy-ls) .rummy-playarea { max-width: 860px; margin-left: auto; margin-right: auto; }
-  body:not(.rummy-ls) [data-testid="rummy-hand-tray"] > div { justify-content: center; }
+  /* Hand is ONE row (nowrap; scrolls horizontally only if very wide) — grouping
+     never spawns a second row, so the layout height is constant. */
+  body:not(.rummy-ls) [data-testid="rummy-hand-tray"] .rummy-hand-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    justify-content: center;
+  }
 }
+
+
+/* ===== Inline meld clusters (single hand row) =====
+   Grouped cards render as spaced clusters WITHIN the one hand row — never a
+   second row — separated by a gap, a coloured underline and a small inline
+   valid/invalid marker. Applies at all breakpoints so grouping never changes
+   the page height. */
+.rummy-cluster {
+  position: relative;
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 3px;
+  margin: 0 8px;
+  padding: 6px 4px 3px;
+  border-bottom: 2px solid transparent;
+  border-radius: 6px;
+}
+.rummy-cluster--ok  { border-bottom-color: rgba(52,211,153,0.85); background: rgba(52,211,153,0.06); }
+.rummy-cluster--bad { border-bottom-color: rgba(244,63,94,0.7);  background: rgba(244,63,94,0.05); }
+.rummy-cluster__badge {
+  position: absolute; top: -7px; left: -6px; z-index: 2;
+  display: grid; place-items: center;
+  width: 16px; height: 16px; border-radius: 9999px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+.rummy-cluster--ok  .rummy-cluster__badge { background: #10b981; color: #04120c; }
+.rummy-cluster--bad .rummy-cluster__badge { background: #f43f5e; color: #1a0308; }
+.rummy-cluster__add {
+  align-self: center; margin-left: 2px;
+  border-radius: 9999px; background: rgba(233,198,103,0.92); color: #201203;
+  font-size: 10px; font-weight: 900; padding: 2px 7px; white-space: nowrap;
+}
+/* Compact on-demand Declare Helper toggle — a small chip pinned to the hand
+   tray's top edge, so it never occupies a permanent full-width bar. */
+.rummy-helper-chip {
+  position: absolute; top: -11px; right: 12px; z-index: 12;
+  border-radius: 9999px; border: 1px solid rgba(233,198,103,0.45);
+  background: rgba(8,4,6,0.9); color: var(--r-gold, #e9c667);
+  font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.1em;
+  padding: 3px 11px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+.rummy-helper-chip:hover { background: rgba(233,198,103,0.15); }

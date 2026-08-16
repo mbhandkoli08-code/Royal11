@@ -572,37 +572,38 @@ export default function RummyTable({ tableId, onLeave }) {
         {/* Play area — clean by default: hand tray + 6-button action bar.
             The declare-validation aids live in an optional collapsible helper. */}
         {playing && (
-          <div className="rummy-playarea mt-5">
+          <div className="rummy-playarea relative mt-5">
             {/* Hand tray — fanned, glossy (ungrouped cards) */}
-            <div className="rounded-2xl border border-[var(--r-gold)]/20 bg-black/40 p-3 shadow-inner" data-testid="rummy-hand-tray">
-              <div className="flex flex-wrap items-end gap-1.5">
-                {trayCards.length ? (handSorted ? bySuit(trayCards) : trayCards).map((c) => (
-                  <RCard key={c.id} card={c} rich selected={selected.includes(c.id)} onClick={() => toggle(c.id)} />
-                )) : <span className="text-xs text-white/30">{groups.length ? "All cards are in groups below" : "No cards"}</span>}
-              </div>
-            </div>
-
-            {/* Group lanes — ALWAYS visible whenever the player has grouped cards,
-                so a player can always see & interact with every card in their hand. */}
-            {groups.length > 0 && (
-              <div className="mt-3 space-y-2" data-testid="rummy-groups">
+            <div className="rummy-hand-tray relative rounded-2xl border border-[var(--r-gold)]/20 bg-black/40 p-3 shadow-inner" data-testid="rummy-hand-tray">
+              {/* ONE row: grouped clusters + ungrouped cards. Grouping never adds a
+                  second row — clusters are spaced inline with an outline + inline
+                  valid/invalid marker, so the layout height stays constant. */}
+              <div className="rummy-hand-row flex items-end gap-1.5">
                 {groups.map((g, gi) => {
                   const info = groupInfos[gi];
-                  const color = info.type === "pure_seq" ? "text-emerald-300 border-emerald-400/40" : info.type === "impure_seq" ? "text-sky-300 border-sky-400/40" : info.type === "set" ? "text-violet-300 border-violet-400/40" : "text-rose-300 border-rose-400/40";
                   return (
-                    <div key={gi} className={`rounded-2xl border bg-white/[0.03] p-2 ${color}`} data-testid={`rummy-group-${gi}`}>
-                      <div className="mb-1.5 flex items-center justify-between px-1 text-[11px] font-black">
-                        <span className="inline-flex items-center gap-1">{info.valid ? <Check className="h-3.5 w-3.5" /> : <X className="h-3.5 w-3.5" />} {info.label}</span>
-                        <button onClick={() => addTo(gi)} disabled={!selected.length} className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] text-white/70 disabled:opacity-30">+ add</button>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {g.map((id) => byId[id] && <RCard key={id} card={byId[id]} small onClick={() => pullOut(id)} />)}
-                      </div>
+                    <div key={`grp${gi}`} data-testid={`rummy-group-${gi}`} title={info.label}
+                      className={`rummy-cluster ${info.valid ? "rummy-cluster--ok" : "rummy-cluster--bad"}`}>
+                      <span className="rummy-cluster__badge" data-testid={`rummy-group-badge-${gi}`}>
+                        {info.valid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
+                      </span>
+                      {g.map((id) => byId[id] && <RCard key={id} card={byId[id]} rich onClick={() => pullOut(id)} />)}
+                      {selected.length > 0 && (
+                        <button data-testid={`rummy-group-add-${gi}`} onClick={() => addTo(gi)}
+                          className="rummy-cluster__add">+{selected.length}</button>
+                      )}
                     </div>
                   );
                 })}
+                {(handSorted ? bySuit(trayCards) : trayCards).map((c) => (
+                  <RCard key={c.id} card={c} rich selected={selected.includes(c.id)} onClick={() => toggle(c.id)} />
+                ))}
+                {!trayCards.length && !groups.length && <span className="text-xs text-white/30">No cards</span>}
               </div>
-            )}
+              {/* On-demand declare helper — compact chip, never a permanent bar. */}
+              <button data-testid="rummy-helper-toggle" onClick={() => setShowHelper((s) => !s)}
+                className="rummy-helper-chip">{showHelper ? "Hide helper" : "Helper"}</button>
+            </div>
 
             {/* Action bar — DRAW / DISCARD / SORT / GROUP / DROP / DECLARE */}
             <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6" data-testid="rummy-action-bar">
@@ -619,16 +620,11 @@ export default function RummyTable({ tableId, onLeave }) {
               <button data-testid="rummy-declare" onClick={doDeclare} disabled={!myTurn || !drawDone || !evalResult.canDeclare || busy}
                 className="flex items-center justify-center gap-1.5 rounded-2xl bg-[var(--r-gold)] py-3 text-sm font-black text-black transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Trophy className="h-4 w-4" /> Declare</button>
             </div>
-            {!myTurn && <p className="mt-2 text-center text-xs text-white/40" data-testid="rummy-wait-turn">Waiting for your turn…</p>}
-
-            {/* Optional Declare Helper — validation checklist + create-group affordance
-                (collapsed by default; grouped cards themselves always show above). */}
-            <button data-testid="rummy-helper-toggle" onClick={() => setShowHelper((s) => !s)}
-              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2 text-[11px] font-bold uppercase tracking-widest text-white/50 hover:bg-white/5">
-              <Layers className="h-3.5 w-3.5" /> {showHelper ? "Hide" : "Show"} Declare Helper
-            </button>
+            {/* Declare Helper — absolute overlay above the action bar; opening it
+                NEVER changes the layout height (no permanent bar). */}
             {showHelper && (
-              <div className="mt-3" data-testid="rummy-declare-helper">
+              <div data-testid="rummy-declare-helper"
+                className="rummy-helper-pop absolute bottom-full left-0 right-0 z-30 mb-2 rounded-2xl border border-white/10 bg-[#160a0c]/95 p-3 shadow-2xl backdrop-blur">
                 <div className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-bold" data-testid="rummy-checklist">
                   <Chip ok={evalResult.checklist.pure} label="Pure Sequence" />
                   <Chip ok={evalResult.checklist.twoSeq} label="2 Sequences" />
@@ -642,15 +638,9 @@ export default function RummyTable({ tableId, onLeave }) {
           </div>
         )}
 
-        {/* Provably fair */}
-        {round?.commit_hash && (
-          <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4" data-testid="rummy-fairness">
-            <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white/50"><ShieldCheck className="h-4 w-4 text-emerald-400" /> Provably Fair</p>
-            <p className="mt-2 break-all font-mono text-[10px] text-white/40">commit: {round.commit_hash}</p>
-            {settled && <button data-testid="rummy-verify-btn" onClick={runVerify} disabled={busy} className="mt-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-xs font-bold text-emerald-300">Verify this deal</button>}
-            {verify && <p className={`mt-2 text-[11px] font-bold ${verify.recomputed_matches ? "text-emerald-300" : "text-rose-300"}`} data-testid="rummy-verify-result">{verify.recomputed_matches ? "Verified \u2014 the shuffle matches the pre-committed hash" : "Mismatch"}</p>}
-          </div>
-        )}
+        {/* Provably-fair details live inside the Info popover (never a permanent
+            panel in the play view). */}
+
       </div>
 
       {/* Drop confirm */}
@@ -705,6 +695,14 @@ export default function RummyTable({ tableId, onLeave }) {
               <div className="flex justify-between"><dt className="text-white/50">Seats</dt><dd className="font-bold">{players.length}/{state.max_players ?? state.config?.max_players ?? players.length}</dd></div>
               <div className="flex justify-between"><dt className="text-white/50">Provably fair</dt><dd className="font-bold text-emerald-300">Server-shuffled</dd></div>
             </dl>
+            {round?.commit_hash && (
+              <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3" data-testid="rummy-fairness-info">
+                <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-white/50"><ShieldCheck className="h-3.5 w-3.5 text-emerald-400" /> Provably Fair</p>
+                <p className="mt-1.5 break-all font-mono text-[10px] text-white/40">commit: {round.commit_hash}</p>
+                {settled && <button data-testid="rummy-verify-btn" onClick={runVerify} disabled={busy} className="mt-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-xs font-bold text-emerald-300">Verify this deal</button>}
+                {verify && <p className={`mt-2 text-[11px] font-bold ${verify.recomputed_matches ? "text-emerald-300" : "text-rose-300"}`} data-testid="rummy-verify-result">{verify.recomputed_matches ? "Verified \u2014 the shuffle matches the pre-committed hash" : "Mismatch"}</p>}
+              </div>
+            )}
             <p className="mt-3 text-[11px] text-white/40">Cosmetics never affect gameplay. Virtual coins only · no cash value.</p>
             <button data-testid="rummy-info-close" onClick={() => setShowInfo(false)} className="mt-4 w-full rounded-2xl bg-[var(--r-gold)] py-2.5 text-sm font-black text-black">Close</button>
           </div>
