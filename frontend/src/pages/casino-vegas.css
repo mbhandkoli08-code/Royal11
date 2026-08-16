@@ -58,26 +58,36 @@
 .pc-court-rank { line-height: 1; font-weight: 900; letter-spacing: -1px; text-shadow: 0 1px 1px rgba(0,0,0,0.18); }
 .pc-court-suit { line-height: 1; margin-top: 1px; }
 
-/* Court-card corner index — a crisp ivory chip carrying a LARGE rank over its
-   suit (correct colour), overlaid on the character art so J/Q/K are instantly
-   readable at gameplay size and the small baked-in corner is covered. */
-.pc-courtimg { overflow: hidden; }
+/* Court-card corner index — one compact rank over its suit (correct colour) in
+   the upper-left; portrait shifted down so it never overlaps. No mirror index. */
+.pc-court-card { overflow: hidden; }
 .pc-court-idx {
   position: absolute;
+  top: 6%;
+  left: 8%;
   z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
-  line-height: 0.8;
+  line-height: 0.82;
   font-weight: 900;
-  padding: 1px 4px 2px;
-  border-radius: 6px;
-  background: rgba(255, 251, 243, 0.94);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 1px rgba(255, 255, 255, 0.7);
 }
 .pc-court-idx b { font-weight: 900; letter-spacing: -0.5px; }
-.pc-court-idx-tl { top: 3.5%; left: 5%; }
-.pc-court-idx-br { bottom: 3.5%; right: 5%; transform: rotate(180deg); }
+.pc-court-portrait {
+  position: absolute;
+  top: 20%;
+  left: 6%;
+  right: 6%;
+  bottom: 4%;
+  width: auto;
+  height: auto;
+  object-fit: cover;
+  object-position: center top;
+  border-radius: 6px;
+  display: block;
+  z-index: 2;
+}
 
 /* ---- Branded card back ---- */
 .pc-back {

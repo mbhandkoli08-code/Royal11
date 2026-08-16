@@ -92,23 +92,18 @@ export function PlayingCard({ card, code, faceDown, size = "sm", selected, onCli
     const layout = PIP_LAYOUT[c.rank];
 
     if (isCourt) {
-      // Approved ROYAL 11 court-card face — single-character artwork (already an
-      // ivory card with gold edge & rounded corners). We overlay a large, clear
-      // corner index (rank over suit, correct colour) so the card is instantly
-      // identifiable at gameplay size (the baked-in corner marks are too small).
-      const rf = cf * 1.18;
+      // Approved ROYAL 11 court card: component-drawn ivory frame + gold edge,
+      // ONE compact top-left index (rank over suit, correct colour), and the
+      // approved character portrait shifted DOWN so it never overlaps the rank.
+      // No mirrored bottom-right index.
       inner = (
-        <span className={`pc pc-courtimg${richCls}`} style={dim} data-testid="playing-card">
-          <img src={COURT_CARD_SRC(c.rank, c.suit)} alt={`${rankLabel(c.rank)}${suitSym}`} draggable="false"
-            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, display: "block" }} />
-          <span className={`pc-court-idx pc-court-idx-tl ${colorCls}`}>
-            <b style={{ fontSize: rf + "rem" }}>{rankLabel(c.rank)}</b>
-            <span style={{ fontSize: cf * 0.98 + "rem" }}>{suitSym}</span>
+        <span className={`pc pc-face pc-court-card ${colorCls}${richCls}`} style={dim} data-testid="playing-card">
+          <span className="pc-court-idx">
+            <b style={{ fontSize: w * 0.26 + "px" }}>{rankLabel(c.rank)}</b>
+            <span style={{ fontSize: w * 0.2 + "px" }}>{suitSym}</span>
           </span>
-          <span className={`pc-court-idx pc-court-idx-br ${colorCls}`}>
-            <b style={{ fontSize: rf + "rem" }}>{rankLabel(c.rank)}</b>
-            <span style={{ fontSize: cf * 0.98 + "rem" }}>{suitSym}</span>
-          </span>
+          <img className="pc-court-portrait" src={COURT_CARD_SRC(c.rank, c.suit)}
+            alt={`${rankLabel(c.rank)}${suitSym}`} draggable="false" />
         </span>
       );
     } else {
