@@ -15,8 +15,7 @@ export const ROYAL_JOKER_AVATAR =
   "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/d92c53d5408bd554d15aba521b4a17958cedca527bfe5d37a4da64b9c8337bb1.jpeg";
 
 // AAA "Royal Table Experience" (Figma phase-2). Photoreal room, V2 card back, host.
-export const AAA_ROOM_BG =
-  "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/2d99cc04193b497f0a402d61ceaa748fec25f551a0776e139de0d9bac9231dd3.jpeg";
+export const AAA_ROOM_BG = "/assets/royal11/room-bg.png";
 
 export const CARD_BACK_V2 =
   "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/83db25390fd5a8c06a9414fabe794b57250ccc6d55fc46a320ef139a422c7946.jpeg";
@@ -24,16 +23,16 @@ export const CARD_BACK_V2 =
 export const ROYAL_HOST_V2 =
   "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/4175b03ae48aeb3455db5b63393d6ce1d0a4c3da7d808b33b399ae0dddd89d9c.jpeg";
 
-// AAA "host-visible" room variant — ornate room with the CORRECT Rummy host
-// (Figma "AAA RUMMY + ROYAL HOST", node 32:593): dark wavy hair, maroon-velvet
-// V-neck outfit with gold embroidery, understated jewelry. (Replaces the earlier
-// red-bridal-lehenga character, which belonged to a different project.)
-export const AAA_ROOM_HOST =
-  "https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/5f03b0822e1ab0563115a67540593158a56d8d04190ab6ba3ec93b5fe7edae30.jpeg";
+// ---- Approved ROYAL 11 asset pack (uploaded PNGs, stored under public) ------
+export const ROYAL11_LOGO = "/assets/royal11/logo.png";            // transparent wordmark
+export const ROYAL_JOKER_ASSISTANT = "/assets/royal11/joker-assistant.png"; // round chatbot mascot
+export const ROYAL_JOKER_CARD_IMG = "/assets/royal11/joker-card.png";       // centre Joker pile
 
-// Transparent-background CUTOUT of the same maroon-velvet host — rendered as a
-// layer IN FRONT of the enlarged felt (Figma node 32:593) so she sits AT the
-// table with her forearms over the felt, instead of being hidden behind it.
-export const ROYAL_HOST_CUTOUT = "/rummy_host_cutout.png";
+// VIP room WITH the approved host baked into the scene ("visible-host layout").
+export const AAA_ROOM_HOST = "/assets/royal11/room-host.png";
+
+// The uploaded room-host already contains the host, so no separate cutout layer
+// is overlaid (kept null to avoid a duplicate host).
+export const ROYAL_HOST_CUTOUT = null;
 
 

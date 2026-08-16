@@ -570,12 +570,9 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
     padding: 0 12px;
   }
   body:not(.rummy-ls) [data-testid="vegas-palace"] { position: relative; }
-  /* Host cutout sits IN FRONT of the enlarged felt (desktop only); mobile keeps
-     its baked-in room host untouched. Also swap the desktop room to the
-     host-less variant so the host never doubles up. */
-  body:not(.rummy-ls) .vegas-palace--hosted {
-    background-image: url("https://static.prod-images.emergentagent.com/jobs/2089563f-7946-482c-bbad-1a5b016d32c2/images/2d99cc04193b497f0a402d61ceaa748fec25f551a0776e139de0d9bac9231dd3.jpeg") !important;
-  }
+  /* Desktop room background = the approved uploaded VIP room art (with host baked
+     in when Host is on). Uses the inline backgroundImage from the AAA_ROOM_*
+     constants — no hard-coded override here. object-fit:cover via background-size. */
   body:not(.rummy-ls) .rummy-host-layer {
     display: block;
     position: absolute;
@@ -636,7 +633,7 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
      a centre spotlight and a heavy ornate bronze/gold rim. Perspective tilt is
      applied to this graphic only (--rummy-felt-tilt), so all UI stays upright. */
   body:not(.rummy-ls) .rummy-aaa-felt {
-    display: block;
+    display: none;
     position: absolute;
     left: -100px;
     right: -100px;
@@ -690,6 +687,25 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
 /* AAA crimson felt graphic is desktop-only; hidden by default (mobile-landscape
    keeps its own baked room table untouched). */
 .rummy-aaa-felt { display: none; }
+
+/* Round Joker assistant — bottom-left of the scene, clear of DECLARE. */
+.rummy-joker-assistant {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  width: 92px;
+  height: 92px;
+  z-index: 16;
+  border-radius: 9999px;
+  overflow: hidden;
+  border: 2px solid rgba(233,198,103,0.6);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.55);
+  background: rgba(8,4,6,0.4);
+  transition: transform 0.2s ease;
+}
+.rummy-joker-assistant:hover { transform: translateY(-2px) scale(1.04); }
+/* Hide the full assistant on compact landscape phones. */
+body.rummy-ls .rummy-joker-assistant { display: none; }
 
 /* ===== Inline meld clusters (single hand row) =====
    Grouped cards render as spaced clusters WITHIN the one hand row — never a

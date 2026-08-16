@@ -12,7 +12,7 @@ import { ReferAndEarn } from "@/components/ReferAndEarn";
 import { DailyBonusWidget } from "@/components/DailyBonusWidget";
 import { PlayingCard } from "@/components/PlayingCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
-import { AAA_ROOM_BG, AAA_ROOM_HOST, ROYAL_HOST_CUTOUT } from "@/lib/casinoAssets";
+import { AAA_ROOM_BG, AAA_ROOM_HOST, ROYAL_HOST_CUTOUT, ROYAL_JOKER_ASSISTANT, ROYAL_JOKER_CARD_IMG } from "@/lib/casinoAssets";
 import { WinCelebration, Scoreboard, LowChipsPopup } from "@/components/casino/OrnatePopups";
 import { ClaimWinModal, RedeemCoinsModal } from "@/components/casino/CoinFlow";
 
@@ -402,8 +402,11 @@ export default function RummyTable({ tableId, onLeave }) {
         {/* Header — ROYAL 11 wordmark · coins+add · text links · icon row (VIP/Rewards/Sound/Settings) */}
         <div className="rummy-header mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p data-testid="rummy-wordmark" className="font-display text-2xl font-black leading-none tracking-tight text-[var(--r-gold)] sm:text-3xl" style={{ textShadow: "0 2px 12px rgba(233,198,103,0.35)" }}>
-              ROYAL <span className="text-white">11</span>
+            <p data-testid="rummy-wordmark" className="flex items-center gap-2 leading-none">
+              <Crown className="h-6 w-6 shrink-0 text-[var(--r-gold)] sm:h-7 sm:w-7" style={{ filter: "drop-shadow(0 2px 8px rgba(233,198,103,0.45))" }} strokeWidth={2.25} />
+              <span className="font-display text-lg font-black uppercase leading-none tracking-[0.14em] sm:text-xl" style={{ color: "var(--r-gold)", textShadow: "0 2px 10px rgba(233,198,103,0.35)" }}>
+                R11 <span className="text-white/90">RUMMY</span>
+              </span>
             </p>
             <p className="mt-1 flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/55 sm:text-[11px]">
               <span data-testid="rummy-variant-label">{variantLabel}</span>
@@ -518,13 +521,16 @@ export default function RummyTable({ tableId, onLeave }) {
         {/* AAA Royal Table room + host + table */}
         <div className={`vegas-palace vegas-palace--aaa relative p-3 sm:p-5 ${hostOn ? "vegas-palace--hosted" : ""}`} style={{ backgroundImage: `url(${hostOn ? AAA_ROOM_HOST : AAA_ROOM_BG})` }} data-testid="vegas-palace">
           <div className="vegas-chandelier" />
-          {/* AAA felt — a CSS-drawn crimson velvet table that BLEEDS off the
-              left/right/bottom edges (Figma frame 32:593). Kept CSS-drawn (not a
-              baked image) so the MY TABLE theme can recolour it later. It is a
-              pure graphic behind all UI; every control stays in the safe area. */}
-          <div className="rummy-aaa-felt" aria-hidden="true" data-testid="rummy-aaa-felt" />
-          {hostOn && <img src={ROYAL_HOST_CUTOUT} alt="" aria-hidden="true" className="rummy-host-layer pointer-events-none select-none" />}
+          {/* The approved room art already contains the crimson table, so the
+              CSS felt graphic is disabled here (avoids a double table). */}
+          {hostOn && ROYAL_HOST_CUTOUT && <img src={ROYAL_HOST_CUTOUT} alt="" aria-hidden="true" className="rummy-host-layer pointer-events-none select-none" />}
           <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 select-none font-display text-xs font-black uppercase tracking-[0.35em] text-[var(--r-gold)]/45 sm:text-sm" data-testid="rummy-backwall">{variantLabel}</span>
+          {/* Round Joker assistant — bottom-LEFT corner, kept well away from the
+              DECLARE control (which sits bottom-right). Hidden on compact. */}
+          <button type="button" data-testid="rummy-joker-assistant" onClick={() => setShowInfo(true)}
+            title="Joker Assistant" className="rummy-joker-assistant">
+            <img src={ROYAL_JOKER_ASSISTANT} alt="Joker Assistant" className="h-full w-full object-contain" />
+          </button>
           <div className="vegas-felt vegas-felt--red vegas-felt--aaa relative overflow-hidden p-4 pt-5 shadow-2xl">
           <div className="vegas-spotlight" />
           <div className="relative z-10 mb-3 flex flex-wrap items-start justify-center gap-6" data-testid="rummy-players">
@@ -574,8 +580,8 @@ export default function RummyTable({ tableId, onLeave }) {
                 <p className="pile-label">Discard</p>
               </div>
               <div className="text-center">
-                <div className="pile-slot grid place-items-center">
-                  <RCard card={{ ...(round.wild.code === "JK" ? { joker: true, id: "wild" } : { id: "wild", code: round.wild.code, rank: round.wild.code[0], suit: round.wild.code[1] }) }} plain rich />
+                <div className="pile-slot grid place-items-center overflow-hidden">
+                  <img src={ROYAL_JOKER_CARD_IMG} alt="Joker" data-testid="rummy-joker-card" className="h-[84px] w-auto rounded-md object-contain shadow-lg" />
                 </div>
                 <p className="pile-label">Joker</p>
               </div>
