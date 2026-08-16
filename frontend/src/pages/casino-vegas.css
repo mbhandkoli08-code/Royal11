@@ -487,3 +487,11 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
 @media (min-width: 1280px) {
   body:not(.rummy-ls) .vegas-felt--aaa { max-width: 480px; }
 }
+
+/* Desktop: keep the hand row + action bar as a centred column proportional to
+   the now-compact felt above (instead of a full-width row with the 13 cards
+   huddled to the left). Scoped to `body:not(.rummy-ls)` so phones are untouched. */
+@media (min-width: 768px) {
+  body:not(.rummy-ls) .rummy-playarea { max-width: 760px; margin-left: auto; margin-right: auto; }
+  body:not(.rummy-ls) [data-testid="rummy-hand-tray"] > div { justify-content: center; }
+}
