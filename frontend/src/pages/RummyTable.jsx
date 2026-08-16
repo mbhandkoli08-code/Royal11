@@ -481,6 +481,11 @@ export default function RummyTable({ tableId, onLeave }) {
         {/* AAA Royal Table room + host + table */}
         <div className={`vegas-palace vegas-palace--aaa relative p-3 sm:p-5 ${hostOn ? "vegas-palace--hosted" : ""}`} style={{ backgroundImage: `url(${hostOn ? AAA_ROOM_HOST : AAA_ROOM_BG})` }} data-testid="vegas-palace">
           <div className="vegas-chandelier" />
+          {/* AAA felt — a CSS-drawn crimson velvet table that BLEEDS off the
+              left/right/bottom edges (Figma frame 32:593). Kept CSS-drawn (not a
+              baked image) so the MY TABLE theme can recolour it later. It is a
+              pure graphic behind all UI; every control stays in the safe area. */}
+          <div className="rummy-aaa-felt" aria-hidden="true" data-testid="rummy-aaa-felt" />
           {hostOn && <img src={ROYAL_HOST_CUTOUT} alt="" aria-hidden="true" className="rummy-host-layer pointer-events-none select-none" />}
           <span className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2 select-none font-display text-xs font-black uppercase tracking-[0.35em] text-[var(--r-gold)]/45 sm:text-sm" data-testid="rummy-backwall">{variantLabel}</span>
           <div className="vegas-felt vegas-felt--red vegas-felt--aaa relative overflow-hidden p-4 pt-5 shadow-2xl">
@@ -581,12 +586,16 @@ export default function RummyTable({ tableId, onLeave }) {
               <div className="rummy-hand-row flex items-end gap-1.5">
                 {groups.map((g, gi) => {
                   const info = groupInfos[gi];
+                  const mod = !info.valid ? "rummy-cluster--bad" : info.type === "pure_seq" ? "rummy-cluster--pure" : "rummy-cluster--ok";
                   return (
                     <div key={`grp${gi}`} data-testid={`rummy-group-${gi}`} title={info.label}
-                      className={`rummy-cluster ${info.valid ? "rummy-cluster--ok" : "rummy-cluster--bad"}`}>
-                      <span className="rummy-cluster__badge" data-testid={`rummy-group-badge-${gi}`}>
-                        {info.valid ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
-                      </span>
+                      className={`rummy-cluster ${mod}`}>
+                      {info.type !== "empty" && (
+                        <span className="rummy-cluster__label" data-testid={`rummy-group-badge-${gi}`}>
+                          {info.type === "pure_seq" ? <Crown className="h-2.5 w-2.5" /> : info.valid ? <Check className="h-2.5 w-2.5" /> : <X className="h-2.5 w-2.5" />}
+                          {info.label.toUpperCase()}
+                        </span>
+                      )}
                       {g.map((id) => byId[id] && <RCard key={id} card={byId[id]} rich onClick={() => pullOut(id)} />)}
                       {selected.length > 0 && (
                         <button data-testid={`rummy-group-add-${gi}`} onClick={() => addTo(gi)}

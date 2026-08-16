@@ -508,38 +508,44 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
   body:not(.rummy-ls) .rummy-shell {
     height: 100dvh;
     max-height: 100dvh;
-    max-width: min(1180px, 96vw);
+    max-width: none;
+    width: 100%;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-top: 8px;
-    padding-bottom: 8px;
+    padding: 8px 0;
   }
-  body:not(.rummy-ls) .rummy-header { flex: 0 0 auto; margin-bottom: 6px; }
+  body:not(.rummy-ls) .rummy-header { flex: 0 0 auto; margin-bottom: 6px; padding-left: 22px; padding-right: 22px; }
   body:not(.rummy-ls) [data-testid="rummy-match-hud"],
   body:not(.rummy-ls) [data-testid="rummy-start"] { flex: 0 0 auto; }
-  /* Table region fills the gap between header and controls; the felt is CENTRED
-     so the room + chandelier show ABOVE it and a small gap sits below it before
-     the hand (Figma 2P frame 19:62 — NOTHING overlaps). */
+  /* Table region = the stage. Full-bleed, room bg on top, the CSS felt graphic
+     bleeds off left/right/bottom (overflow visible → the felt runs off the
+     viewport and behind the hand tray). All UI is positioned in the safe area. */
   body:not(.rummy-ls) .vegas-palace--aaa {
+    --rummy-felt-tilt: 17deg;
+    --rummy-felt-perspective: 1400px;
     flex: 1 1 auto;
     min-height: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
+    position: relative;
+    display: block;
+    overflow: visible;
     padding: 0 !important;
+    border-radius: 0;
+    background-size: cover;
+    background-position: center top;
   }
   body:not(.rummy-ls) .vegas-palace--hosted { padding-left: 0 !important; }
-  /* Controls: ONE-row hand + 6-button action bar; fixed-height bottom stack that
-     does NOT overlap the felt and leaves NO permanent chrome below it. */
+  /* Controls: ONE-row hand + 6-button action bar. They OVERLAP the felt's near
+     edge (Figma AAA frame 32:593 — hand/buttons sit over the table surface),
+     but stay entirely in the safe area, unclipped, all six always visible. */
   body:not(.rummy-ls) .rummy-playarea {
     flex: 0 0 auto;
     position: relative;
-    z-index: 20;
-    margin: 6px auto 0;
+    z-index: 30;
+    margin: -2.6vh auto 0;
     width: 100%;
     max-width: 900px;
+    padding: 0 12px;
   }
   body:not(.rummy-ls) [data-testid="vegas-palace"] { position: relative; }
   /* Host cutout sits IN FRONT of the enlarged felt (desktop only); mobile keeps
@@ -580,58 +586,54 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
   body:not(.rummy-ls) .rummy-seat__nm { max-width: 108px; font-size: 13px; }
   body:not(.rummy-ls) .rummy-seat__sub { font-size: 11px; color: rgba(233,198,103,0.85); }
   body:not(.rummy-ls) .vegas-felt--aaa {
-    /* One-line tunable perspective tilt. Felt is a FULL oval at ~56vh but CAPPED
-       so it always fits the flex column → its contents are never clipped and the
-       action bar is never pushed off-screen. NO bleed (Figma 2P frame 19:62). */
-    --rummy-felt-tilt: 13deg;
-    --rummy-felt-perspective: 1350px;
-    width: min(64vw, 1000px);
-    height: min(56vh, calc(100dvh - 300px));
-    min-height: 300px;
-    max-width: 100%;
+    /* Transparent UI container over the LOWER band of the stage (where the felt
+       is). Holds seats/piles/turn; the crimson velvet itself is drawn by
+       .rummy-aaa-felt behind it. Tunable tilt lives here as a variable. */
+    --rummy-felt-tilt: 17deg;
+    --rummy-felt-perspective: 1400px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 26%;
+    bottom: 0;
+    width: auto;
+    height: auto;
     margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    position: relative;
-    /* felt visual moves to ::before/::after so only the SURFACE tilts */
-    perspective: var(--rummy-felt-perspective);
-    perspective-origin: 50% 12%;
+    z-index: 5;
     overflow: visible;
     background: transparent;
-    border-color: transparent;
+    border: 0;
     box-shadow: none;
   }
-  /* Table SURFACE only — tilts into a slight seated-at-the-table perspective
-     (Figma AAA frame 32:593). The felt fill + antique-gold trim live on the
-     ::before / ::after pseudo layers and receive the rotateX. Every interactive
-     element (draw/discard/joker piles + labels, turn pill, both seat pills, names
-     and numbers) is a real child that is NOT transformed — it stays perfectly
-     upright, legible and clickable (no counter-transforms, nothing drifts on
-     resize). Scoped desktop-only; mobile-landscape (body.rummy-ls) untouched. */
-  body:not(.rummy-ls) .vegas-felt--aaa::before {
-    content: "";
+  /* The AAA crimson velvet table — CSS-drawn, oversized ellipse anchored to the
+     bottom that BLEEDS off the left, right and bottom edges. Bright crimson with
+     a centre spotlight and a heavy ornate bronze/gold rim. Perspective tilt is
+     applied to this graphic only (--rummy-felt-tilt), so all UI stays upright. */
+  body:not(.rummy-ls) .rummy-aaa-felt {
+    display: block;
     position: absolute;
-    inset: 0;
+    left: -7vw;
+    right: -7vw;
+    top: 33%;
+    bottom: -26vh;
     z-index: 0;
-    border-radius: 46% / 34%;
-    border: 10px solid #2a1a10;
-    background-image:
-      radial-gradient(120% 90% at 50% 12%, rgba(255,255,255,0.08), transparent 55%),
-      radial-gradient(140% 120% at 50% 120%, rgba(0,0,0,0.62), transparent 60%),
-      linear-gradient(180deg, #7a1420 0%, #5c0e18 45%, #3c070d 100%);
+    border-radius: 50% / 44%;
+    border: 22px solid #462c14;
+    background:
+      radial-gradient(72% 58% at 50% 4%, rgba(255,244,224,0.24), rgba(255,244,224,0) 44%),
+      radial-gradient(125% 105% at 50% 2%, #c22331 0%, #a81c26 32%, #82121b 64%, #560d13 100%);
     box-shadow:
-      inset 0 0 70px rgba(0,0,0,0.6),
-      inset 0 0 0 3px rgba(233,198,103,0.55),
-      0 18px 44px rgba(0,0,0,0.55);
-    transform: rotateX(var(--rummy-felt-tilt));
-    transform-origin: center 50%;
+      inset 0 0 0 3px rgba(233,198,103,0.85),
+      inset 0 0 150px rgba(0,0,0,0.5),
+      0 0 0 3px rgba(176,136,66,0.6),
+      0 -6px 42px rgba(0,0,0,0.5);
+    transform: perspective(var(--rummy-felt-perspective, 1400px)) rotateX(var(--rummy-felt-tilt, 17deg));
+    transform-origin: 50% 12%;
     pointer-events: none;
-  }
-  body:not(.rummy-ls) .vegas-felt--aaa::after {
-    transform: rotateX(var(--rummy-felt-tilt));
-    transform-origin: center 50%;
   }
   /* Seat container overlays the felt; each seat placed by its data-slot. */
   body:not(.rummy-ls) [data-testid="rummy-players"] {
@@ -646,12 +648,12 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
     pointer-events: auto;
     transform: translate(-50%, -50%);
   }
-  body:not(.rummy-ls) [data-slot="top-center"]    { left: 50%; top: 5%; }
-  body:not(.rummy-ls) [data-slot="top-left"]      { left: 24%; top: 9%; }
-  body:not(.rummy-ls) [data-slot="top-right"]     { left: 76%; top: 9%; }
-  body:not(.rummy-ls) [data-slot="left-mid"]      { left: 9%; top: 46%; }
-  body:not(.rummy-ls) [data-slot="right-mid"]     { left: 91%; top: 46%; }
-  body:not(.rummy-ls) [data-slot="bottom-center"] { left: 50%; top: 95%; }
+  body:not(.rummy-ls) [data-slot="top-center"]    { left: 50%; top: 20%; }
+  body:not(.rummy-ls) [data-slot="top-left"]      { left: 26%; top: 26%; }
+  body:not(.rummy-ls) [data-slot="top-right"]     { left: 74%; top: 26%; }
+  body:not(.rummy-ls) [data-slot="left-mid"]      { left: 12%; top: 52%; }
+  body:not(.rummy-ls) [data-slot="right-mid"]     { left: 88%; top: 52%; }
+  body:not(.rummy-ls) [data-slot="bottom-center"] { left: 50%; top: 82%; }
 
   /* Hand is ONE row (nowrap; scrolls horizontally only if very wide) — grouping
      never spawns a second row, so the layout height is constant. */
@@ -662,6 +664,10 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
   }
 }
 
+
+/* AAA crimson felt graphic is desktop-only; hidden by default (mobile-landscape
+   keeps its own baked room table untouched). */
+.rummy-aaa-felt { display: none; }
 
 /* ===== Inline meld clusters (single hand row) =====
    Grouped cards render as spaced clusters WITHIN the one hand row — never a
@@ -674,20 +680,53 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
   align-items: flex-end;
   gap: 3px;
   margin: 0 8px;
-  padding: 6px 4px 3px;
+  padding: 6px 5px 3px;
   border-bottom: 2px solid transparent;
-  border-radius: 6px;
+  border-radius: 7px;
+  transition: box-shadow 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
 }
-.rummy-cluster--ok  { border-bottom-color: rgba(52,211,153,0.85); background: rgba(52,211,153,0.06); }
-.rummy-cluster--bad { border-bottom-color: rgba(244,63,94,0.7);  background: rgba(244,63,94,0.05); }
-.rummy-cluster__badge {
-  position: absolute; top: -7px; left: -6px; z-index: 2;
-  display: grid; place-items: center;
-  width: 16px; height: 16px; border-radius: 9999px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+.rummy-cluster--ok {
+  border-bottom-color: rgba(52,211,153,0.9);
+  background: rgba(52,211,153,0.08);
+  box-shadow: inset 0 0 0 1px rgba(52,211,153,0.4), 0 6px 18px -8px rgba(16,185,129,0.55);
 }
-.rummy-cluster--ok  .rummy-cluster__badge { background: #10b981; color: #04120c; }
-.rummy-cluster--bad .rummy-cluster__badge { background: #f43f5e; color: #1a0308; }
+.rummy-cluster--pure {
+  border-bottom-color: #34d399;
+  background: rgba(52,211,153,0.15);
+  box-shadow: inset 0 0 0 1px rgba(110,231,183,0.75), 0 8px 24px -6px rgba(16,185,129,0.8);
+}
+.rummy-cluster--bad {
+  border-bottom-color: rgba(244,63,94,0.75);
+  background: rgba(244,63,94,0.06);
+  box-shadow: inset 0 0 0 1px rgba(244,63,94,0.32);
+}
+/* Meld label chip — small, sits ON the cluster (top-centre), never its own line. */
+.rummy-cluster__label {
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.55);
+}
+.rummy-cluster--ok .rummy-cluster__label {
+  background: #0f9d63; color: #eafff4; border: 1px solid rgba(52,211,153,0.6);
+}
+.rummy-cluster--pure .rummy-cluster__label {
+  background: linear-gradient(180deg, #4ade80, #059669); color: #04120c; border: 1px solid #a7f3d0;
+}
+.rummy-cluster--bad .rummy-cluster__label {
+  background: #c0334a; color: #ffe9ee; border: 1px solid rgba(244,63,94,0.6);
+}
 .rummy-cluster__add {
   align-self: center; margin-left: 2px;
   border-radius: 9999px; background: rgba(233,198,103,0.92); color: #201203;
