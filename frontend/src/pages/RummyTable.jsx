@@ -473,7 +473,14 @@ export default function RummyTable({ tableId, onLeave }) {
   };
   const runVerify = () => act(async () => { const { data } = await axios.get(`${API}/casino/rummy/rounds/${round.id}/verify`, { headers }); setVerify(data); }).catch(() => toast.error("Verify failed"));
 
-  if (needRotate) return <RotateToPlay onLeave={onLeave} />;
+  if (needRotate) return (
+    <>
+      <RotateToPlay onLeave={onLeave} />
+      {/* Get Coins is a self-contained responsive overlay — keep it available in
+          portrait too (e.g. if the player opened it then rotated the device). */}
+      <GetCoinsDemo open={showGetCoins} onClose={() => setShowGetCoins(false)} />
+    </>
+  );
   if (!state) return <div className="grid min-h-[60vh] place-items-center"><Loader2 className="h-7 w-7 animate-spin text-[var(--r-gold)]" /></div>;
 
   const players = round?.players || state.seats?.map((s) => ({ ...s, is_you: s.user_id === user?.id, status: "seated" })) || [];

@@ -22,7 +22,7 @@ export function GetCoinsDemo({ open, onClose }) {
   return (
     <div
       data-testid="get-coins-modal"
-      className="fixed inset-0 z-[150] grid place-items-center p-3"
+      className="fixed inset-0 z-[210] grid place-items-center p-3"
       style={{ background: "rgba(6,2,3,0.72)", backdropFilter: "blur(6px)",
         paddingLeft: "calc(env(safe-area-inset-left) + 12px)", paddingRight: "calc(env(safe-area-inset-right) + 12px)",
         paddingTop: "calc(env(safe-area-inset-top) + 10px)", paddingBottom: "calc(env(safe-area-inset-bottom) + 10px)" }}
