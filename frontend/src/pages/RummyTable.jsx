@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useWallet } from "@/context/WalletContext";
 import { evaluateHand, groupDisplayState, provisionalDeadwood } from "@/lib/rummy";
 import { RummyAmbiance } from "@/components/RummyAmbiance";
+import { RotateToPlay } from "@/components/RotateToPlay";
 import { RummyMusic } from "@/components/RummyMusic";
 import { AddCoins } from "@/components/AddCoins";
 import { ReferAndEarn } from "@/components/ReferAndEarn";
@@ -80,6 +81,9 @@ export default function RummyTable({ tableId, onLeave }) {
   const [busy, setBusy] = useState(false);
   const [conn, setConn] = useState(true);
   const [showDrop, setShowDrop] = useState(false);
+  const [showDeclareConfirm, setShowDeclareConfirm] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
+  const [floatEmoji, setFloatEmoji] = useState(null);
   const [verify, setVerify] = useState(null);
   const [showSummary, setShowSummary] = useState(false);
   const [showAddCoins, setShowAddCoins] = useState(false);
@@ -134,50 +138,36 @@ export default function RummyTable({ tableId, onLeave }) {
   // the URL-bar-hidden viewport, which pushed the rotated frame off-screen (blank
   // table). Driving it in JS keeps the frame exactly on the visible area.
   const frameRef = useRef(null);
+  const [needRotate, setNeedRotate] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
   const applyFrame = useCallback(() => {
-    const el = frameRef.current;
-    if (!el) return;
     const vv = window.visualViewport;
     const w = Math.round((vv && vv.width) || window.innerWidth);
     const h = Math.round((vv && vv.height) || window.innerHeight);
     const isPhone = Math.min(w, h) <= 820;
     const isPortrait = h >= w;
-    const compact = isPhone && (isPortrait || h <= 520);
+    const rotate = isPhone && isPortrait;    // phone held upright → show Rotate gate
+    const compact = isPhone && !isPortrait;  // phone landscape → dedicated mobile layout
+    setNeedRotate(rotate);
+    setIsCompact(compact);
     document.body.classList.toggle("rummy-ls", compact);
-    // Desktop / tablet-landscape → render the fixed 1440×900 design canvas and
-    // uniformly scale it to fit the viewport (no page scroll, nothing off-screen).
-    document.body.classList.toggle("rummy-canvas-mode", !compact);
-    if (compact && isPhone && isPortrait) {
-      // Rotate to landscape using exact visible-viewport pixels.
-      el.style.position = "fixed";
-      el.style.top = "0px";
-      el.style.left = w + "px";
-      el.style.width = h + "px";
-      el.style.height = w + "px";
-      el.style.transformOrigin = "left top";
-      el.style.transform = "rotate(90deg)";
-      el.style.removeProperty("--rummy-k");
-    } else if (compact) {
-      // Landscape phone (compact) — its own layout, no rotation, no canvas scale.
-      el.style.position = "";
-      el.style.top = "";
-      el.style.left = "";
-      el.style.width = "";
-      el.style.height = "";
-      el.style.transformOrigin = "";
-      el.style.transform = "";
-      el.style.removeProperty("--rummy-k");
-    } else {
+    document.body.classList.toggle("rummy-canvas-mode", !compact && !rotate);
+    document.body.classList.toggle("rummy-rotate", rotate);
+    const el = frameRef.current;
+    if (!el) return;
+    // No portrait 90° hack anymore — the Rotate gate handles portrait phones.
+    el.style.position = "";
+    el.style.top = "";
+    el.style.left = "";
+    el.style.width = "";
+    el.style.height = "";
+    el.style.transformOrigin = "";
+    el.style.transform = "";
+    if (!compact && !rotate) {
       // Desktop / tablet landscape — uniform-scale the 1440×900 canvas.
-      el.style.position = "";
-      el.style.top = "";
-      el.style.left = "";
-      el.style.width = "";
-      el.style.height = "";
-      el.style.transformOrigin = "";
-      el.style.transform = "";
-      const k = Math.min(w / 1440, h / 900);
-      el.style.setProperty("--rummy-k", String(k));
+      el.style.setProperty("--rummy-k", String(Math.min(w / 1440, h / 900)));
+    } else {
+      el.style.removeProperty("--rummy-k");
     }
   }, []);
 
@@ -190,6 +180,7 @@ export default function RummyTable({ tableId, onLeave }) {
       document.body.classList.remove("rummy-immersive");
       document.body.classList.remove("rummy-ls");
       document.body.classList.remove("rummy-canvas-mode");
+      document.body.classList.remove("rummy-rotate");
       window.removeEventListener("resize", applyFrame);
       window.removeEventListener("orientationchange", applyFrame);
       window.visualViewport?.removeEventListener("resize", applyFrame);
@@ -369,6 +360,7 @@ export default function RummyTable({ tableId, onLeave }) {
   };
   const runVerify = () => act(async () => { const { data } = await axios.get(`${API}/casino/rummy/rounds/${round.id}/verify`, { headers }); setVerify(data); }).catch(() => toast.error("Verify failed"));
 
+  if (needRotate) return <RotateToPlay onLeave={onLeave} />;
   if (!state) return <div className="grid min-h-[60vh] place-items-center"><Loader2 className="h-7 w-7 animate-spin text-[var(--r-gold)]" /></div>;
 
   const players = round?.players || state.seats?.map((s) => ({ ...s, is_you: s.user_id === user?.id, status: "seated" })) || [];
@@ -438,17 +430,17 @@ export default function RummyTable({ tableId, onLeave }) {
                 className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-emerald-500 text-white shadow-lg ring-2 ring-emerald-300/40 transition-transform hover:scale-105 active:scale-95"><Plus className="h-4 w-4" strokeWidth={3} /></button>
             </div>
             <div className="flex items-start gap-2.5" data-testid="rummy-icon-row">
-              <div className="flex flex-col items-center gap-1">
+              <div className="rummy-iconitem flex flex-col items-center gap-1">
                 <button data-testid="rummy-vip-btn" onClick={() => setShowRewards(true)} title="VIP" aria-label="VIP"
                   className="grid h-10 w-10 place-items-center rounded-full border border-[var(--r-gold)]/30 bg-black/40 text-[var(--r-gold)] transition-all hover:-translate-y-0.5 hover:bg-[var(--r-gold)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--r-gold)]/60 active:scale-95"><Crown className="h-5 w-5" /></button>
                 <span className="text-[10px] font-bold uppercase tracking-wide text-white/65">VIP</span>
               </div>
-              <div className="flex flex-col items-center gap-1">
+              <div className="rummy-iconitem flex flex-col items-center gap-1">
                 <button data-testid="rummy-rewards-btn" onClick={() => setShowRewards(true)} title="Rewards" aria-label="Rewards"
                   className="grid h-10 w-10 place-items-center rounded-full border border-[var(--r-gold)]/30 bg-black/40 text-[var(--r-gold)] transition-all hover:-translate-y-0.5 hover:bg-[var(--r-gold)]/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--r-gold)]/60 active:scale-95"><Gift className="h-5 w-5" /></button>
                 <span className="text-[10px] font-bold uppercase tracking-wide text-white/65">Rewards</span>
               </div>
-              <div className="flex flex-col items-center gap-1" data-testid="rummy-sound">
+              <div className="rummy-iconitem flex flex-col items-center gap-1" data-testid="rummy-sound">
                 <RummyMusic />
                 <span className="text-[10px] font-bold uppercase tracking-wide text-white/65">Sound</span>
               </div>
@@ -459,6 +451,13 @@ export default function RummyTable({ tableId, onLeave }) {
                 {showSettings && (
                   <div data-testid="rummy-settings-menu" className="absolute right-0 top-full z-30 mt-2 w-56 rounded-2xl border border-white/10 bg-[#1a1210] p-3 text-left shadow-2xl">
                     <p className="mb-2 text-[10px] font-black uppercase tracking-widest text-white/40">Table Settings</p>
+                    {isCompact && (
+                      <div className="mb-1 border-b border-white/10 pb-1">
+                        <button data-testid="rummy-vip-menu" onClick={() => { setShowSettings(false); setShowRewards(true); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5"><Crown className="h-3.5 w-3.5 text-[var(--r-gold)]" /> VIP</button>
+                        <button data-testid="rummy-rewards-menu" onClick={() => { setShowSettings(false); setShowRewards(true); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5"><Gift className="h-3.5 w-3.5 text-[var(--r-gold)]" /> Rewards</button>
+                        <div className="flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-xs font-bold"><span className="flex items-center gap-2">Sound</span><span className="ml-auto"><RummyMusic /></span></div>
+                      </div>
+                    )}
                     <button data-testid="rummy-host-toggle" onClick={toggleHost} className="mb-1 flex w-full items-center justify-between rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">
                       <span className="flex items-center gap-2"><Crown className="h-3.5 w-3.5 text-[var(--r-gold)]" /> Host character</span>
                       <span className={hostOn ? "text-emerald-300" : "text-white/40"}>{hostOn ? "On" : "Off"}</span>
@@ -653,7 +652,7 @@ export default function RummyTable({ tableId, onLeave }) {
                       {disp.state !== "empty" && (
                         <span className="rummy-cluster__label" data-testid={`rummy-group-badge-${gi}`}>
                           <BadgeIcon className="h-2.5 w-2.5" strokeWidth={2.75} />
-                          {disp.label.toUpperCase()}
+                          {(isCompact ? disp.short : disp.label).toUpperCase()}
                         </span>
                       )}
                       {g.map((id) => byId[id] && <RCard key={id} card={byId[id]} rich onClick={() => pullOut(id)} />)}
@@ -686,7 +685,7 @@ export default function RummyTable({ tableId, onLeave }) {
                 className="flex items-center justify-center gap-1.5 rounded-2xl bg-white/10 py-3 text-sm font-bold text-white/80 ring-1 ring-white/10 transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Layers className="h-4 w-4" /> Group</button>
               <button data-testid="rummy-drop" onClick={() => setShowDrop(true)} disabled={!myTurn || drawDone || busy}
                 className="flex items-center justify-center gap-1.5 rounded-2xl bg-white/10 py-3 text-sm font-bold text-amber-300 ring-1 ring-white/10 transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Flag className="h-4 w-4" /> Drop</button>
-              <button data-testid="rummy-declare" onClick={doDeclare} disabled={!myTurn || !drawDone || !evalResult.canDeclare || busy}
+              <button data-testid="rummy-declare" onClick={() => setShowDeclareConfirm(true)} disabled={!myTurn || !drawDone || !evalResult.canDeclare || busy}
                 className="flex items-center justify-center gap-1.5 rounded-2xl bg-[var(--r-gold)] py-3 text-sm font-black text-black transition-transform hover:-translate-y-0.5 disabled:opacity-40"><Trophy className="h-4 w-4" /> Declare</button>
             </div>
             {/* Declare Helper — absolute overlay above the action bar; opening it
@@ -727,7 +726,51 @@ export default function RummyTable({ tableId, onLeave }) {
         </div>
       )}
 
-      {/* Post-round summary — ornate Win celebration then Scoreboard */}
+      {/* Declare confirm */}
+      {showDeclareConfirm && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-6" data-testid="rummy-declare-modal">
+          <div className="w-full max-w-xs rounded-3xl border border-white/10 bg-[#1a1614] p-6 text-center">
+            <Trophy className="mx-auto h-8 w-8 text-[var(--r-gold)]" />
+            <p className="mt-3 font-display text-lg font-extrabold">Declare your hand?</p>
+            <p className="mt-1 text-sm text-white/50">Make sure your melds are valid — an invalid declare is penalised.</p>
+            <div className="mt-5 flex gap-2">
+              <button onClick={() => setShowDeclareConfirm(false)} className="flex-1 rounded-2xl bg-white/10 py-3 text-sm font-bold" data-testid="declare-cancel">Cancel</button>
+              <button data-testid="declare-confirm" onClick={() => { setShowDeclareConfirm(false); doDeclare(); }} className="flex-1 rounded-2xl bg-[var(--r-gold)] py-3 text-sm font-black text-black">Declare</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Joker Assistant — round mascot pinned bottom-LEFT (away from the
+          DECLARE control at bottom-right). Opens the Emoji Only panel. */}
+      {isCompact && (
+        <button type="button" data-testid="rummy-joker-assistant-mobile" onClick={() => setShowEmoji(true)}
+          title="Emoji Only" className="rummy-joker-mobile" aria-label="Emoji Only">
+          <img src={ROYAL_JOKER_ASSISTANT} alt="Emoji Only" className="h-full w-full object-contain" draggable="false" />
+        </button>
+      )}
+
+      {/* Emoji Only panel — predefined reactions, no keyboard / text / voice. */}
+      {showEmoji && (
+        <div className="fixed inset-0 z-[80] flex items-end justify-start" data-testid="rummy-emoji-panel">
+          <div className="absolute inset-0" onClick={() => setShowEmoji(false)} />
+          <div className="relative m-3 mb-[calc(12px+env(safe-area-inset-bottom,0px))] ml-[calc(12px+env(safe-area-inset-left,0px))] grid grid-cols-6 gap-1.5 rounded-2xl border border-[var(--r-gold)]/30 bg-[#160a0c]/95 p-2.5 shadow-2xl backdrop-blur">
+            <p className="col-span-6 mb-0.5 text-[9px] font-black uppercase tracking-widest text-[var(--r-gold)]/70">Emoji Only</p>
+            {["👍","👏","😄","😂","😮","😎","🤔","😢","😡","🙏","🎉","⏳"].map((e) => (
+              <button key={e} type="button" data-testid={`emoji-${e}`}
+                onClick={() => { setShowEmoji(false); setFloatEmoji(e); setTimeout(() => setFloatEmoji(null), 3500); }}
+                className="grid h-9 w-9 place-items-center rounded-lg bg-white/5 text-xl transition-transform hover:scale-110 active:scale-95">{e}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Floating emoji reaction near the local player (auto-dismisses ~3.5s). */}
+      {floatEmoji && (
+        <div data-testid="rummy-emoji-float" className="pointer-events-none fixed bottom-[86px] left-1/2 z-[85] -translate-x-1/2 text-4xl rummy-emoji-pop">{floatEmoji}</div>
+      )}
+
+
       {showSummary && round?.result && (() => {
         const items = round.result.players.map((p) => ({ ...p, is_you: p.user_id === user?.id }));
         const mine = items.find((p) => p.is_you);

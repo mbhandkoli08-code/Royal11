@@ -342,9 +342,9 @@ body.rummy-ls .rummy-header { flex: 0 0 auto; margin-bottom: 4px; align-items: c
 body.rummy-ls .rummy-header [data-testid="rummy-wordmark"] { font-size: 18px; line-height: 1; }
 body.rummy-ls .rummy-header [data-testid="rummy-coin-balance"] { padding: 3px 9px; font-size: 12px; }
 body.rummy-ls .rummy-header [data-testid="rummy-add-coins"] { height: 26px; width: 26px; }
-body.rummy-ls [data-testid="rummy-vip-btn"],
-body.rummy-ls [data-testid="rummy-rewards-btn"],
-body.rummy-ls [data-testid="rummy-sound"] { display: none !important; }
+body.rummy-ls .rummy-iconitem { display: none !important; }
+body.rummy-ls [data-testid="rummy-info-btn"],
+body.rummy-ls [data-testid="rummy-fullscreen-btn"] { display: none !important; }
 body.rummy-ls [data-testid="rummy-icon-row"] { gap: 4px; }
 
 /* Table room: GROW to fill the space between header and the hand/action area so
@@ -386,6 +386,22 @@ body.rummy-ls [data-testid="rummy-turn-indicator"] { display: none !important; }
 /* Header turn timer chip — only shown in the compact landscape layout. */
 .rummy-ls-only { display: none; }
 body.rummy-ls .rummy-ls-only { display: inline-flex; }
+
+/* "Rotate your phone to play" gate animation */
+.rotate-phone { animation: rotate-nudge 2.4s ease-in-out infinite; transform-origin: center; }
+.rotate-hint { animation: rotate-hint-spin 2.4s ease-in-out infinite; }
+@keyframes rotate-nudge {
+  0%, 40% { transform: rotate(0deg); }
+  60%, 100% { transform: rotate(90deg); }
+}
+@keyframes rotate-hint-spin {
+  0%, 40% { opacity: 0.3; transform: rotate(-20deg); }
+  60%, 100% { opacity: 0.9; transform: rotate(20deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rotate-phone, .rotate-hint { animation: none; }
+  .rotate-phone { transform: rotate(90deg); }
+}
 
 /* Canvas-centred variant title (POINTS RUMMY) in the header. Premium ivory/gold
    Cinzel lockup, aligned with the R11 RUMMY logo row. Absolutely centred to the
@@ -445,6 +461,54 @@ body.rummy-ls [data-testid="rummy-declare-helper"],
 body.rummy-ls [data-testid="rummy-fairness"],
 body.rummy-ls [data-testid="rummy-backwall"],
 body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
+
+/* ===== Phase 2: dedicated mobile-landscape refinements ===== */
+/* Safe-area padding so nothing hides behind a notch / home indicator. */
+body.rummy-ls .rummy-shell {
+  padding-left: calc(10px + env(safe-area-inset-left, 0px));
+  padding-right: calc(10px + env(safe-area-inset-right, 0px));
+  padding-top: calc(6px + env(safe-area-inset-top, 0px));
+}
+/* Hide the full-size desktop host on phones: drop the room photo entirely and
+   centre the elliptical table (no reserved host space). */
+body.rummy-ls .vegas-palace--aaa {
+  background-image: none !important;
+  background: radial-gradient(130% 100% at 50% 40%, #2a0b10 0%, #16060a 60%, #0b0405 100%) !important;
+}
+body.rummy-ls .vegas-palace--hosted .vegas-felt--aaa,
+body.rummy-ls .vegas-felt--aaa { margin-left: 0 !important; }
+body.rummy-ls .rummy-host-layer { display: none !important; }
+/* Show the POINTS RUMMY title centred on mobile too (compact). */
+body.rummy-ls [data-testid="rummy-center-title"] { display: flex !important; top: 2px; }
+body.rummy-ls .rummy-canvas-title { font-size: 13px; letter-spacing: 0.12em; }
+/* Compact group helper labels stay inside bounds and readable. */
+body.rummy-ls .rummy-cluster { padding-top: 22px; }
+body.rummy-ls .rummy-cluster__label { font-size: 8px; padding: 1px 5px; top: 3px; }
+
+/* Mobile round Joker Assistant (Emoji Only) — bottom-left, clear of DECLARE. */
+.rummy-joker-mobile {
+  position: fixed;
+  z-index: 60;
+  left: calc(6px + env(safe-area-inset-left, 0px));
+  top: 46%;
+  transform: translateY(-50%);
+  height: 42px; width: 42px;
+  display: grid; place-items: center;
+  border-radius: 9999px;
+  border: 2px solid rgba(233,198,103,0.7);
+  background: rgba(0,0,0,0.45);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+  overflow: hidden;
+}
+.rummy-emoji-pop { animation: emoji-pop 3.5s ease-out forwards; }
+@keyframes emoji-pop {
+  0% { opacity: 0; transform: translate(-50%, 10px) scale(0.6); }
+  12% { opacity: 1; transform: translate(-50%, 0) scale(1.15); }
+  22% { transform: translate(-50%, -4px) scale(1); }
+  80% { opacity: 1; transform: translate(-50%, -14px) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -30px) scale(0.9); }
+}
+@media (prefers-reduced-motion: reduce) { .rummy-emoji-pop { animation: none; } }
 
 /* Elliptical premium table: dark leather rim + antique-gold double trim + felt. */
 .vegas-felt--aaa {
