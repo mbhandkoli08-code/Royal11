@@ -106,6 +106,12 @@ export default function RummyTable({ tableId, onLeave }) {
   const [celebOpen, setCelebOpen] = useState(true);
   const [showLowChips, setShowLowChips] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  // Visual-only coin-flow modals (NOT connected to any wallet mutation — backend
+  // integration is paused pending design approval).
+  const [showRedeem, setShowRedeem] = useState(false);
+  const [showClaim, setShowClaim] = useState(false);
+  const [claimAmount, setClaimAmount] = useState(0);
+  const claimShownFor = useRef(null);
   const [showHelper, setShowHelper] = useState(false); // Declare Helper collapsed by default
   const [handSorted, setHandSorted] = useState(true);   // SORT button toggles suit-sort of the tray
   const [theme, setTheme] = useState(() => user?.rummy_theme || localStorage.getItem("royal11_rummy_theme") || "luxury");
@@ -283,7 +289,19 @@ export default function RummyTable({ tableId, onLeave }) {
     }
   }, [round?.phase, round?.result, round?.id]);
 
-  // Reset the one-time recharge prompt when a fresh deal begins.
+  // Offer "Claim Win" once per settled round the player won (acknowledge-only —
+  // the winnings were already credited by the server at settlement).
+  useEffect(() => {
+    if (round?.phase === "SETTLED" && round?.result && claimShownFor.current !== round.id) {
+      const mine = (round.result.players || []).find((p) => p.user_id === user?.id);
+      if (mine && (mine.delta || 0) > 0) {
+        claimShownFor.current = round.id;
+        setClaimAmount(mine.delta);
+        setShowClaim(true);
+      }
+    }
+  }, [round?.phase, round?.result, round?.id, user?.id]);
+
   useEffect(() => { if (round?.phase === "PLAYING") rechargePromptedRef.current = false; }, [round?.phase]);
 
   // On a fresh/waiting table with no funds, surface the recharge sheet once so
@@ -432,6 +450,7 @@ export default function RummyTable({ tableId, onLeave }) {
                       ))}</div>
                     </div>
                     <button onClick={() => { setShowSettings(false); toggleFullscreen(); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">⛶ Fullscreen</button>
+                    <button data-testid="rummy-redeem-open" onClick={() => { setShowSettings(false); setShowRedeem(true); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5"><Coins className="h-3.5 w-3.5 text-[var(--r-gold)]" /> Redeem Coins</button>
                     <button onClick={() => { setShowSettings(false); setShowInfo(true); }} className="mb-1 flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5">ⓘ Table info</button>
                     <button data-testid="rummy-leave" onClick={doLeave} disabled={busy} className="flex w-full items-center gap-2 rounded-xl px-2 py-2 text-xs font-bold text-rose-300 hover:bg-rose-500/10 disabled:opacity-40"><LogOut className="h-3.5 w-3.5" /> Leave table</button>
                   </div>
@@ -705,6 +724,10 @@ export default function RummyTable({ tableId, onLeave }) {
 
       {/* Recharge sheet — top up without leaving the table */}
       <AddCoins palace open={showAddCoins} onClose={() => { setShowAddCoins(false); refreshWallet(); }} onSubmitted={refreshWallet} />
+
+      {/* Visual-only coin-flow modals (mock display data — NOT wired to wallet). */}
+      <ClaimWinModal open={showClaim} amount={claimAmount} onClose={() => setShowClaim(false)} />
+      <RedeemCoinsModal open={showRedeem} balance={balance} onClose={() => setShowRedeem(false)} />
 
       {/* Rewards modal — Refer & Earn + Promo (opened from the Rewards top-bar button) */}
       <ReferAndEarn open={showRewards} onClose={() => setShowRewards(false)} />
