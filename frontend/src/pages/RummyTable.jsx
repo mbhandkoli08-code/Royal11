@@ -254,11 +254,43 @@ export default function RummyTable({ tableId, onLeave }) {
   const drawDone = !!round?.turn?.draw_done;
 
   // ---- Optional local-player hand privacy (visual/privacy only) ------------
-  // Hiding the player's own hand faces never affects dealing/rules/RNG. It is
-  // auto-revealed the moment their turn begins and can only be re-hidden once
-  // their active turn has completed (guarded in the toggle + effect below).
+  // A persisted preference ("hide my hand while it isn't my turn"). The actual
+  // visible state (handHidden) is driven by events, never by continuous polling,
+  // so a manual "Tap to Show" reveal is respected until the next turn hand-off
+  // or new deal. Hiding never affects dealing/rules/RNG.
+  const [hidePref, setHidePref] = useState(() => localStorage.getItem("royal11_rummy_hide_hand") === "on");
   const [handHidden, setHandHidden] = useState(false);
-  useEffect(() => { if (myTurn) setHandHidden(false); }, [myTurn]);
+  const myTurnRef = useRef(false); myTurnRef.current = myTurn;
+  const prevTurnRef = useRef(myTurn);
+  const dealRef = useRef(null);
+  // Toggle the saved preference (only allowed when it's NOT the active turn).
+  const toggleHidePref = () => {
+    if (myTurn) return;
+    setHidePref((v) => {
+      const nv = !v;
+      localStorage.setItem("royal11_rummy_hide_hand", nv ? "on" : "off");
+      setHandHidden(nv);   // apply immediately (guaranteed not our turn here)
+      return nv;
+    });
+  };
+  // Turn transitions: reveal on your turn; re-hide once the turn passes if the
+  // saved preference is enabled.
+  useEffect(() => {
+    const was = prevTurnRef.current;
+    if (myTurn) setHandHidden(false);
+    else if (was && !myTurn && hidePref) setHandHidden(true);
+    prevTurnRef.current = myTurn;
+  }, [myTurn, hidePref]);
+  // New deal: briefly show the dealt hand as a preview, then apply the saved
+  // preference if it isn't the player's turn.
+  useEffect(() => {
+    const rid = round?.id;
+    if (!rid || round?.phase !== "PLAYING" || dealRef.current === rid) return;
+    dealRef.current = rid;
+    setHandHidden(false);                 // preview the freshly dealt hand
+    const t = setTimeout(() => { setHandHidden(hidePref && !myTurnRef.current); }, 2600);
+    return () => clearTimeout(t);
+  }, [round?.id, round?.phase, hidePref]);
 
   // ---- Opponent discard flourish (visual only) -----------------------------
   // Detect the discard pile changing on a turn hand-off and, if it was an
@@ -544,12 +576,12 @@ export default function RummyTable({ tableId, onLeave }) {
                       <span className={(isCompact ? mobileHost : hostOn) ? "text-emerald-300" : "text-white/40"}>{(isCompact ? mobileHost : hostOn) ? "Shown" : "Hidden"}</span>
                     </button>
                     <button data-testid="rummy-hand-privacy-toggle"
-                      onClick={() => { if (handHidden) { setHandHidden(false); } else if (!myTurn) { setHandHidden(true); setShowSettings(false); } }}
-                      disabled={!handHidden && myTurn}
-                      title={!handHidden && myTurn ? "You can hide your hand after your turn" : undefined}
+                      onClick={toggleHidePref}
+                      disabled={myTurn}
+                      title={myTurn ? "You can change this after your turn" : undefined}
                       className="mb-1 flex w-full items-center justify-between rounded-xl px-2 py-2 text-xs font-bold hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40">
-                      <span className="flex items-center gap-2">{handHidden ? <Eye className="h-3.5 w-3.5 text-[var(--r-gold)]" /> : <EyeOff className="h-3.5 w-3.5 text-[var(--r-gold)]" />} {handHidden ? "Show Hand" : "Hide Hand"}</span>
-                      <span className={handHidden ? "text-amber-300" : "text-white/40"}>{handHidden ? "Hidden" : (myTurn ? "Your turn" : "Visible")}</span>
+                      <span className="flex items-center gap-2">{hidePref ? <Eye className="h-3.5 w-3.5 text-[var(--r-gold)]" /> : <EyeOff className="h-3.5 w-3.5 text-[var(--r-gold)]" />} {hidePref ? "Show Hand" : "Hide Hand"}</span>
+                      <span className={hidePref ? "text-amber-300" : "text-white/40"}>{myTurn ? "Your turn" : (hidePref ? "Hidden" : "Visible")}</span>
                     </button>
                     <div className="mb-1 flex items-center justify-between rounded-xl px-2 py-2 text-xs font-bold">
                       <span>Theme</span>
