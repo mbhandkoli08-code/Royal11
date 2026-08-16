@@ -1,5 +1,5 @@
 import "../pages/casino-vegas.css";
-import { ROYAL_JOKER_CARD, CARD_BACK_V2 } from "@/lib/casinoAssets";
+import { ROYAL_JOKER_CARD_IMG, CARD_BACK_V2, COURT_CARD_SRC } from "@/lib/casinoAssets";
 
 const SUIT = { s: "♠", h: "♥", d: "♦", c: "♣" };
 const RED = new Set(["h", "d"]);
@@ -30,9 +30,6 @@ const PIP_LAYOUT = {
   9: [[L, 0.16, false], [R, 0.16, false], [L, 0.38, false], [R, 0.38, false], [C, 0.5, false], [L, 0.62, true], [R, 0.62, true], [L, 0.84, true], [R, 0.84, true]],
   T: [[L, 0.16, false], [R, 0.16, false], [C, 0.3, false], [L, 0.38, false], [R, 0.38, false], [L, 0.62, true], [R, 0.62, true], [C, 0.7, true], [L, 0.84, true], [R, 0.84, true]],
 };
-
-// Small crown/court ornament per court rank (deterministic — no AI images).
-const COURT_ORNAMENT = { J: "♟", Q: "♛", K: "♚" };
 
 // Normalize a code string ("As", "Th", "JK") or a card object into {rank,suit,joker}.
 function parse(card) {
@@ -83,7 +80,7 @@ export function PlayingCard({ card, code, faceDown, size = "sm", selected, onCli
   if (c.joker) {
     inner = (
       <span className="pc pc-joker" style={dim} data-testid="playing-card">
-        <img src={ROYAL_JOKER_CARD} alt="Joker" draggable="false"
+        <img src={ROYAL_JOKER_CARD_IMG} alt="Joker" draggable="false"
           style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, display: "block" }} />
       </span>
     );
@@ -94,35 +91,41 @@ export function PlayingCard({ card, code, faceDown, size = "sm", selected, onCli
     const pipFont = cf * 1.02; // center pip size relative to corner
     const layout = PIP_LAYOUT[c.rank];
 
-    inner = (
-      <span className={`pc pc-face ${colorCls}${richCls}`} style={dim} data-testid="playing-card">
-        <span className="pc-pip pc-pip-tl"><CornerPip rank={c.rank} suit={c.suit} cf={cf} /></span>
-        <span className="pc-pip pc-pip-br"><CornerPip rank={c.rank} suit={c.suit} cf={cf} /></span>
+    if (isCourt) {
+      // Approved ROYAL 11 court-card face — single-character artwork with the
+      // rank/suit already baked into the corners. Rendered full-bleed (aspect
+      // preserved, cover-cropped ~0 since the source is a true card ratio).
+      inner = (
+        <span className={`pc pc-courtimg${richCls}`} style={dim} data-testid="playing-card">
+          <img src={COURT_CARD_SRC(c.rank, c.suit)} alt={`${rankLabel(c.rank)}${suitSym}`} draggable="false"
+            style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 8, display: "block" }} />
+        </span>
+      );
+    } else {
+      inner = (
+        <span className={`pc pc-face ${colorCls}${richCls}`} style={dim} data-testid="playing-card">
+          <span className="pc-pip pc-pip-tl"><CornerPip rank={c.rank} suit={c.suit} cf={cf} /></span>
+          <span className="pc-pip pc-pip-br"><CornerPip rank={c.rank} suit={c.suit} cf={cf} /></span>
 
-        {isCourt ? (
-          <span className="pc-court" style={{ inset: Math.max(4, w * 0.14) }}>
-            <span className="pc-court-orn" style={{ fontSize: w * 0.26 + "px" }}>{COURT_ORNAMENT[c.rank]}</span>
-            <span className="pc-court-rank" style={{ fontSize: w * 0.42 + "px" }}>{c.rank}</span>
-            <span className="pc-court-suit" style={{ fontSize: w * 0.24 + "px" }}>{suitSym}</span>
-          </span>
-        ) : c.rank === "A" ? (
-          <span className="pc-center">
-            <span className="pc-ace" style={{ fontSize: w * 0.5 + "px" }}>{suitSym}</span>
-          </span>
-        ) : (
-          <span className="pc-pipgrid">
-            {layout && layout.map(([x, y, flip], i) => (
-              <span key={i} className="pc-pipdot"
-                style={{
-                  left: x * 100 + "%", top: y * 100 + "%",
-                  fontSize: pipFont + "rem",
-                  transform: `translate(-50%, -50%)${flip ? " rotate(180deg)" : ""}`,
-                }}>{suitSym}</span>
-            ))}
-          </span>
-        )}
-      </span>
-    );
+          {c.rank === "A" ? (
+            <span className="pc-center">
+              <span className="pc-ace" style={{ fontSize: w * 0.5 + "px" }}>{suitSym}</span>
+            </span>
+          ) : (
+            <span className="pc-pipgrid">
+              {layout && layout.map(([x, y, flip], i) => (
+                <span key={i} className="pc-pipdot"
+                  style={{
+                    left: x * 100 + "%", top: y * 100 + "%",
+                    fontSize: pipFont + "rem",
+                    transform: `translate(-50%, -50%)${flip ? " rotate(180deg)" : ""}`,
+                  }}>{suitSym}</span>
+              ))}
+            </span>
+          )}
+        </span>
+      );
+    }
   }
 
   if (plain || !onClick) return inner;

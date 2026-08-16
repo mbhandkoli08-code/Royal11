@@ -31,6 +31,12 @@ export const ROYAL_JOKER_CARD_IMG = "/assets/royal11/joker-card.png";       // c
 // VIP room WITH the approved host baked into the scene ("visible-host layout").
 export const AAA_ROOM_HOST = "/assets/royal11/room-host.png";
 
+// Approved ROYAL 11 court-card faces (sliced from the uploaded suit sheets).
+// One single-face character illustration per rank+suit with the correct
+// corner rank/suit baked in (red for h/d, black for s/c). Path pattern:
+// /assets/royal11/cards/{RANK}{suit}.png  e.g. Ks.png, Qh.png, Jd.png.
+export const COURT_CARD_SRC = (rank, suit) => `/assets/royal11/cards/${rank}${suit}.png`;
+
 // The uploaded room-host already contains the host, so no separate cutout layer
 // is overlaid (kept null to avoid a duplicate host).
 export const ROYAL_HOST_CUTOUT = null;
