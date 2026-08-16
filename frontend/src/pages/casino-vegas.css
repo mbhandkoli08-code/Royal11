@@ -535,6 +535,10 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
   body:not(.rummy-ls) .rummy-seat__nm { max-width: 108px; font-size: 13px; }
   body:not(.rummy-ls) .rummy-seat__sub { font-size: 11px; color: rgba(233,198,103,0.85); }
   body:not(.rummy-ls) .vegas-felt--aaa {
+    /* One-line tunable perspective tilt for the table SURFACE (frame 32:593).
+       Dial --rummy-felt-tilt up/down to taste; 0deg = flat top-down (frame 19:62). */
+    --rummy-felt-tilt: 10deg;
+    --rummy-felt-perspective: 1500px;
     width: min(66vw, 1040px);
     max-width: 100%;
     margin-left: auto;
@@ -544,6 +548,43 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
     flex-direction: column;
     justify-content: center;
     position: relative;
+    /* felt visual moves to ::before/::after so only the SURFACE tilts */
+    perspective: var(--rummy-felt-perspective);
+    perspective-origin: 50% 6%;
+    overflow: visible;
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+  /* Table SURFACE only — tilts into a slight seated-at-the-table perspective
+     (Figma AAA frame 32:593). The felt fill + antique-gold trim live on the
+     ::before / ::after pseudo layers and receive the rotateX. Every interactive
+     element (draw/discard/joker piles + labels, turn pill, both seat pills, names
+     and numbers) is a real child that is NOT transformed — it stays perfectly
+     upright, legible and clickable (no counter-transforms, nothing drifts on
+     resize). Scoped desktop-only; mobile-landscape (body.rummy-ls) untouched. */
+  body:not(.rummy-ls) .vegas-felt--aaa::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: 46% / 34%;
+    border: 10px solid #2a1a10;
+    background-image:
+      radial-gradient(120% 90% at 50% 12%, rgba(255,255,255,0.08), transparent 55%),
+      radial-gradient(140% 120% at 50% 120%, rgba(0,0,0,0.62), transparent 60%),
+      linear-gradient(180deg, #7a1420 0%, #5c0e18 45%, #3c070d 100%);
+    box-shadow:
+      inset 0 0 70px rgba(0,0,0,0.6),
+      inset 0 0 0 3px rgba(233,198,103,0.55),
+      0 18px 44px rgba(0,0,0,0.55);
+    transform: rotateX(var(--rummy-felt-tilt));
+    transform-origin: center 50%;
+    pointer-events: none;
+  }
+  body:not(.rummy-ls) .vegas-felt--aaa::after {
+    transform: rotateX(var(--rummy-felt-tilt));
+    transform-origin: center 50%;
   }
   /* Seat container overlays the felt; each seat placed by its data-slot. */
   body:not(.rummy-ls) [data-testid="rummy-players"] {
