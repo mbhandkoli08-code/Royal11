@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Layers, Home, Spade, Crown, User, Sparkles, Volume2, Check, Eye } from "lucide-react";
+import { Layers, Home, Spade, Crown, User, Sparkles, Volume2, Check, Eye, Plus } from "lucide-react";
 import { DailyBonusWidget } from "@/components/DailyBonusWidget";
+import { AddCoins } from "@/components/AddCoins";
+import { useWallet } from "@/context/WalletContext";
 import { AAA_ROOM_BG } from "@/lib/casinoAssets";
 
 // "MY TABLE" — free cosmetic customization. IMPORTANT: everything here is
@@ -12,7 +14,7 @@ const FELTS = [
   { key: "emerald", label: "Emerald", color: "#0f5132", theme: "green_felt" },
   { key: "midnight", label: "Midnight", color: "#141110", theme: "luxury" },
   { key: "royal_blue", label: "Royal Blue", color: "#12305e", theme: "luxury" },
-  { key: "purple", label: "Purple", color: "#3d1a5b", theme: "luxury" },
+  { key: "purple", label: "Purple Velvet", color: "#3d1a5b", theme: "luxury" },
   { key: "champagne", label: "Champagne", color: "#6b5a2a", theme: "luxury" },
 ];
 const TABS = [
@@ -38,6 +40,8 @@ const load = () => { try { return JSON.parse(localStorage.getItem(LS)) || {}; } 
 
 export default function MyTable() {
   const [tab, setTab] = useState("table");
+  const { balance, refresh } = useWallet();
+  const [addOpen, setAddOpen] = useState(false);
   const saved = load();
   const [felt, setFelt] = useState(saved.felt || "crimson");
   const [picks, setPicks] = useState(saved.picks || {});
@@ -56,10 +60,28 @@ export default function MyTable() {
     <div className="relative min-h-screen bg-[#0a0a0a] text-white" data-testid="my-table-page">
       <div className="mx-auto max-w-6xl px-4 py-6">
         <div className="mb-5 flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-2xl font-black text-[var(--r-gold,#c9a227)]">My Table</h1>
-            <p className="text-xs text-white/50">ROYAL 11 VIP Casino Room · Night · Warm chandelier ambience</p>
+          <div className="flex items-baseline gap-3">
+            <span className="font-display text-2xl font-black tracking-tight text-white">ROYAL<span className="text-[var(--r-gold,#c9a227)]">11</span></span>
+            <span className="text-[11px] font-bold uppercase tracking-[0.25em] text-white/45">My Table</span>
           </div>
+          {/* Coin-balance pill + add-funds (real wallet balance) */}
+          <div className="flex items-center gap-2">
+            <span data-testid="mytable-coin-balance"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--r-gold,#c9a227)]/40 bg-black/50 px-3.5 py-1.5 text-sm font-black text-[var(--r-gold,#c9a227)]">
+              <span className="h-2.5 w-2.5 rounded-full bg-[var(--r-gold,#c9a227)]" />
+              {(balance ?? 0).toLocaleString("en-IN")}
+              <span className="ml-0.5 text-[9px] font-bold uppercase tracking-wider text-white/40">Virtual Coins</span>
+            </span>
+            <button data-testid="mytable-add-coins" onClick={() => setAddOpen(true)} title="Add coins"
+              className="grid h-8 w-8 place-items-center rounded-full bg-emerald-500 text-white transition-transform hover:-translate-y-0.5 active:scale-95">
+              <Plus className="h-4 w-4" strokeWidth={3} />
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <h1 className="font-display text-xl font-black text-[var(--r-gold,#c9a227)]">ROYAL 11 VIP Casino Room</h1>
+          <p className="text-xs text-white/50">Obsidian private bar/lounge · Night · Warm chandelier ambience</p>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[1fr_460px]">
@@ -136,6 +158,7 @@ export default function MyTable() {
       <div className="fixed bottom-4 left-4 z-40 hidden sm:block">
         <DailyBonusWidget />
       </div>
+      <AddCoins open={addOpen} onClose={() => { setAddOpen(false); refresh(); }} onSubmitted={refresh} />
     </div>
   );
 }

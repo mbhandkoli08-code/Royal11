@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { toast } from "sonner";
-import { Loader2, LogOut, ShieldCheck, Volume2, VolumeX, RefreshCw, Coins, Crown, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { Loader2, LogOut, ShieldCheck, Volume2, VolumeX, RefreshCw, Coins, Crown, ChevronDown, ChevronUp, Check, Shirt } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useWallet } from "@/context/WalletContext";
 import { SLOT_SYMBOLS, SYMBOL_ORDER } from "@/lib/slotAssets";
+import { HostWardrobe } from "@/components/HostWardrobe";
+import { getSavedOutfit, outfitById } from "@/lib/hostWardrobe";
 import { soundEnabled, setSoundEnabled, playSpinStart, playReelStop, playWin, playJackpot } from "@/lib/slotSound";
 import "./slots.css";
 
@@ -44,6 +46,9 @@ export default function SlotsPage({ onLeave, practice: practiceProp = false }) {
   const [history, setHistory] = useState([]);
   const [verifyResult, setVerifyResult] = useState(null);
   const [clientSeedInput, setClientSeedInput] = useState("");
+  const [wardrobeOpen, setWardrobeOpen] = useState(false);
+  const [hostOutfit, setHostOutfit] = useState(getSavedOutfit());
+  const host = outfitById(hostOutfit);
 
   const cycleTimers = useRef([]);
   const stopTimers = useRef([]);
@@ -173,6 +178,10 @@ export default function SlotsPage({ onLeave, practice: practiceProp = false }) {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          <button data-testid="slots-host-btn" onClick={() => setWardrobeOpen(true)} title="Host wardrobe"
+            className="grid h-9 w-9 place-items-center rounded-full bg-black/30 text-amber-200 ring-1 ring-amber-300/30 hover:bg-black/50">
+            <Shirt className="h-4 w-4" />
+          </button>
           <button data-testid="slots-sound-toggle" onClick={toggleSound}
             className="grid h-9 w-9 place-items-center rounded-full bg-black/30 text-amber-200 ring-1 ring-amber-300/30 hover:bg-black/50">
             {sound ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
@@ -196,8 +205,13 @@ export default function SlotsPage({ onLeave, practice: practiceProp = false }) {
       </div>
 
       {/* Cabinet */}
-      <div className="slots-stage p-4 sm:p-5">
+      <div className="slots-stage relative p-4 sm:p-5">
         <div className="slots-bulbs" />
+        {host.img && (
+          <img data-testid="slots-host-portrait" src={host.img} alt={`Host — ${host.label}`}
+            className="pointer-events-none absolute -top-2 right-1 z-10 h-24 w-auto rounded-xl object-cover object-top opacity-95 drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] sm:h-28"
+            onClick={() => setWardrobeOpen(true)} />
+        )}
         <p className="slots-title mb-3 text-center font-display text-lg">✦ ROYAL JACKPOT ✦</p>
         <div className="relative">
           <div className="slots-payline" />
@@ -306,6 +320,8 @@ export default function SlotsPage({ onLeave, practice: practiceProp = false }) {
           </div>
         </div>
       )}
+
+      <HostWardrobe open={wardrobeOpen} onClose={() => setWardrobeOpen(false)} onApply={setHostOutfit} />
     </div>
   );
 }

@@ -301,8 +301,15 @@ export default function RummyTable({ tableId, onLeave }) {
     }
     return act(async () => { const { data } = await post("start"); setState(data); }).catch((e) => {
       const msg = e.response?.data?.detail || "Couldn't deal";
-      if (/fund|balance|enough/i.test(msg)) setShowAddCoins(true);
-      toast.error(msg);
+      if (/fund|balance|enough/i.test(msg)) {
+        // We already gated on the current player's balance above (line: lowBalance).
+        // If a funds error still surfaces here, it's an OPPONENT who couldn't cover
+        // the entry — don't push the current player to recharge; show a neutral note.
+        if (lowBalance) { setShowAddCoins(true); toast.error(msg); }
+        else toast.error("Couldn't start — an opponent didn't have enough coins. Try again or pick another table.");
+      } else {
+        toast.error(msg);
+      }
     });
   };
   const doDraw = (source) => act(async () => { const { data } = await post("draw", { source }); setState(data); }).catch((e) => toast.error(e.response?.data?.detail || "Couldn't draw"));
@@ -512,13 +519,13 @@ export default function RummyTable({ tableId, onLeave }) {
               </div>
               <div className="text-center">
                 <button data-testid="rummy-draw-open" disabled={!myTurn || drawDone || busy} onClick={() => doDraw("open")} className="pile-slot pc-btn disabled:opacity-50">
-                  <RCard card={round.open_top} plain />
+                  <RCard card={round.open_top} plain rich />
                 </button>
                 <p className="pile-label">Discard</p>
               </div>
               <div className="text-center">
                 <div className="pile-slot grid place-items-center">
-                  <RCard card={{ ...(round.wild.code === "JK" ? { joker: true, id: "wild" } : { id: "wild", code: round.wild.code, rank: round.wild.code[0], suit: round.wild.code[1] }) }} plain />
+                  <RCard card={{ ...(round.wild.code === "JK" ? { joker: true, id: "wild" } : { id: "wild", code: round.wild.code, rank: round.wild.code[0], suit: round.wild.code[1] }) }} plain rich />
                 </div>
                 <p className="pile-label">Joker</p>
               </div>
