@@ -14,6 +14,7 @@ import { PlayingCard } from "@/components/PlayingCard";
 import { PlayerAvatar } from "@/components/PlayerAvatar";
 import { AAA_ROOM_BG, AAA_ROOM_HOST, ROYAL_HOST_CUTOUT } from "@/lib/casinoAssets";
 import { WinCelebration, Scoreboard, LowChipsPopup } from "@/components/casino/OrnatePopups";
+import { ClaimWinModal, RedeemCoinsModal } from "@/components/casino/CoinFlow";
 
 // Full-count exposure escrowed by the server per seat each deal
 // (rummy_engine: MAX_POINTS * point_value). We mirror it client-side purely as
@@ -137,7 +138,10 @@ export default function RummyTable({ tableId, onLeave }) {
     const isPortrait = h >= w;
     const compact = isPhone && (isPortrait || h <= 520);
     document.body.classList.toggle("rummy-ls", compact);
-    if (isPhone && isPortrait) {
+    // Desktop / tablet-landscape → render the fixed 1440×900 design canvas and
+    // uniformly scale it to fit the viewport (no page scroll, nothing off-screen).
+    document.body.classList.toggle("rummy-canvas-mode", !compact);
+    if (compact && isPhone && isPortrait) {
       // Rotate to landscape using exact visible-viewport pixels.
       el.style.position = "fixed";
       el.style.top = "0px";
@@ -146,8 +150,9 @@ export default function RummyTable({ tableId, onLeave }) {
       el.style.height = w + "px";
       el.style.transformOrigin = "left top";
       el.style.transform = "rotate(90deg)";
-    } else {
-      // Landscape phone / tablet / desktop: no manual rotation.
+      el.style.removeProperty("--rummy-k");
+    } else if (compact) {
+      // Landscape phone (compact) — its own layout, no rotation, no canvas scale.
       el.style.position = "";
       el.style.top = "";
       el.style.left = "";
@@ -155,6 +160,18 @@ export default function RummyTable({ tableId, onLeave }) {
       el.style.height = "";
       el.style.transformOrigin = "";
       el.style.transform = "";
+      el.style.removeProperty("--rummy-k");
+    } else {
+      // Desktop / tablet landscape — uniform-scale the 1440×900 canvas.
+      el.style.position = "";
+      el.style.top = "";
+      el.style.left = "";
+      el.style.width = "";
+      el.style.height = "";
+      el.style.transformOrigin = "";
+      el.style.transform = "";
+      const k = Math.min(w / 1440, h / 900);
+      el.style.setProperty("--rummy-k", String(k));
     }
   }, []);
 
@@ -166,6 +183,7 @@ export default function RummyTable({ tableId, onLeave }) {
     return () => {
       document.body.classList.remove("rummy-immersive");
       document.body.classList.remove("rummy-ls");
+      document.body.classList.remove("rummy-canvas-mode");
       window.removeEventListener("resize", applyFrame);
       window.removeEventListener("orientationchange", applyFrame);
       window.visualViewport?.removeEventListener("resize", applyFrame);

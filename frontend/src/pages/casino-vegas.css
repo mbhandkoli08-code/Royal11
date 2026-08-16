@@ -496,6 +496,28 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
 .rummy-seat__sub { font-size: 10px; font-weight: 800; color: #e9c667; white-space: nowrap; }
 
 @media (min-width: 768px) {
+  /* ===== Fixed 1440×900 design canvas, uniformly scaled to fit =====
+     scale = min(vw/1440, vh/900) is computed in JS and set as --rummy-k on the
+     frame. The whole gameplay canvas scales as ONE unit and is centred with a
+     black letterbox, so NOTHING is ever off-screen and there is no page scroll.
+     (Desktop / tablet-landscape only; body.rummy-ls compact phone untouched.) */
+  body.rummy-canvas-mode [data-testid="rummy-table"] {
+    overflow: hidden !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000 !important;
+  }
+  body.rummy-canvas-mode .rummy-shell {
+    width: 1440px !important;
+    height: 900px !important;
+    min-width: 1440px;
+    max-width: none !important;
+    flex: 0 0 auto;
+    transform: scale(var(--rummy-k, 1));
+    transform-origin: center center;
+    margin: 0 !important;
+  }
   /* ===== Desktop "seated at the table" stage (Figma AAA frame 32:593) =====
      The whole immersive view is a FIXED 100dvh flex column so the header, the
      table, the 13-card hand and the 6-button action bar always fit WITHOUT
@@ -542,7 +564,7 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
     flex: 0 0 auto;
     position: relative;
     z-index: 30;
-    margin: -2.6vh auto 0;
+    margin: -23px auto 0;
     width: 100%;
     max-width: 900px;
     padding: 0 12px;
@@ -616,10 +638,10 @@ body.rummy-ls [data-testid="rummy-bottom-hud"] { display: none !important; }
   body:not(.rummy-ls) .rummy-aaa-felt {
     display: block;
     position: absolute;
-    left: -7vw;
-    right: -7vw;
+    left: -100px;
+    right: -100px;
     top: 33%;
-    bottom: -26vh;
+    bottom: -234px;
     z-index: 0;
     border-radius: 50% / 44%;
     border: 22px solid #462c14;
